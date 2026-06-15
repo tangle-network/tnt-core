@@ -215,12 +215,14 @@ abstract contract Slashing is Base {
         if (msg.sender != proposal.operator && !isAdmin && !senderIsDisputeOrigin) {
             revert Errors.NotSlashDisputer(slashId, msg.sender);
         }
-        // The proposer cannot also dispute their own slash: either privileged path (admin or
-        // bondless dispute origin) would otherwise let one account freeze operator stake for the
-        // whole resolution window for free, then capture the bond on auto-execution. (A
-        // bond-posting dispute origin is intentionally not blocked here — it has skin in the
-        // game via the forfeitable bond.)
-        if ((isAdmin || disputeOriginIsBondless) && msg.sender == proposal.proposer) {
+        // The proposer can never dispute their OWN slash via a privileged path (SLASH_ADMIN or a
+        // blueprint-configured dispute origin). Self-disputing is incoherent and would let one
+        // account freeze operator stake for the whole resolution window, then capture the bond on
+        // auto-execution. This holds regardless of the bonded/bondless distinction: a proposer who
+        // is also the dispute origin is still the same adversarial party. The separate
+        // bondless-griefing vector (a DIFFERENT blueprint-controlled address disputing for free) is
+        // closed independently by the disputeOriginIsBondless bond requirement below.
+        if (msg.sender == proposal.proposer && (isAdmin || senderIsDisputeOrigin)) {
             revert Errors.Unauthorized();
         }
 

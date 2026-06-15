@@ -165,9 +165,22 @@ contract LiquidVaultAuditTest is Test {
             bytes32 slot = reads[i];
             bytes32 original = vm.load(address(staking), slot);
             vm.store(address(staking), slot, bytes32(uint256(original) + probe));
-            bool vaultUp = staking.getDelegation(vault, operator1) > vaultBefore;
-            bool proberUp = staking.getDelegation(user3, operator1) > proberBefore;
-            if (vaultUp && proberUp) {
+
+            // Probing an arbitrary slot can corrupt the proxy (e.g. an impl/router pointer) so
+            // getDelegation reverts with a bare EvmError that would abort the whole test. Guard
+            // each probe read with try/catch so a corrupting slot is simply restored and skipped.
+            bool matched;
+            try staking.getDelegation(vault, operator1) returns (uint256 vAfter) {
+                try staking.getDelegation(user3, operator1) returns (uint256 pAfter) {
+                    matched = vAfter > vaultBefore && pAfter > proberBefore;
+                } catch {
+                    matched = false;
+                }
+            } catch {
+                matched = false;
+            }
+
+            if (matched) {
                 // Back the inflated pool accounting with real tokens so the router stays solvent
                 // when the (now higher) `returned` amount is physically withdrawn at claim time —
                 // exactly as a real reward deposit would have funded the pool.
