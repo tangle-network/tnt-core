@@ -114,10 +114,12 @@ contract TokenizedExtAuditTest is Test {
         require(ok, "payment failed");
 
         // Attacker tries to exit immediately to bank the reward with no time-at-risk.
+        // Cache the unlock time BEFORE the prank: evaluating bp.stakeUnlockTime(attacker) as the
+        // expectRevert argument consumes the prank, running withdraw as the test contract
+        // (which has no stake) and reverting InsufficientStake instead of StakeLocked.
+        uint256 attackerUnlock = bp.stakeUnlockTime(attacker);
         vm.prank(attacker);
-        vm.expectRevert(
-            abi.encodeWithSelector(TokenizedBlueprintBase.StakeLocked.selector, bp.stakeUnlockTime(attacker))
-        );
+        vm.expectRevert(abi.encodeWithSelector(TokenizedBlueprintBase.StakeLocked.selector, attackerUnlock));
         bp.withdraw(100 ether);
 
         // After the lock expires the withdrawal is allowed (lock is a delay, not a freeze).

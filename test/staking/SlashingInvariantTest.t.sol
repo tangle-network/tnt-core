@@ -71,6 +71,13 @@ contract SlashForBlueprintFuzzTest is Test {
         vm.prank(operator);
         delegation.setDelegationMode(Types.DelegationMode.Open);
 
+        // Register operator for the Fixed-mode blueprint (staking layer) so Fixed delegation
+        // is accepted (audit: reject Fixed delegation to an unregistered blueprint).
+        vm.startPrank(admin);
+        delegation.setTangle(admin);
+        delegation.addBlueprintForOperator(operator, BLUEPRINT_ID);
+        vm.stopPrank();
+
         vm.deal(delegatorAll, 100 ether);
         vm.prank(delegatorAll);
         delegation.depositAndDelegate{ value: 30 ether }(operator);

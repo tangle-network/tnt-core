@@ -171,6 +171,14 @@ contract SlashAccountingInvariantTest is StdInvariant, Test {
         vm.prank(operator);
         delegation.setDelegationMode(Types.DelegationMode.Open);
 
+        // Register the operator for the Fixed-mode blueprint at the staking layer so Fixed
+        // delegations (seed + fuzz handler) are accepted (audit: reject Fixed delegation to
+        // a blueprint the operator is not registered for → slash-immune stake).
+        vm.startPrank(admin);
+        delegation.setTangle(admin);
+        delegation.addBlueprintForOperator(operator, BLUEPRINT_ID);
+        vm.stopPrank();
+
         address seedAllDelegator = address(0xAAA1);
         address seedFixedDelegator = address(0xBBB2);
 

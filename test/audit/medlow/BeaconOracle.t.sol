@@ -45,6 +45,9 @@ contract EIP4788OracleHasConsistencyTest is Test {
 
     function setUp() public {
         oracle = new EIP4788Oracle();
+        // latestBeaconTimestamp reverts before the resolved beacon genesis; the default test
+        // timestamp (1) predates it, so warp to a realistic post-genesis time first.
+        vm.warp(2_000_000_000);
         // A real slot-boundary timestamp keyed against the resolved genesis.
         ts = oracle.latestBeaconTimestamp();
     }

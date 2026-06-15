@@ -226,11 +226,13 @@ contract DelegationLibAuditTest is Test {
         _advanceRounds(BOND_LESS_DELAY + 1);
 
         uint64 expectedReadyRound = requestedRound + BOND_LESS_DELAY + LEAVE_DELEGATORS_DELAY;
+        // Cache currentRound BEFORE the prank: evaluating delegation.currentRound() as the
+        // expectRevert argument consumes the prank, so the call would run as the test contract
+        // (DelegationNotFound) instead of the delegator (WithdrawTooEarly).
+        uint64 curRound = delegation.currentRound();
         vm.prank(delegator);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                DelegationErrors.WithdrawTooEarly.selector, delegation.currentRound(), expectedReadyRound
-            )
+            abi.encodeWithSelector(DelegationErrors.WithdrawTooEarly.selector, curRound, expectedReadyRound)
         );
         delegation.executeDelegatorUnstakeAndWithdraw(operator, address(0), shares, requestedRound, receiver);
 
