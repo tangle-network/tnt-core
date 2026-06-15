@@ -35,6 +35,13 @@ contract L2SlashingConnector {
     error MessengerNotConfigured();
     error UnknownPod(address pod);
     error SlashingFactorMismatch(address pod, uint64 expected, uint64 provided);
+    /// @dev The factor delta resolves to a zero-bps L2 slash (operator has no L2 stake,
+    ///      or the loss is sub-bps and truncates to 0). The L2 receiver hard-reverts on a
+    ///      zero-bps message, so shipping one would advance this connector's baseline while
+    ///      the L2 slash is permanently rejected — losing the delta and corrupting the
+    ///      baseline. We fail-closed BEFORE mutating state so the same delta stays
+    ///      re-propagable once the operator regains slashable L2 stake.
+    error NothingToSlash(address pod, uint256 destinationChainId);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -238,10 +245,10 @@ contract L2SlashingConnector {
             revert InvalidSlashingFactor();
         }
 
-        // Calculate the slash percentage (cast to uint256 to avoid overflow)
+        // `slashPercentage` is the fraction of THIS pod's beacon balance lost
+        // (1e18 == 100%), derived from the pod's own factor delta.
+        // (cast to uint256 to avoid overflow)
         uint256 slashPercentage = (uint256(lastFactor - newSlashingFactor) * 1e18) / lastFactor;
-        uint16 slashBps = uint16((slashPercentage * 10_000) / 1e18);
-        if (slashBps > 10_000) slashBps = 10_000;
 
         // Get the operator for this pod
         address operator = _getOperatorForPod(pod);
@@ -254,9 +261,46 @@ contract L2SlashingConnector {
             revert SlashingFactorMismatch(pod, actualFactor, newSlashingFactor);
         }
 
-        // Calculate L2 slash amount based on operator's total delegated stake
-        uint256 operatorStake = podManager.operatorDelegatedStake(operator);
-        uint256 l2SlashAmount = (operatorStake * slashPercentage) / 1e18;
+        // INVARIANT: a single pod's beacon slash can never remove more L2 stake than
+        // that pod's own contribution to the operator's stake. `slashPercentage` is a
+        // fraction of THIS pod's beacon balance, so the absolute loss attributable to
+        // the pod is `podPrincipal * slashPercentage`. The shipped `slashBps` is that
+        // absolute loss re-expressed against the operator's TOTAL L2 stake, which is the
+        // base L2 (`MultiAssetDelegation._slash` / `ValidatorPodManager._slash`) applies
+        // it to. This bounds the on-L2 slash to the pod's contribution, eliminating the
+        // base mismatch (whole-stake over-slash) and the multi-pod amplification where
+        // each pod independently slashed a share of the shared total stake.
+        uint256 podPrincipal = podManager.totalAssetsOf(podManager.podToOwner(pod));
+        uint256 podSlashAmount = (podPrincipal * slashPercentage) / 1e18;
+
+        // Operator's TOTAL L2 stake (self + delegated) — the exact base that L2's
+        // `_slash` multiplies `slashBps` against. Using delegated-only here would
+        // under- or over-state the realised L2 slash relative to the intended amount.
+        uint256 operatorStake = podManager.getOperatorStake(operator);
+
+        uint16 slashBps;
+        uint256 l2SlashAmount;
+        if (operatorStake == 0) {
+            slashBps = 0;
+            l2SlashAmount = 0;
+        } else {
+            uint256 bps = (podSlashAmount * 10_000) / operatorStake;
+            if (bps > 10_000) bps = 10_000;
+            slashBps = uint16(bps);
+            // Realised L2 slash amount under the same integer math L2 will apply.
+            l2SlashAmount = (operatorStake * slashBps) / 10_000;
+        }
+
+        // FAIL-CLOSED before any state mutation: a zero-bps message is hard-rejected by the
+        // L2 receiver (`_handleSlashMessage` reverts on `slashBps == 0`). If we advanced the
+        // baseline (`lastProcessedSlashingFactorByChain`) and shipped it anyway, the receiver
+        // would permanently reject the slash while this connector treats the delta as consumed
+        // — losing the slash and corrupting the baseline. Reverting here leaves the same factor
+        // delta re-propagable once the operator regains slashable L2 stake (operatorStake > 0),
+        // or once the loss is large enough to round to >= 1 bps.
+        if (slashBps == 0) {
+            revert NothingToSlash(pod, destinationChainId);
+        }
 
         // Update state per destination
         lastProcessedSlashingFactorByChain[pod][destinationChainId] = newSlashingFactor;
@@ -317,8 +361,15 @@ contract L2SlashingConnector {
             return 0;
         }
 
-        uint256 operatorStake = podManager.operatorDelegatedStake(operator);
-        return (operatorStake * slashPercentage) / 1e18;
+        // Mirror propagation: scale the slash to the pod's own contribution, then
+        // re-express against the operator's total L2 stake (see `_propagateBeaconSlashing`).
+        uint256 podPrincipal = podManager.totalAssetsOf(podManager.podToOwner(pod));
+        uint256 podSlashAmount = (podPrincipal * slashPercentage) / 1e18;
+        uint256 operatorStake = podManager.getOperatorStake(operator);
+        if (operatorStake == 0) return 0;
+        uint256 bps = (podSlashAmount * 10_000) / operatorStake;
+        if (bps > 10_000) bps = 10_000;
+        return (operatorStake * bps) / 10_000;
     }
 
     /// @notice Check if a pod has pending slashing to propagate to a specific destination
@@ -357,9 +408,19 @@ contract L2SlashingConnector {
         uint64 lastFactor = lastProcessedSlashingFactorByChain[pod][destinationChainId];
         if (lastFactor == 0) lastFactor = 1e18;
 
+        // Mirror propagation: pod-scaled slash re-expressed against operator total stake.
+        // (slashBps is a fixed-width uint16, so its magnitude does not change payload
+        //  size; this keeps the estimate consistent with the value actually shipped.)
         uint256 slashPercentage = (uint256(lastFactor - newSlashingFactor) * 1e18) / lastFactor;
-        uint16 slashBps = uint16((slashPercentage * 10_000) / 1e18);
-        if (slashBps > 10_000) slashBps = 10_000;
+        uint256 podPrincipal = podManager.totalAssetsOf(podManager.podToOwner(pod));
+        uint256 podSlashAmount = (podPrincipal * slashPercentage) / 1e18;
+        uint256 operatorStake = operator == address(0) ? 0 : podManager.getOperatorStake(operator);
+        uint16 slashBps = 0;
+        if (operatorStake != 0) {
+            uint256 bps = (podSlashAmount * 10_000) / operatorStake;
+            if (bps > 10_000) bps = 10_000;
+            slashBps = uint16(bps);
+        }
 
         // Use the next-nonce-to-be-issued for accurate fee estimation; do not increment.
         uint256 estimatedNonce = nonceByChain[destinationChainId];

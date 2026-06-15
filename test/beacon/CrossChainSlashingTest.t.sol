@@ -286,6 +286,37 @@ contract CrossChainSlashingTest is Test {
         MockSlashPod(pod).setBeaconChainSlashingFactor(factor);
     }
 
+    /// @dev The connector's beacon-slash accounting was hardened to bound a single
+    ///      pod's L2 slash to that pod's own beacon principal: it derives the absolute
+    ///      loss as `podPrincipal * slashPercentage` (where `podPrincipal =
+    ///      totalAssetsOf(podToOwner(pod))`) and re-expresses it against the operator's
+    ///      TOTAL L2 stake (`getOperatorStake(operator)`). The `MockSlashPod`s used here
+    ///      are never registered through `podManager.createPod()`, so without these mocks
+    ///      `podToOwner(pod) == address(0)` and `totalAssetsOf(address(0)) == 0`, which
+    ///      makes the shipped `slashBps == 0` — a no-op the receiver now (correctly)
+    ///      rejects with `InvalidPayload()`. Seed the pod principal + operator stake so
+    ///      the legitimate slash path produces a nonzero, pod-bounded `slashBps`.
+    function _mockPodPrincipal(address pod, address operator, uint256 podPrincipal, uint256 operatorStake) internal {
+        // podToOwner(pod) -> use the pod address itself as the stand-in owner key.
+        vm.mockCall(
+            address(podManager),
+            abi.encodeWithSelector(podManager.podToOwner.selector, pod),
+            abi.encode(pod)
+        );
+        // totalAssetsOf(owner) -> pod's beacon principal.
+        vm.mockCall(
+            address(podManager),
+            abi.encodeWithSelector(podManager.totalAssetsOf.selector, pod),
+            abi.encode(podPrincipal)
+        );
+        // getOperatorStake(operator) -> base the connector re-expresses slashBps against.
+        vm.mockCall(
+            address(podManager),
+            abi.encodeWithSelector(podManager.getOperatorStake.selector, operator),
+            abi.encode(operatorStake)
+        );
+    }
+
     function setUp() public {
         vm.deal(admin, 1000 ether);
         vm.deal(oracle, 100 ether);
@@ -357,6 +388,7 @@ contract CrossChainSlashingTest is Test {
         // First slash: 100% (implicit) -> 90%
         uint64 newFactor = 0.9e18; // 90% (10% slashed from initial 100%)
         _setPodFactor(pod1, newFactor);
+        _mockPodPrincipal(pod1, operator1, 50 ether, 50 ether); // pod-bounded slash needs principal
 
         vm.prank(oracle);
         connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, newFactor);
@@ -379,6 +411,7 @@ contract CrossChainSlashingTest is Test {
         uint256 altChainId = 8453;
         address altReceiver = makeAddr("altReceiver");
         _setPodFactor(pod1, 0.95e18);
+        _mockPodPrincipal(pod1, operator1, 50 ether, 50 ether); // pod-bounded slash needs principal
 
         vm.prank(admin);
         connector.setChainConfig(altChainId, altReceiver, 150_000, true);
@@ -401,16 +434,10 @@ contract CrossChainSlashingTest is Test {
         vm.prank(admin);
         connector.registerPodOperator(pod2, operator2);
 
-        vm.mockCall(
-            address(podManager),
-            abi.encodeWithSelector(podManager.operatorDelegatedStake.selector, operator1),
-            abi.encode(40 ether)
-        );
-        vm.mockCall(
-            address(podManager),
-            abi.encodeWithSelector(podManager.operatorDelegatedStake.selector, operator2),
-            abi.encode(20 ether)
-        );
+        // Seed each pod's beacon principal + its operator's total L2 stake so the
+        // pod-bounded slash math ships a nonzero, per-pod-capped slashBps for both.
+        _mockPodPrincipal(pod1, operator1, 40 ether, 40 ether);
+        _mockPodPrincipal(pod2, operator2, 20 ether, 20 ether);
 
         address[] memory pods = new address[](2);
         pods[0] = pod1;
@@ -430,11 +457,11 @@ contract CrossChainSlashingTest is Test {
     }
 
     function test_getPendingSlashAmountAndHasPending() public {
-        vm.mockCall(
-            address(podManager),
-            abi.encodeWithSelector(podManager.operatorDelegatedStake.selector, operator1),
-            abi.encode(40 ether)
-        );
+        // Pod principal == operator total stake == 40 ether: the pod is the operator's
+        // entire L2 stake, so the pod-bounded slash equals the full factor-delta slash.
+        uint256 podPrincipal = 40 ether;
+        uint256 operatorStake = 40 ether;
+        _mockPodPrincipal(pod1, operator1, podPrincipal, operatorStake);
         _setPodFactor(pod1, 0.9e18);
 
         vm.prank(oracle);
@@ -442,8 +469,17 @@ contract CrossChainSlashingTest is Test {
 
         uint64 futureFactor = 0.8e18;
         uint256 delta = uint256(0.9e18 - futureFactor);
+        // Mirror the hardened src math exactly: scale the slash to the pod's own
+        // beacon principal, convert to integer basis points against the operator's
+        // total stake, then realize that bps. The bps quantization (uint16 basis
+        // points) is intentional — it is the EXACT amount the connector ships and L2
+        // applies, so the pending estimate must reflect it (vs the old model that
+        // returned the un-quantized 40e18 * slashPercentage = 4444444444444444440).
         uint256 slashPercentage = (delta * 1e18) / 0.9e18;
-        uint256 expected = (40 ether * slashPercentage) / 1e18;
+        uint256 podSlashAmount = (podPrincipal * slashPercentage) / 1e18;
+        uint256 bps = (podSlashAmount * 10_000) / operatorStake;
+        if (bps > 10_000) bps = 10_000;
+        uint256 expected = (operatorStake * bps) / 10_000; // 4_444_000_000_000_000_000 (4.444e18)
 
         uint256 defaultChain = connector.defaultDestinationChainId();
         uint256 pending = connector.getPendingSlashAmount(pod1, futureFactor, defaultChain);
@@ -479,6 +515,7 @@ contract CrossChainSlashingTest is Test {
 
         vm.prank(admin);
         connector.registerPodOperator(address(slashPod), operator1);
+        _mockPodPrincipal(address(slashPod), operator1, 50 ether, 50 ether); // pod-bounded slash needs principal
 
         vm.prank(oracle);
         connector.propagateBeaconSlashing{ value: 0.01 ether }(address(slashPod), 0.9e18);
@@ -528,6 +565,7 @@ contract CrossChainSlashingTest is Test {
     function test_propagateBeaconSlashing_RevertInsufficientFee() public {
         messenger.setMockFee(0.1 ether);
         _setPodFactor(pod1, 0.9e18);
+        _mockPodPrincipal(pod1, operator1, 50 ether, 50 ether); // reach the fee check (nonzero slash)
 
         vm.startPrank(oracle);
         vm.expectRevert(L2SlashingConnector.InsufficientFee.selector);
@@ -556,6 +594,8 @@ contract CrossChainSlashingTest is Test {
 
         vm.prank(admin);
         connector.registerPodOperator(pod2, operator2);
+        _mockPodPrincipal(pod1, operator1, 50 ether, 50 ether); // pod-bounded slash needs principal
+        _mockPodPrincipal(pod2, operator2, 50 ether, 50 ether);
 
         // Set mock fee to 0 for batch testing (batch passes value: 0 internally)
         messenger.setMockFee(0);
@@ -579,6 +619,7 @@ contract CrossChainSlashingTest is Test {
     function test_estimatePropagationFee() public {
         // First propagate to set up state
         _setPodFactor(pod1, 0.95e18);
+        _mockPodPrincipal(pod1, operator1, 50 ether, 50 ether); // pod-bounded slash needs principal
         vm.prank(oracle);
         connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.95e18);
 
@@ -664,19 +705,38 @@ contract CrossChainSlashingTest is Test {
         assertTrue(receiver.isNonceProcessed(ETH_CHAIN_ID, address(connector), nonce));
     }
 
-    function test_receiveMessage_RevertsWhenSlashingPaused() public {
+    function test_receiveMessage_DefersSlashWhenSlashingPaused() public {
+        // When slashing is paused, `canSlash` returns false. The receiver no longer
+        // drops the slash (which would let an operator escape it permanently) nor
+        // reverts forever (the single-shot bridge nonce can't be redelivered). Instead
+        // it BANKS the owed bps as deferred debt, consumes the nonce, and lets anyone
+        // realise the debt via `flushDeferredSlash` once slashing is unpaused.
         vm.prank(admin);
         slasher.setPaused(true);
 
         bytes4 messageType = bytes4(keccak256("BEACON_SLASH"));
-        bytes memory payload = abi.encodePacked(messageType, abi.encode(operator1, uint16(1000), 0.9e18, 0, pod1));
+        uint16 slashBps = 1000;
+        uint256 nonce = 0;
+        bytes memory payload = abi.encodePacked(messageType, abi.encode(operator1, slashBps, 0.9e18, nonce, pod1));
 
-        // After the S-1 CEI fix the receiver no longer silently consumes the nonce
-        // when `canSlash` returns false. It reverts so the bridge keeps the
-        // message available for retry once the cause (paused, etc.) is resolved.
-        vm.expectRevert();
         vm.prank(address(messenger));
         receiver.receiveMessage(ETH_CHAIN_ID, address(connector), payload);
+
+        // No stake was actually slashed while paused...
+        assertEq(staking.lastSlashAmount(), 0, "no immediate slash while paused");
+        // ...but the debt is banked so the operator cannot evade it.
+        assertEq(receiver.deferredSlashBps(operator1), slashBps, "owed bps banked as deferred debt");
+        // The nonce is consumed exactly once; a redelivery must be rejected as a replay.
+        assertTrue(receiver.isNonceProcessed(ETH_CHAIN_ID, address(connector), nonce), "nonce consumed");
+
+        // Once unpaused, the banked debt is realised against the operator.
+        vm.prank(admin);
+        slasher.setPaused(false);
+        receiver.flushDeferredSlash(operator1);
+
+        assertEq(staking.lastSlashedOperator(), operator1, "deferred slash applied to operator");
+        assertEq(staking.lastSlashAmount(), (INITIAL_STAKE * slashBps) / 10_000, "full banked bps realised");
+        assertEq(receiver.deferredSlashBps(operator1), 0, "deferred debt cleared after flush");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -752,12 +812,11 @@ contract CrossChainSlashingTest is Test {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_E2E_BeaconSlashingFlow() public {
-        // Setup: Mock operatorDelegatedStake to return 50 ether
-        vm.mockCall(
-            address(podManager),
-            abi.encodeWithSelector(podManager.operatorDelegatedStake.selector, operator1),
-            abi.encode(50 ether)
-        );
+        // Setup: seed the pod's beacon principal (50 ether) and the operator's total L2
+        // stake (50 ether) so the pod-bounded slash math ships a nonzero slashBps.
+        // 20% factor drop on a 50-ether pod principal == 10 ether absolute loss ==
+        // 2000 bps against a 50-ether operator stake.
+        _mockPodPrincipal(pod1, operator1, 50 ether, 50 ether);
 
         // 1. Oracle detects beacon chain slashing and calls connector
         uint64 slashedFactor = 0.8e18; // 80% (20% slashed)
@@ -783,12 +842,9 @@ contract CrossChainSlashingTest is Test {
     }
 
     function test_E2E_MultipleSlashings() public {
-        // Setup: Mock operatorDelegatedStake to return 50 ether
-        vm.mockCall(
-            address(podManager),
-            abi.encodeWithSelector(podManager.operatorDelegatedStake.selector, operator1),
-            abi.encode(50 ether)
-        );
+        // Setup: seed the pod's beacon principal + operator total L2 stake so each
+        // pod-bounded slash ships a nonzero slashBps (see _mockPodPrincipal).
+        _mockPodPrincipal(pod1, operator1, 50 ether, 50 ether);
 
         // First slash: 100% (implicit) -> 90%
         _setPodFactor(pod1, 0.9e18);

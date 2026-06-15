@@ -6,24 +6,27 @@ import { Types } from "../../src/libraries/Types.sol";
 import { Errors } from "../../src/libraries/Errors.sol";
 
 /// @title RFQActiveServiceCountBypassPoC
-/// @notice Reproduces finding sub-5-deep-audit-a0505ef9-d36.
+/// @notice Regression guard for finding sub-5-deep-audit-a0505ef9-d36 (now FIXED).
 ///
 ///         The RFQ/quote creation path createServiceFromQuotes -> _activateQuoteService
-///         -> _processOperatorQuotes (QuotesCreate.sol:275-300) registers operators as
-///         live, paid security providers (active=true, added to _serviceOperatorSet) but
-///         NEVER increments _operatorActiveServiceCount[blueprintId][op]. The standard
-///         request/approve activation path DOES (TangleServicesFacet.sol:140).
+///         -> _processOperatorQuotes (QuotesCreate.sol) registers operators as live, paid
+///         security providers (active=true, added to _serviceOperatorSet). Previously it
+///         FAILED to increment _operatorActiveServiceCount[blueprintId][op], while the
+///         standard request/approve activation path DID.
 ///
 ///         _operatorActiveServiceCount is the sole active-service guard on
-///         unregisterOperator (Operators.sol:204) and on getOperatorTotalActiveServices
-///         (the staking startLeaving() guard). Because it stays 0 on the RFQ path, an
-///         operator backing a live RFQ service can unregister from the blueprint while
-///         the service is still Active.
+///         unregisterOperator (Operators.sol) and on getOperatorTotalActiveServices
+///         (the staking startLeaving() guard). When it stayed 0 on the RFQ path, an
+///         operator backing a live RFQ service could unregister from the blueprint while
+///         the service was still Active.
 ///
-///         This PoC reads the counter directly from storage (slot 65, confirmed via
-///         `forge inspect`) to show 0 on the RFQ path vs 1 on the standard path, and
-///         exercises the real unregisterOperator guard to show it passes on RFQ and
-///         correctly reverts on the standard path.
+///         INVARIANT (post-fix): RFQ activation increments the active-service counter
+///         exactly like the standard path, so the unregisterOperator guard correctly
+///         reverts while the service is Active. This test reads the counter directly from
+///         storage (slot 65, confirmed via `forge inspect`) to assert it is 1 on the RFQ
+///         path, and exercises the real unregisterOperator guard to assert it reverts on
+///         both the RFQ and standard paths. It will fail again if the RFQ path ever stops
+///         tracking active services (i.e. the vuln is reintroduced).
 contract RFQActiveServiceCountBypassPoC is BaseTest {
     // Operator whose private key we control so it can sign RFQ quotes.
     uint256 internal constant RFQ_OPERATOR_PK = 0xA11CE;
@@ -33,7 +36,7 @@ contract RFQActiveServiceCountBypassPoC is BaseTest {
     uint256 internal constant ACTIVE_SVC_COUNT_SLOT = 65;
 
     bytes32 private constant QUOTE_TYPEHASH = keccak256(
-        "QuoteDetails(address requester,uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
+        "QuoteDetails(address requester,uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,uint8 operation,uint64 serviceId,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)Asset(uint8 kind,address token)AssetSecurityCommitment(Asset asset,uint16 exposureBps)ResourceCommitment(uint8 kind,uint64 count)"
     );
 
     function setUp() public override {
@@ -52,9 +55,10 @@ contract RFQActiveServiceCountBypassPoC is BaseTest {
         return uint256(vm.load(address(tangle), slot));
     }
 
-    /// @notice THE BUG: RFQ operator's active-service counter stays 0 and the
-    ///         unregisterOperator guard is bypassed while the service is Active.
-    function test_RFQ_path_skips_active_service_count_and_bypasses_guard() public {
+    /// @notice FIXED: RFQ activation increments the active-service counter, so the
+    ///         unregisterOperator guard correctly blocks the operator while the service
+    ///         is Active — identical to the standard request/approve path.
+    function test_RFQ_path_increments_active_service_count_and_blocks_unregister() public {
         // --- SETUP: create an Active RFQ service backed by rfqOperator ---
         vm.prank(developer);
         uint64 blueprintId = _createBlueprintAsSender("ipfs://rfq-bypass", address(0));
@@ -70,25 +74,28 @@ contract RFQActiveServiceCountBypassPoC is BaseTest {
         Types.Service memory svc = tangle.getService(serviceId);
         assertEq(uint8(svc.status), uint8(Types.ServiceStatus.Active), "RFQ service must be Active");
 
-        // --- THE BUG: _processOperatorQuotes never incremented the counter ---
+        // --- INVARIANT: _processOperatorQuotes now increments the counter, mirroring
+        //     the standard path. A reintroduced bug would leave this at 0 and fail here. ---
         uint256 cnt = _readActiveServiceCount(blueprintId, rfqOperator);
         emit log_named_uint("RFQ path: _operatorActiveServiceCount (while service Active)", cnt);
-        assertEq(cnt, 0, "BUG: RFQ activation left the active-service counter at 0");
+        assertEq(cnt, 1, "FIX: RFQ activation MUST increment the active-service counter");
 
-        // --- ATTACK: unregisterOperator's active-service guard (Operators.sol:204)
-        //     reads the counter directly from storage; with cnt==0 it passes. ---
+        // --- GUARD BITES: unregisterOperator's active-service guard (Operators.sol)
+        //     reads the counter from storage; with cnt==1 it correctly reverts. ---
         vm.prank(rfqOperator);
-        tangle.unregisterOperator(blueprintId); // must NOT revert OperatorHasActiveServices
+        vm.expectRevert(abi.encodeWithSelector(Errors.OperatorHasActiveServices.selector, blueprintId, rfqOperator));
+        tangle.unregisterOperator(blueprintId);
 
-        // The security provider has unregistered while the service is STILL Active.
+        // The security provider remains bound to its live service: still Active, with
+        // the operator unable to walk away mid-service.
         svc = tangle.getService(serviceId);
         assertEq(
             uint8(svc.status),
             uint8(Types.ServiceStatus.Active),
-            "Service remains Active after its operator unregistered"
+            "Service remains Active and its operator stays bound"
         );
 
-        emit log_string("REPRODUCED: RFQ operator unregistered from blueprint while service is Active");
+        emit log_string("GUARDED: RFQ operator is blocked from unregistering while service is Active");
     }
 
     /// @notice CONTROL: the standard request/approve path increments the counter, so
@@ -137,6 +144,8 @@ contract RFQActiveServiceCountBypassPoC is BaseTest {
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
             confidentiality: Types.ConfidentialityPolicy.Any,
+            operation: Types.QuoteOperation.Create,
+            serviceId: 0,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -168,6 +177,8 @@ contract RFQActiveServiceCountBypassPoC is BaseTest {
                 details.timestamp,
                 details.expiry,
                 details.confidentiality,
+                details.operation,
+                details.serviceId,
                 commitmentsHash,
                 resourcesHash
             )

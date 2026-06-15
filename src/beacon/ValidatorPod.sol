@@ -16,6 +16,9 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 interface IValidatorPodManager {
     function recordBeaconChainDeposit(address podOwner, uint256 assets) external returns (uint256);
     function recordBeaconChainRebase(address podOwner, int256 assetsDelta) external;
+    /// @notice Beacon principal (in wei) the manager has credited to `podOwner`'s pool.
+    ///         This ETH backs beacon-pool shares and delegations and must stay in pod custody.
+    function totalAssetsOf(address podOwner) external view returns (uint256);
 }
 
 /// @title ValidatorPod
@@ -447,16 +450,22 @@ contract ValidatorPod is ReentrancyGuard {
             withdrawableRestakedExecutionLayerGwei += newlyWithdrawableGwei;
         }
 
-        // ELIP-004: Calculate new slashing factor if balance decreased due to beacon slashing
-        // The slashing factor tracks the proportional decrease in validator balances
-        uint64 currentBalance = totalRestakedBalanceGwei;
+        // ELIP-004: Calculate new slashing factor ONLY for loss attributable to beacon-chain
+        // slashing — never for principal that simply left the beacon chain and arrived in the
+        // pod (a normal/voluntary exit or a partial withdrawal). `newlyWithdrawableGwei` is
+        // exactly that exited/withdrawn principal recovered into pod custody this checkpoint;
+        // it is NOT a loss. Adding it back yields the effective current balance, so the factor
+        // moves only when total value (still-on-beacon + recovered-to-pod) fell below prior —
+        // i.e. genuinely slashed/leaked principal that was destroyed, not transferred.
+        // INVARIANT: a lawful validator exit (currentBalance↓ matched by newlyWithdrawable↑)
+        // leaves the slashing factor unchanged and therefore triggers no L2 stake slash.
         uint64 priorBalance = currentCheckpoint.priorBeaconBalanceGwei;
+        uint256 effectiveCurrent = uint256(totalRestakedBalanceGwei) + uint256(newlyWithdrawableGwei);
 
-        if (currentBalance < priorBalance && priorBalance > 0) {
-            // Calculate new slashing factor: newFactor = oldFactor * currentBalance / priorBalance
-            // Using uint256 for intermediate calculation to avoid overflow
+        if (effectiveCurrent < priorBalance && priorBalance > 0) {
+            // newFactor = oldFactor * effectiveCurrent / priorBalance. uint256 intermediate.
             uint64 oldFactor = beaconChainSlashingFactor;
-            uint64 newFactor = uint64((uint256(oldFactor) * uint256(currentBalance)) / uint256(priorBalance));
+            uint64 newFactor = uint64((uint256(oldFactor) * effectiveCurrent) / uint256(priorBalance));
 
             // Slashing factor is monotonically decreasing
             if (newFactor < oldFactor) {
@@ -485,9 +494,27 @@ contract ValidatorPod is ReentrancyGuard {
     /// @notice Withdraw ETH sent to this pod outside of beacon chain
     /// @param recipient Address to send ETH to
     /// @param amount Amount to withdraw
-    /// @dev For recovering tips, MEV, or accidental transfers
+    /// @dev For recovering tips, MEV, or accidental transfers ONLY. This bypasses the
+    ///      withdrawal-queue delay and the delegation lock, so it MUST never reach beacon
+    ///      principal: any such drain would let an owner exit restaked/delegated/slashable
+    ///      ETH instantly, leaving phantom delegations and dodging the slashing window.
+    ///      INVARIANT: after this call the pod still custodies at least the beacon principal
+    ///      the manager has credited to this owner (`totalAssetsOf(podOwner)`). Only the
+    ///      surplus above that floor is genuine non-beacon ETH and is withdrawable here.
+    ///      A checkpoint in flight is reconciling that floor, so disallow withdrawal then.
     function withdrawNonBeaconChainEth(address recipient, uint256 amount) external onlyPodOwner nonReentrant {
-        if (amount > address(this).balance) {
+        if (currentCheckpointTimestamp != 0) {
+            revert CurrentlyInCheckpoint();
+        }
+
+        uint256 balance = address(this).balance;
+        if (amount > balance) {
+            revert InsufficientBalance();
+        }
+
+        uint256 reservedPrincipal = podManager.totalAssetsOf(podOwner);
+        uint256 surplus = balance > reservedPrincipal ? balance - reservedPrincipal : 0;
+        if (amount > surplus) {
             revert InsufficientBalance();
         }
 

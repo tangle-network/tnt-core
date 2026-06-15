@@ -32,6 +32,19 @@ contract TNTCliffLock {
         _;
     }
 
+    /// @dev Locks the implementation contract so it can never be initialized directly.
+    ///      Clones (EIP-1167) carry their own zeroed storage, so `initialized` is false for
+    ///      every clone and `initialize` still works on them; only this template instance is
+    ///      sealed. Without this, the un-initialized implementation could be seized by anyone
+    ///      calling `initialize` on it.
+    constructor() {
+        initialized = true;
+    }
+
+    /// @dev Creation NEVER auto-delegates voting power. `delegatee` is accepted for ABI/event
+    ///      compatibility but is intentionally NOT applied here: applying a caller-supplied
+    ///      delegatee at (permissionless) creation time is the delegation-hijack vector. Only
+    ///      the beneficiary may set delegation, afterward, via the `onlyBeneficiary` `delegate`.
     function initialize(address token_, address beneficiary_, uint64 unlockTimestamp_, address delegatee) external {
         if (initialized) revert AlreadyInitialized();
         if (token_ == address(0) || beneficiary_ == address(0)) revert ZeroAddress();
@@ -40,12 +53,6 @@ contract TNTCliffLock {
         beneficiary = beneficiary_;
         unlockTimestamp = unlockTimestamp_;
         initialized = true;
-
-        if (delegatee != address(0)) {
-            try IVotes(token_).delegate(delegatee) {
-                emit Delegated(token_, beneficiary_, delegatee);
-            } catch { }
-        }
 
         emit Initialized(token_, beneficiary_, unlockTimestamp_, delegatee);
     }

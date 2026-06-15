@@ -29,21 +29,34 @@ contract RebasingAssetAdapter is IAssetAdapter, Ownable {
     /// @notice Address authorized to call deposit/withdraw (MultiAssetDelegation)
     address public delegationManager;
 
+    /// @notice Pending delegation manager awaiting acceptance (2-step rotation).
+    /// @dev Appended after `delegationManager` to keep prior storage layout stable.
+    ///      A rotation is only ever live once the pending address claims it, so a
+    ///      compromised owner key alone cannot silently repoint custody and drain
+    ///      the pool — the proposal is observable on-chain before it can take effect.
+    address public pendingDelegationManager;
+
     /// @notice Precision for share calculations (prevents rounding to zero)
     uint256 internal constant PRECISION = 1e18;
 
-    /// @notice Initial shares per asset (legacy; retained for `sharesToAssets`/
-    ///         `getExchangeRate` views that read it during the bootstrap window).
-    uint256 internal constant INITIAL_SHARES_PER_ASSET = 1e18;
-
     /// @notice Virtual share/asset offset for first-depositor inflation defense.
-    /// @dev Mirrors the offsets in `DelegationStorage` (`VIRTUAL_SHARES = 1e8`,
-    ///      `VIRTUAL_ASSETS = 1`). With these values, an attacker who seeds the
-    ///      pool with one wei needs to donate ≥1e8 raw tokens to inflate share
-    ///      price meaningfully — economically infeasible for any 18-decimal
-    ///      rebasing token (~1e-10 ETH per share-wei). Round 2 economic F2.
+    /// @dev INVARIANT: shares are TOKEN-DENOMINATED — deposited token-wei maps 1:1 to
+    ///      shares while the pool is at its bootstrap ratio, and tracks the rebase
+    ///      thereafter. The adapter's returned share count is consumed directly as the
+    ///      delegation `amount` (DepositManager._handleErc20Deposit -> _depositAsset)
+    ///      and is later passed to `oracle.toUSD(token, amount)` and the
+    ///      token-denominated `depositCap`/`minDelegation` checks, all of which assume
+    ///      raw token wei. The offset MUST therefore be SYMMETRIC (VIRTUAL_SHARES ==
+    ///      VIRTUAL_ASSETS): the bootstrap ratio is VIRTUAL_SHARES/VIRTUAL_ASSETS, so
+    ///      equal values give a 1:1 share/asset unit (an asymmetric 1e8/1 offset minted
+    ///      ~1e8x-scaled shares and inflated rebasing-asset USD exposure ~1e8x).
+    ///      Inflation defense is governed by the OFFSET MAGNITUDE, not the asymmetry:
+    ///      with VIRTUAL_ASSETS=1e8 an attacker who seeds one wei must donate ≥1e8 raw
+    ///      tokens to drift share price by a single unit, and even then recovers only
+    ///      ~1e-8 of the donation — economically infeasible for any real 18-decimal
+    ///      rebasing token.
     uint256 internal constant VIRTUAL_SHARES = 1e8;
-    uint256 internal constant VIRTUAL_ASSETS = 1;
+    uint256 internal constant VIRTUAL_ASSETS = 1e8;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
@@ -52,12 +65,18 @@ contract RebasingAssetAdapter is IAssetAdapter, Ownable {
     error OnlyDelegationManager();
     error DelegationManagerNotSet();
     error SlippageTooHigh();
+    /// @notice Bootstrap setter blocked because a manager is already wired; rotate
+    ///         via the 2-step propose/accept flow instead.
+    error DelegationManagerAlreadySet();
+    /// @notice acceptDelegationManager called by an address that is not the pending one.
+    error NotPendingDelegationManager();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
     event DelegationManagerSet(address indexed oldManager, address indexed newManager);
+    event DelegationManagerProposed(address indexed currentManager, address indexed pendingManager);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // MODIFIERS
@@ -84,12 +103,41 @@ contract RebasingAssetAdapter is IAssetAdapter, Ownable {
     // ADMIN FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Set the delegation manager address
+    /// @notice One-time bootstrap of the delegation manager at deploy/wiring time.
+    /// @dev Only valid while no manager is set (custody pool is empty). Once wired,
+    ///      the manager is the address that can withdraw the entire custodied pool,
+    ///      so repointing it requires the 2-step propose/accept rotation below — a
+    ///      plain owner setter would let a single compromised owner key drain
+    ///      everything in one transaction.
     /// @param _delegationManager The MultiAssetDelegation contract address
     function setDelegationManager(address _delegationManager) external onlyOwner {
         if (_delegationManager == address(0)) revert ZeroAddress();
-        emit DelegationManagerSet(delegationManager, _delegationManager);
+        if (delegationManager != address(0)) revert DelegationManagerAlreadySet();
+        emit DelegationManagerSet(address(0), _delegationManager);
         delegationManager = _delegationManager;
+    }
+
+    /// @notice Step 1 of manager rotation: propose a new delegation manager.
+    /// @dev Owner-gated, but the change is NOT live until the proposed address
+    ///      calls `acceptDelegationManager`. The proposal emits an event so
+    ///      delegators/guardians can react before custody can move.
+    /// @param _delegationManager The proposed MultiAssetDelegation contract address
+    function proposeDelegationManager(address _delegationManager) external onlyOwner {
+        if (_delegationManager == address(0)) revert ZeroAddress();
+        pendingDelegationManager = _delegationManager;
+        emit DelegationManagerProposed(delegationManager, _delegationManager);
+    }
+
+    /// @notice Step 2 of manager rotation: the pending manager claims the role.
+    /// @dev Must be called by the pending address itself. This proves the new
+    ///      manager is a live, controllable contract/address (not a fat-fingered
+    ///      or attacker-supplied dead address) before it gains pool custody.
+    function acceptDelegationManager() external {
+        address pending = pendingDelegationManager;
+        if (msg.sender != pending) revert NotPendingDelegationManager();
+        emit DelegationManagerSet(delegationManager, pending);
+        delegationManager = pending;
+        pendingDelegationManager = address(0);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -99,15 +147,13 @@ contract RebasingAssetAdapter is IAssetAdapter, Ownable {
     /// @inheritdoc IAssetAdapter
     /// @dev For rebasing tokens, we measure actual tokens received (not amount sent)
     ///      to handle any transfer fees or rebasing that occurs during transfer.
-    /// @dev — first-depositor inflation defense.
-    ///      A virtual asset/share offset is added to the share-price computation
-    ///      so a one-wei seed plus a donation of D tokens cannot inflate share
-    ///      price enough to round a victim's later V-token deposit to zero shares.
-    ///      With VIRTUAL_SHARES=1e8 and VIRTUAL_ASSETS=1 (matching the staking-pool
-    ///      offsets in DelegationStorage), an attacker needs to donate ≥1e8 raw
-    ///      tokens to extract any meaningful share-price drift; for an 18-decimal
-    ///      rebasing token like stETH that's ~0.0000000001 ETH worth of donation
-    ///      to inflate by 1 share — i.e. economically infeasible.
+    /// @dev First-depositor inflation defense via a SYMMETRIC virtual asset/share
+    ///      offset (VIRTUAL_SHARES == VIRTUAL_ASSETS == 1e8): a one-wei seed plus a
+    ///      donation of D tokens cannot inflate share price enough to round a victim's
+    ///      later deposit to zero shares (donating ≥1e8 raw tokens drifts price by only
+    ///      one unit, and the griefer recovers ~1e-8 of the donation — infeasible).
+    ///      The offset is symmetric so the bootstrap mint ratio is 1:1: shares are
+    ///      token-denominated, which the cross-asset USD/exposure layer requires.
     function deposit(address from, uint256 assets) external override onlyDelegationManager returns (uint256 shares) {
         if (assets == 0) revert ZeroAmount();
         if (from == address(0)) revert ZeroAddress();
@@ -171,22 +217,23 @@ contract RebasingAssetAdapter is IAssetAdapter, Ownable {
     }
 
     /// @inheritdoc IAssetAdapter
-    /// @dev Returns current asset value of shares (changes as token rebases)
+    /// @dev Returns current asset value of shares (changes as token rebases). Mirrors
+    ///      the symmetric virtual-offset formula in `withdraw` so the round trip is
+    ///      consistent (bootstrap: shares * VA / VS == shares, token-denominated 1:1).
     function sharesToAssets(uint256 shares) public view override returns (uint256) {
-        if (totalShares == 0) return 0;
+        if (shares == 0) return 0;
         uint256 currentBalance = IERC20(asset).balanceOf(address(this));
-        return shares.mulDiv(currentBalance, totalShares, Math.Rounding.Floor);
+        return shares.mulDiv(currentBalance + VIRTUAL_ASSETS, totalShares + VIRTUAL_SHARES, Math.Rounding.Floor);
     }
 
     /// @inheritdoc IAssetAdapter
-    /// @dev Returns shares for given asset amount at current rate
+    /// @dev Returns shares for given asset amount at current rate. Uses the SAME
+    ///      symmetric virtual-offset formula as `deposit` so `previewDeposit` agrees
+    ///      with the shares actually minted (bootstrap: assets * VS / VA == assets,
+    ///      i.e. token-denominated 1:1).
     function assetsToShares(uint256 assets) public view override returns (uint256) {
-        if (totalShares == 0) {
-            return assets * INITIAL_SHARES_PER_ASSET;
-        }
         uint256 currentBalance = IERC20(asset).balanceOf(address(this));
-        if (currentBalance == 0) return 0;
-        return assets.mulDiv(totalShares, currentBalance, Math.Rounding.Floor);
+        return assets.mulDiv(totalShares + VIRTUAL_SHARES, currentBalance + VIRTUAL_ASSETS, Math.Rounding.Floor);
     }
 
     /// @inheritdoc IAssetAdapter
@@ -209,12 +256,13 @@ contract RebasingAssetAdapter is IAssetAdapter, Ownable {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Get current exchange rate (assets per share, scaled by PRECISION)
-    /// @dev Returns ~1e18 for 1:1 rate, normalizing for INITIAL_SHARES_PER_ASSET
+    /// @dev Returns ~1e18 for a 1:1 rate. Shares are now token-denominated (1:1 on
+    ///      bootstrap), so the rate is just (assets/shares) * PRECISION computed with
+    ///      the same symmetric virtual offset used by deposit/withdraw.
     /// @return rate The exchange rate scaled by 1e18
     function exchangeRate() external view returns (uint256 rate) {
         if (totalShares == 0) return PRECISION;
         uint256 currentBalance = IERC20(asset).balanceOf(address(this));
-        // Normalize by INITIAL_SHARES_PER_ASSET so rate is ~1e18 when assets:shares is 1:1
-        return currentBalance.mulDiv(PRECISION * INITIAL_SHARES_PER_ASSET, totalShares, Math.Rounding.Floor);
+        return (currentBalance + VIRTUAL_ASSETS).mulDiv(PRECISION, totalShares + VIRTUAL_SHARES, Math.Rounding.Floor);
     }
 }

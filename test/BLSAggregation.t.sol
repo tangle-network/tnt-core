@@ -577,35 +577,67 @@ contract BLSAggregationTest is BaseTest {
     // EDGE CASE TESTS: Inactive Operators
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Test that inactive operators are not counted in threshold
+    /// @notice Test that operators inactive in staking are not counted in the threshold.
+    /// @dev Post-H7, a service-backing operator can no longer voluntarily `startLeaving`
+    ///      (that now reverts with OperatorHasActiveServices). The only path by which an
+    ///      in-service operator becomes staking-inactive is being slashed below the
+    ///      minimum self-stake, which `_computeSignerStats` filters out via
+    ///      `_staking.isOperatorActive`. We drive operator2 to that exact state and assert
+    ///      it is excluded from both the eligible-operator count and the signer count.
     function test_InactiveOperator_NotCounted() public {
-        mockBsm.setAggregationConfig(0, true, 6700, 0); // 67% = 2 of 3 required
+        mockBsm.setAggregationConfig(0, true, 6700, 0); // 67% count-based
 
         vm.prank(user1);
         uint64 callId = tangle.submitJob(serviceId, 0, "test");
 
-        // Deactivate operator2 at the staking layer (e.g., starts leaving),
-        // so it should no longer be counted towards the aggregation threshold.
-        vm.prank(operator2);
-        staking.startLeaving();
+        // Slash operator2's full self-stake (100% of its 3 ETH bond, exposure is 100%)
+        // so its stake drops below MIN_OPERATOR_STAKE and the staking layer flips it to
+        // Inactive. user1 is the service owner and is authorized to propose the slash.
+        vm.prank(user1);
+        uint64 slashId = tangle.proposeSlash(serviceId, operator2, 10_000, keccak256("op2-fault"));
+        vm.warp(block.timestamp + 7 days + 16); // clear the dispute window (DEFAULT_DISPUTE_WINDOW = 7 days)
+        tangle.executeSlash(slashId);
 
-        // Bitmap includes operator2 (bit 1) but if inactive, shouldn't count
+        // Precondition: operator2 is now inactive in staking, operator1/operator3 remain active.
+        assertFalse(staking.isOperatorActive(operator2), "operator2 should be slashed to inactive");
+        assertTrue(staking.isOperatorActive(operator1), "operator1 should remain active");
+        assertTrue(staking.isOperatorActive(operator3), "operator3 should remain active");
+
+        // Bitmap claims bits 0 (operator1) and 1 (operator2). operator2 is inactive, so the
+        // contract excludes it: eligible operatorCount = 2 (op1, op3), and only operator1's
+        // bit counts -> signerCount = 1. 67% of 2 rounds up to 2 required. 1 < 2, so the call
+        // must revert with a threshold failure (NOT reach BLS verification). This is the
+        // observable proof that the inactive operator was not counted: had operator2 still
+        // counted, achieved would be 2 and the call would instead fail at BLS verification.
         uint256 twoSigners = 0x3; // bits 0 and 1
         uint256[2] memory sig = [uint256(1), uint256(2)];
         uint256[4] memory pubkey = [uint256(1), uint256(2), uint256(3), uint256(4)];
 
-        // With operator2 inactive: threshold should be computed from eligible operators only, then fail BLS
-        vm.expectRevert(); // BLS verification fails
+        vm.expectRevert(abi.encodeWithSelector(Errors.AggregationThresholdNotMet.selector, serviceId, callId, 1, 2));
         tangle.submitAggregatedResult(serviceId, callId, "result", twoSigners, sig, pubkey);
     }
 
+    /// @dev submitResult must reject an operator that the staking layer reports as
+    ///      inactive, even while it is still assigned to the service. Post-H7, an
+    ///      in-service operator can no longer voluntarily `startLeaving` (that reverts
+    ///      with OperatorHasActiveServices), so we reach the staking-inactive state the
+    ///      production way: by slashing operator1 below the minimum self-stake. operator1
+    ///      remains in the service operator set (svcOp.active stays true), so the
+    ///      OperatorNotInService gate passes and we exercise the OperatorNotActive gate.
     function test_submitResult_RevertsWhenOperatorNotActiveInStaking() public {
         // Default: aggregation not required for job 0
         vm.prank(user1);
         uint64 callId = tangle.submitJob(serviceId, 0, "test input");
 
-        vm.prank(operator1);
-        staking.startLeaving();
+        // Slash operator1's full self-stake so it falls below MIN_OPERATOR_STAKE and the
+        // staking layer flips it to Inactive. user1 (service owner) is authorized.
+        vm.prank(user1);
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 10_000, keccak256("op1-fault"));
+        vm.warp(block.timestamp + 7 days + 16); // clear the dispute window
+        tangle.executeSlash(slashId);
+
+        // operator1 is inactive in staking but still assigned to the service.
+        assertFalse(staking.isOperatorActive(operator1), "operator1 should be slashed to inactive");
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.OperatorNotActive.selector, operator1));

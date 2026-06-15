@@ -31,10 +31,13 @@ contract L1OracleAuditPoC is Test {
         vm.etch(PRECOMPILE, address(mock).code);
     }
 
-    /// Real beacon/execution slot timestamps are congruent to 11 (mod 12) on mainnet,
-    /// but latestBeaconTimestamp() aligns to 0 (mod 12) -> the returned value can NEVER
-    /// be a valid key in the EIP-4788 ring buffer.
-    function test_latestBeaconTimestamp_isNeverAValidKey() public {
+    /// Real beacon/execution slot timestamps are congruent to `BEACON_GENESIS_TIME mod 12`
+    /// (== 11 on mainnet), NOT to 0. The fix floors `latestBeaconTimestamp()` to the slot
+    /// boundary relative to genesis, so the returned value is always a genuine ring-buffer key
+    /// that resolves to a stored beacon root. This guards against the regression where the
+    /// oracle aligned to `block.timestamp - (block.timestamp % 12)` (== 0 mod 12) and therefore
+    /// handed integrators a key that NEVER resolved.
+    function test_latestBeaconTimestamp_isValidKey() public {
         // pick a realistic "now": some slot far after genesis
         uint64 slot = 9_000_000;
         uint64 realSlotTs = MAINNET_BEACON_GENESIS + 12 * slot;     // a genuine stored key
@@ -43,8 +46,12 @@ contract L1OracleAuditPoC is Test {
         vm.warp(uint256(realSlotTs) + 3); // partway into the next slot, like a real block
         uint64 latest = oracle.latestBeaconTimestamp();
 
-        assertEq(latest % 12, 0, "oracle aligns to 0 mod 12");
-        assertTrue(latest != realSlotTs, "latest does not equal the true slot ts");
+        // FIXED: the derived key shares the genesis slot phase (11 mod 12), not 0, so it is a
+        // genuine slot-boundary timestamp the EIP-4788 ring buffer can hold.
+        assertEq(latest % 12, 11, "oracle preserves the genesis slot phase (11 mod 12)");
+        // Warping +3s into the slot floors back to the true slot boundary, so the value the
+        // oracle hands an integrator IS the authentic stored key.
+        assertEq(latest, realSlotTs, "latest equals the true slot ts");
 
         // Store the authentic root under the authentic key
         bytes32 root = keccak256("authentic-root");
@@ -53,8 +60,8 @@ contract L1OracleAuditPoC is Test {
         // A correct value (realSlotTs) resolves fine...
         assertEq(oracle.getBeaconBlockRoot(realSlotTs), root);
 
-        // ...but the value latestBeaconTimestamp() hands an integrator REVERTS 100% of the time.
-        vm.expectRevert();
-        oracle.getBeaconBlockRoot(latest);
+        // ...and the value latestBeaconTimestamp() hands an integrator resolves to the SAME
+        // authentic root — the exploit (an always-unresolvable key) is closed.
+        assertEq(oracle.getBeaconBlockRoot(latest), root);
     }
 }

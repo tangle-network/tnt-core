@@ -1150,6 +1150,12 @@ contract DelegationCriticalTest is DelegationTestHarness {
         bps[0] = 1;
         bps[1] = 2;
 
+        // Operator must be registered for each blueprint before Fixed-mode delegation (fail-closed).
+        vm.startPrank(slasher);
+        delegation.addBlueprintForOperator(operator1, 1);
+        delegation.addBlueprintForOperator(operator1, 2);
+        vm.stopPrank();
+
         // Fixed mode
         vm.prank(delegator1);
         delegation.delegateWithOptions(operator1, address(0), 5 ether, Types.BlueprintSelectionMode.Fixed, bps);

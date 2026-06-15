@@ -6,9 +6,6 @@ import { Types } from "../libraries/Types.sol";
 import { Errors } from "../libraries/Errors.sol";
 import { SlashingLib } from "../libraries/SlashingLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
-import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
-import { IPriceOracle } from "../oracles/interfaces/IPriceOracle.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @title Slashing
 /// @notice Slashing with dispute window support
@@ -70,11 +67,18 @@ abstract contract Slashing is Base {
             revert Errors.OperatorNotInService(serviceId, operator);
         }
 
+        // INVARIANT: each exposure dimension is applied to the slash fraction exactly
+        // once. `effectiveSlashBps` carries ONLY the service-level exposure
+        // (`opData.exposureBps`). The per-asset commitment exposure
+        // (`commitment.exposureBps`) is applied exactly once downstream, in
+        // `_staking.slashForService` (SlashingManager._slashForService), via the
+        // commitments forwarded by `_executeSlashOnStaking`. Folding the commitment
+        // average in here as well would double-count it (F-COORD-001 / F-REPRO-001:
+        // realized slash = slashBps * opExposure * avg(commitment) * commitment, i.e.
+        // the operator is under-slashed). The no-commitment fallback
+        // (`_slashForBlueprint`) applies no further exposure, so for that path
+        // `effectiveSlashBps` is the complete, correctly-scaled rate.
         uint16 effectiveExposureBps = opData.exposureBps;
-        if (_serviceSecurityRequirements[serviceId].length > 0) {
-            uint16 commitmentBps = _computeServiceCommitmentExposureBps(serviceId, operator, svc.blueprintId);
-            effectiveExposureBps = uint16((uint256(effectiveExposureBps) * commitmentBps) / BPS_DENOMINATOR);
-        }
 
         uint16 cappedSlashBps = SlashingLib.capSlashBps(slashBps, _slashState.config.maxSlashBps);
 
@@ -144,94 +148,12 @@ abstract contract Slashing is Base {
         return custom;
     }
 
-    function _computeServiceCommitmentExposureBps(
-        uint64 serviceId,
-        address operator,
-        uint64 blueprintId
-    )
-        internal
-        view
-        returns (uint16 exposureBps)
-    {
-        Types.AssetSecurityRequirement[] storage reqs = _serviceSecurityRequirements[serviceId];
-        uint256 reqsLength = reqs.length;
-        if (reqsLength == 0) return BPS_DENOMINATOR;
-
-        // Cache storage reads
-        address serviceFeeDistributor = _serviceFeeDistributor;
-
-        if (serviceFeeDistributor == address(0)) {
-            uint256 sum;
-            uint256 count;
-            for (uint256 i = 0; i < reqsLength;) {
-                Types.Asset memory asset = reqs[i].asset;
-                // forge-lint: disable-next-line(asm-keccak256)
-                bytes32 assetHash = keccak256(abi.encode(asset.kind, asset.token));
-                uint16 committed = _serviceSecurityCommitmentBps[serviceId][operator][assetHash];
-                sum += committed;
-                count++;
-                unchecked {
-                    ++i;
-                }
-            }
-            if (count == 0) return BPS_DENOMINATOR;
-            exposureBps = uint16(sum / count);
-            if (exposureBps > BPS_DENOMINATOR) exposureBps = BPS_DENOMINATOR;
-            return exposureBps;
-        }
-
-        // Cache storage reads
-        address priceOracleAddr = _priceOracle;
-        IPriceOracle oracle = IPriceOracle(priceOracleAddr);
-        bool useOracle = priceOracleAddr != address(0);
-
-        uint256 weightedCommitted; // scaled down by BPS_DENOMINATOR to avoid overflow
-        uint256 totalWeight;
-        for (uint256 i = 0; i < reqsLength;) {
-            Types.Asset memory asset = reqs[i].asset;
-            // forge-lint: disable-next-line(asm-keccak256)
-            bytes32 assetHash = keccak256(abi.encode(asset.kind, asset.token));
-            uint16 committed = _serviceSecurityCommitmentBps[serviceId][operator][assetHash];
-            if (committed == 0) {
-                unchecked {
-                    ++i;
-                }
-                continue;
-            }
-
-            (uint256 allScore, uint256 fixedScore) =
-                IServiceFeeDistributor(serviceFeeDistributor).getPoolScore(operator, blueprintId, asset);
-            uint256 totalScore = allScore + fixedScore;
-            if (totalScore == 0) {
-                unchecked {
-                    ++i;
-                }
-                continue;
-            }
-
-            uint256 weight = totalScore;
-            if (useOracle) {
-                address token = asset.kind == Types.AssetKind.Native ? address(0) : asset.token;
-                weight = oracle.toUSD(token, totalScore);
-            }
-            if (weight == 0) {
-                unchecked {
-                    ++i;
-                }
-                continue;
-            }
-
-            weightedCommitted += Math.mulDiv(weight, committed, BPS_DENOMINATOR);
-            totalWeight += weight;
-            unchecked {
-                ++i;
-            }
-        }
-
-        if (totalWeight == 0) return BPS_DENOMINATOR;
-        exposureBps = uint16(Math.mulDiv(weightedCommitted, BPS_DENOMINATOR, totalWeight));
-        if (exposureBps > BPS_DENOMINATOR) exposureBps = BPS_DENOMINATOR;
-    }
+    // NOTE: the former `_computeServiceCommitmentExposureBps` helper (which averaged
+    // the per-asset `commitment.exposureBps` and folded it into `effectiveSlashBps`
+    // at propose time) was removed. The per-asset commitment exposure is now applied
+    // exactly once, in `_staking.slashForService`. Re-introducing any commitment-
+    // exposure scaling in `proposeSlash` would double-count exposure and under-slash
+    // the operator (F-COORD-001 / F-REPRO-001).
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DISPUTE
@@ -253,9 +175,24 @@ abstract contract Slashing is Base {
         bool isAdmin = hasRole(SLASH_ADMIN_ROLE, msg.sender);
 
         // A blueprint can designate a custom dispute resolver via its BSM `queryDisputeOrigin`
-        // hook (symmetric to `querySlashingOrigin` gating proposals). The dispute origin is a
-        // trusted, blueprint-scoped escalation path, so it disputes bondless like SLASH_ADMIN.
-        bool isDisputeOrigin = false;
+        // hook (symmetric to `querySlashingOrigin` gating proposals).
+        //
+        // Two distinct properties are tracked here:
+        //   * `senderIsDisputeOrigin` — the caller IS the blueprint's configured dispute origin.
+        //     This is an AUTHORIZATION property: such a caller may dispute at all.
+        //   * `disputeOriginIsBondless` — that authorized dispute origin additionally gets the
+        //     SLASH_ADMIN-style bondless escalation. This is a BOND-EXEMPTION property and is
+        //     granted ONLY when the slash it disputes was NOT created by that same blueprint's
+        //     authority (see `_proposerIsBlueprintControlled`).
+        //
+        // Splitting the two closes the griefing vector: when the proposing side and the
+        // dispute-origin side are BOTH blueprint-controlled, the "dispute" is not adversarial —
+        // it is the same party extending the operator's stake freeze for the whole
+        // `disputeResolutionDeadline` window for FREE, defeating the anti-griefing bond. In that
+        // case the dispute origin is still allowed to dispute, but it must post the bond like any
+        // ordinary disputer; it does not get the free freeze.
+        bool senderIsDisputeOrigin = false;
+        bool disputeOriginIsBondless = false;
         {
             Types.Service storage dsvc = _getService(proposal.serviceId);
             address bpManager = _blueprints[dsvc.blueprintId].manager;
@@ -267,27 +204,76 @@ abstract contract Slashing is Base {
                 );
                 if (ok && ret.length >= 32) {
                     address disputeOrigin = abi.decode(ret, (address));
-                    isDisputeOrigin = disputeOrigin != address(0) && msg.sender == disputeOrigin;
+                    senderIsDisputeOrigin = disputeOrigin != address(0) && msg.sender == disputeOrigin;
+                    disputeOriginIsBondless = senderIsDisputeOrigin
+                        && !_proposerIsBlueprintControlled(proposal.proposer, dsvc, bpManager, proposal.serviceId);
                 }
             }
         }
 
-        if (msg.sender != proposal.operator && !isAdmin && !isDisputeOrigin) {
+        // Authorization: operator, SLASH_ADMIN, or the blueprint's configured dispute origin.
+        if (msg.sender != proposal.operator && !isAdmin && !senderIsDisputeOrigin) {
             revert Errors.NotSlashDisputer(slashId, msg.sender);
         }
-        // The proposer cannot also dispute their own slash: either privileged path (admin or
-        // dispute origin) would otherwise let one account freeze operator stake for the whole
-        // resolution window for free, then capture the bond on auto-execution.
-        if ((isAdmin || isDisputeOrigin) && msg.sender == proposal.proposer) {
+        // The proposer can never dispute their OWN slash via a privileged path (SLASH_ADMIN or a
+        // blueprint-configured dispute origin). Self-disputing is incoherent and would let one
+        // account freeze operator stake for the whole resolution window, then capture the bond on
+        // auto-execution. This holds regardless of the bonded/bondless distinction: a proposer who
+        // is also the dispute origin is still the same adversarial party. The separate
+        // bondless-griefing vector (a DIFFERENT blueprint-controlled address disputing for free) is
+        // closed independently by the disputeOriginIsBondless bond requirement below.
+        if (msg.sender == proposal.proposer && (isAdmin || senderIsDisputeOrigin)) {
             revert Errors.Unauthorized();
         }
 
-        uint256 requiredBond = (isAdmin || isDisputeOrigin) ? 0 : _slashState.config.disputeBond;
+        // Bond exemption applies only to SLASH_ADMIN and a BONDLESS dispute origin. A dispute
+        // origin that lost the bondless path (blueprint-authored slash) pays the bond.
+        uint256 requiredBond = (isAdmin || disputeOriginIsBondless) ? 0 : _slashState.config.disputeBond;
         if (msg.value != requiredBond) {
             revert Errors.InvalidMsgValue(requiredBond, msg.value);
         }
 
         SlashingLib.disputeSlash(_slashProposals, _slashState.config, slashId, msg.sender, reason, msg.value);
+    }
+
+    /// @dev True when `proposer` is an account THIS blueprint controls: the blueprint owner or
+    ///      the address the BSM currently returns from `querySlashingOrigin`. Used to deny the
+    ///      bondless dispute-origin path on a slash the blueprint itself authored — otherwise the
+    ///      blueprint sits on BOTH sides of the dispute (it supplied the slashing origin AND the
+    ///      dispute origin) and can freeze an operator's stake for the full resolution window for
+    ///      free, defeating the anti-griefing bond.
+    ///
+    ///      The service owner (`dsvc.owner`) is intentionally NOT treated as blueprint-controlled:
+    ///      it is the service requester (a user), a distinct party from the blueprint. A slash a
+    ///      service owner proposed, disputed bondless by a blueprint-supplied neutral dispute
+    ///      contract, is a legitimate adversarial escalation and keeps the bondless path.
+    ///
+    ///      The staticcall is gas-capped and revert-safe; on hook failure we conservatively treat
+    ///      the proposer as blueprint-controlled (deny bondless), since a manager that cannot
+    ///      answer cannot vouch for the proposer's neutrality (fail-closed).
+    function _proposerIsBlueprintControlled(
+        address proposer,
+        Types.Service storage dsvc,
+        address bpManager,
+        uint64 serviceId
+    )
+        internal
+        view
+        returns (bool)
+    {
+        if (proposer == _blueprints[dsvc.blueprintId].owner) {
+            return true;
+        }
+        (bool ok, bytes memory ret) = _tryStaticcallManager(
+            bpManager, abi.encodeWithSelector(IBlueprintServiceManager.querySlashingOrigin.selector, serviceId), 32
+        );
+        if (!ok || ret.length < 32) {
+            // Manager unreachable / wrong shape: cannot prove the proposer is neutral, so deny
+            // the bondless path (fail-closed).
+            return true;
+        }
+        address slashingOrigin = abi.decode(ret, (address));
+        return slashingOrigin != address(0) && proposer == slashingOrigin;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -562,16 +548,39 @@ abstract contract Slashing is Base {
 
         address payable t = _treasury;
         if (t == address(0)) {
-            // Treasury unset — restore the bond on the proposal so it can be settled
-            // once a treasury is configured, rather than silently stranding ETH.
-            proposal.disputeBond = bond;
-            proposal.disputer = disputer;
+            // Treasury unset on the forfeit path. This branch is only reachable with
+            // `refund == false` (cancelSlash returns early via the refund branch above),
+            // and by the time `executeSlash`/`executeSlashBatch` call us the proposal is
+            // already `Executed` — so restoring the bond onto the proposal would strand it
+            // permanently (`isExecutable` is false for `Executed`; nothing re-runs this).
+            // With no treasury to receive the forfeit, fall back to crediting the disputer
+            // via the pull mapping: a real, known claimant recovers the ETH instead of it
+            // being locked forever. (Production deploys always set a treasury; this is the
+            // fail-safe for a misconfigured/zeroed treasury.)
+            if (disputer != address(0)) {
+                _pendingDisputeBondRefunds[disputer] += bond;
+                emit DisputeBondCredited(disputer, bond);
+            } else {
+                // No treasury and no disputer to credit — restore on the proposal as a last
+                // resort (unreachable in practice: a forfeit implies a disputer posted bond).
+                proposal.disputeBond = bond;
+                proposal.disputer = disputer;
+            }
             return;
         }
         (bool ok,) = t.call{ value: bond }("");
         if (!ok) {
-            proposal.disputeBond = bond;
-            proposal.disputer = disputer;
+            // Treasury push failed (e.g. a reverting/gas-griefing treasury contract). The
+            // slash has already finalized to `Executed` by the time `executeSlash` calls us,
+            // so restoring the bond onto the proposal would strand it permanently:
+            // `isExecutable` returns false for `Executed`, so no later call ever re-runs this
+            // settlement. Instead, credit the forfeited bond to the treasury via the existing
+            // pull-claimable mapping. The treasury (a protocol-controlled address) drains it
+            // with `claimDisputeBond()`, giving forfeited bonds the same recovery path that
+            // refunds already have. We do NOT restore `disputer`/`disputeBond` on the proposal:
+            // ownership of the forfeited bond now belongs to the treasury, not the disputer.
+            _pendingDisputeBondRefunds[t] += bond;
+            emit DisputeBondCredited(t, bond);
         }
     }
 

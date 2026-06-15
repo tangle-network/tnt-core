@@ -54,14 +54,16 @@ contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
         require(_rewardMultiplierBps <= MAX_REWARD_MULTIPLIER_BPS, "multiplier too high");
         bytes32 assetHash = _assetHash(Types.Asset(Types.AssetKind.ERC20, token));
 
-        _assetConfigs[assetHash] = Types.AssetConfig({
-            enabled: true,
-            minOperatorStake: _minOperatorStake,
-            minDelegation: _minDelegation,
-            depositCap: _depositCap,
-            currentDeposits: 0,
-            rewardMultiplierBps: _rewardMultiplierBps
-        });
+        // Preserve currentDeposits across (re-)enable. Re-enabling a disabled-but-live
+        // asset, or re-configuring a live one, must NOT reset the deposit counter:
+        // DepositManager decrements currentDeposits with checked arithmetic on every
+        // withdrawal, so zeroing it here would underflow and brick all holders.
+        Types.AssetConfig storage config = _assetConfigs[assetHash];
+        config.enabled = true;
+        config.minOperatorStake = _minOperatorStake;
+        config.minDelegation = _minDelegation;
+        config.depositCap = _depositCap;
+        config.rewardMultiplierBps = _rewardMultiplierBps;
         _enabledErc20s.add(token);
 
         emit AssetEnabled(token, _minOperatorStake, _minDelegation);
@@ -164,16 +166,15 @@ contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
         _assetAdapters[token] = adapter;
         emit AdapterRegistered(token, adapter);
 
-        // Enable asset
+        // Enable asset. Preserve currentDeposits across (re-)enable for the same reason
+        // as enableAsset: zeroing a live counter would underflow withdrawals.
         bytes32 assetHash = _assetHash(Types.Asset(Types.AssetKind.ERC20, token));
-        _assetConfigs[assetHash] = Types.AssetConfig({
-            enabled: true,
-            minOperatorStake: _minOperatorStake,
-            minDelegation: _minDelegation,
-            depositCap: _depositCap,
-            currentDeposits: 0,
-            rewardMultiplierBps: _rewardMultiplierBps
-        });
+        Types.AssetConfig storage config = _assetConfigs[assetHash];
+        config.enabled = true;
+        config.minOperatorStake = _minOperatorStake;
+        config.minDelegation = _minDelegation;
+        config.depositCap = _depositCap;
+        config.rewardMultiplierBps = _rewardMultiplierBps;
         _enabledErc20s.add(token);
 
         emit AssetEnabled(token, _minOperatorStake, _minDelegation);

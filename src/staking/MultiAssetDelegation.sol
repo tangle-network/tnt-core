@@ -78,7 +78,14 @@ contract MultiAssetDelegation is
         leaveOperatorsDelay = ProtocolConfig.OPERATOR_DELAY_ROUNDS;
     }
 
-    function _authorizeFacetRegistryChange() internal view override onlyRole(ADMIN_ROLE) { }
+    /// @dev Facet-registry writes route arbitrary selectors to `delegatecall`-ed facet
+    ///      code that runs in THIS contract's storage context (see FacetRouterBase),
+    ///      making the registry a logic-replacement path functionally equivalent to a
+    ///      UUPS upgrade. It therefore must be gated by the SAME role as `_authorizeUpgrade`
+    ///      (UPGRADER_ROLE, held by the timelock post-handoff) — not the lower-trust
+    ///      ADMIN_ROLE, which would otherwise be a second, under-gated upgrade path
+    ///      enabling ADMIN_ROLE -> arbitrary-code privilege escalation.
+    function _authorizeFacetRegistryChange() internal view override onlyRole(UPGRADER_ROLE) { }
 
     function _getFacetForSelector(bytes4 selector) internal view override returns (address) {
         return _facetForSelector[selector];

@@ -21,6 +21,11 @@ contract StakingAdminFacet is StakingFacetBase, IFacetSelectors {
     event CommissionChangeExecuted(uint16 oldBps, uint16 newBps);
     event CommissionChangeCancelled(uint16 cancelledBps);
 
+    /// @notice Emitted when the Tangle core reference is rotated.
+    /// @param previousTangle The prior Tangle core that just had TANGLE_ROLE revoked
+    /// @param newTangle The new Tangle core that was granted TANGLE_ROLE
+    event TangleCoreRotated(address indexed previousTangle, address indexed newTangle);
+
     function selectors() external pure returns (bytes4[] memory selectorList) {
         selectorList = new bytes4[](16);
         selectorList[0] = this.addSlasher.selector;
@@ -56,11 +61,33 @@ contract StakingAdminFacet is StakingFacetBase, IFacetSelectors {
     /// @dev Tangle holds broad write access (slashing, blueprint management). Only
     ///      set to the verified Tangle core contract; route changes through a
     ///      timelock in production deployments.
+    ///
+    ///      Rotating the Tangle core REVOKES TANGLE_ROLE from the previously
+    ///      configured core before granting it to the new one. Without this, a
+    ///      stale core retains TANGLE_ROLE and can keep calling
+    ///      add/removeBlueprintForOperator after governance has rotated away from
+    ///      it. The prior holder is read from `_tangleCore` (the single source of
+    ///      truth for the active core), so no additional storage is required and no
+    ///      out-of-band tracking can drift from the granted role.
     /// @param tangle Address of the Tangle contract
     function setTangle(address tangle) external onlyRole(ADMIN_ROLE) {
-        _grantRole(TANGLE_ROLE, tangle);
-        // Store Tangle reference for operator active service checks
+        address previous = _tangleCore;
+        if (previous == tangle) {
+            // No-op rotation: keep state idempotent and avoid revoking the role
+            // we are about to (re)grant to the same address.
+            return;
+        }
+        // Revoke the stale core's TANGLE_ROLE before granting it to the new core,
+        // so exactly one core holds blueprint/slashing write access at a time.
+        if (previous != address(0)) {
+            _revokeRole(TANGLE_ROLE, previous);
+        }
+        if (tangle != address(0)) {
+            _grantRole(TANGLE_ROLE, tangle);
+        }
+        // Store Tangle reference for operator active service checks.
         _tangleCore = tangle;
+        emit TangleCoreRotated(previous, tangle);
     }
 
     /// @notice Change the operator commission rate.

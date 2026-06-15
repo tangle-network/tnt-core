@@ -641,6 +641,32 @@ contract GovernanceUpgradeTest is Test {
         vm.roll(block.number + 1);
     }
 
+    /// @notice Regression: deployGovernance is owner-gated. The bootstrap transiently
+    ///         holds the timelock DEFAULT_ADMIN and grants PROPOSER/EXECUTOR/CANCELLER
+    ///         (GovernanceDeployer._configureTimelockRoles), so per the contract's stated
+    ///         invariant it must be callable only by the deployer-owner. A non-owner caller
+    ///         must revert NotOwner before any privileged role is exercised.
+    function test_DeployGovernance_RevertsForNonOwner() public {
+        vm.prank(admin);
+        GovernanceDeployer deployer = new GovernanceDeployer(); // owner == admin
+
+        GovernanceDeployer.DeployParams memory params = GovernanceDeployer.DeployParams({
+            tokenAdmin: admin,
+            initialTokenSupply: 1_000_000 * 1e18,
+            existingToken: address(0),
+            timelockDelay: 1 days,
+            votingDelay: 10,
+            votingPeriod: 100,
+            proposalThreshold: 100 * 1e18,
+            quorumPercent: 1
+        });
+
+        address attacker = address(0xBAD);
+        vm.prank(attacker);
+        vm.expectRevert(abi.encodeWithSelector(GovernanceDeployer.NotOwner.selector, attacker, admin));
+        deployer.deployGovernance(params);
+    }
+
     function test_GovernorSelfUpgrade() public {
         // Deploy new implementation
         TangleGovernor newImpl = new TangleGovernor();

@@ -17,6 +17,13 @@ abstract contract DelegationManagerLib is OperatorManager {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
 
+    /// @notice Thrown when a Fixed-mode delegation references a blueprint the operator is not
+    ///         registered for. Such a pool can never be the target of a real slash (executeSlash
+    ///         always slashes the offending service's own blueprint, which the operator runs), so
+    ///         the stake would be permanently slash-immune. Declared locally to avoid touching the
+    ///         shared DelegationErrors library.
+    error BlueprintNotRegisteredForOperator(address operator, uint64 blueprintId);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -211,6 +218,13 @@ abstract contract DelegationManagerLib is OperatorManager {
             blueprintShares = new uint256[](blueprintIds.length);
             uint256 remaining = amount;
             for (uint256 i = 0; i < blueprintIds.length; i++) {
+                // Fail closed: only allow Fixed-mode exposure to blueprints the operator is
+                // actually registered for. Otherwise the stake lands in a `_blueprintPools` pool
+                // that no real slash can ever reach (audit MED), permanently evading slashing.
+                if (!_operatorBlueprints[operator].contains(blueprintIds[i])) {
+                    revert BlueprintNotRegisteredForOperator(operator, blueprintIds[i]);
+                }
+
                 uint256 splitAmount = i == blueprintIds.length - 1 ? remaining : amount / blueprintIds.length;
                 remaining -= splitAmount;
 
@@ -434,6 +448,17 @@ abstract contract DelegationManagerLib is OperatorManager {
         (uint256 sharesToUnstake, Types.BlueprintSelectionMode selectionMode) =
             _previewDelegatorUnstakeShares(msg.sender, operator, assetHash, amount);
 
+        // Snapshot the deposit COST-BASIS of the shares being unstaked, not their current value.
+        // `dep.delegatedAmount` is the nominal principal the delegator committed (unaffected by
+        // slashing — slashing only reduces pool `totalAssets`). When the position later closes we
+        // must remove its full cost-basis from `delegatedAmount` and write off the realized slash
+        // loss (`costBasis - amountToReturn`) against `dep.amount` / `currentDeposits`. Snapshotting
+        // the cost-basis (rather than the post-slash value) is what makes the write-off correct even
+        // when the slash happened BEFORE the unstake was scheduled (audit LOW: slash strands deposit
+        // principal). We repurpose the already-reserved `slashFactorSnapshot` slot — no new storage,
+        // no migration.
+        uint256 costBasisSnapshot = _delegatedCostBasisForShares(msg.sender, operator, assetHash, sharesToUnstake);
+
         _unstakeRequests[msg.sender].push(
             Types.BondLessRequest({
                 operator: operator,
@@ -441,7 +466,7 @@ abstract contract DelegationManagerLib is OperatorManager {
                 shares: sharesToUnstake, // Store shares, not amount
                 requestedRound: currentRound,
                 selectionMode: selectionMode,
-                slashFactorSnapshot: 0
+                slashFactorSnapshot: costBasisSnapshot
             })
         );
 
@@ -511,12 +536,14 @@ abstract contract DelegationManagerLib is OperatorManager {
                         // between request time and execution. Cap shares to burn at available.
                         d.shares = req.shares > d.shares ? 0 : d.shares - req.shares;
 
-                        // Update deposit (with actual amount returned)
+                        // Settle deposit accounting: remove the cost-basis of the unstaked shares
+                        // from `delegatedAmount` and write off any realized slash loss against
+                        // `dep.amount` / `currentDeposits`, so slashed principal cannot strand
+                        // (audit LOW: "slash strands deposit principal").
                         Types.Deposit storage dep = _deposits[msg.sender][assetHash];
-                        // Cap at delegatedAmount to handle slashing edge cases
-                        uint256 depReduction =
-                            amountToReturn > dep.delegatedAmount ? dep.delegatedAmount : amountToReturn;
-                        dep.delegatedAmount -= depReduction;
+                        _settleDelegatedCostBasis(
+                            msg.sender, assetHash, dep, req.slashFactorSnapshot, amountToReturn
+                        );
 
                         // Remove delegation if zero shares
                         if (d.shares == 0) {
@@ -578,6 +605,98 @@ abstract contract DelegationManagerLib is OperatorManager {
                 bpShare > currentBpShares ? 0 : currentBpShares - bpShare;
         }
     }
+
+    /// @notice Compute the deposit cost-basis attributable to `shares` of a delegator's position.
+    /// @dev `dep.delegatedAmount` is the nominal principal committed to ALL delegations of this asset
+    ///      (slashing never touches it). We attribute it across the delegator's positions in
+    ///      proportion to their shares, so unstaking `shares` removes the matching slice of
+    ///      cost-basis WITHOUT eating into the cost-basis of the delegator's other positions on the
+    ///      same asset (different operators). With a single position per asset this is exact; with
+    ///      several it is a bounded, conserved proportional estimate (the sum over all positions
+    ///      equals `delegatedAmount`), and every downstream write-off is clamped to live balances so
+    ///      it can never underflow or destroy un-slashed principal.
+    function _delegatedCostBasisForShares(
+        address delegator,
+        address operator,
+        bytes32 assetHash,
+        uint256 shares
+    )
+        private
+        view
+        returns (uint256 costBasis)
+    {
+        uint256 positionShares = 0;
+        uint256 totalAssetShares = 0;
+        Types.BondInfoDelegator[] storage delegations = _delegations[delegator];
+        for (uint256 i = 0; i < delegations.length; i++) {
+            Types.BondInfoDelegator storage d = delegations[i];
+            if (_assetHash(d.asset) != assetHash) continue;
+            totalAssetShares += d.shares;
+            if (d.operator == operator) positionShares = d.shares;
+        }
+        if (positionShares == 0 || totalAssetShares == 0) return 0;
+
+        uint256 delegatedAmount = _deposits[delegator][assetHash].delegatedAmount;
+        // Clamp the unstaked shares to this position's shares for the attribution ratio.
+        uint256 attributableShares = shares > positionShares ? positionShares : shares;
+
+        // If this is the delegator's only position for the asset and it is fully exiting, attribute
+        // the entire remaining cost-basis (avoids leaving rounding dust behind on full close).
+        if (attributableShares == totalAssetShares) return delegatedAmount;
+
+        costBasis = (delegatedAmount * attributableShares) / totalAssetShares;
+    }
+
+    /// @notice Settle a delegator's deposit accounting when an unstake executes.
+    /// @dev `costBasis` is the nominal principal attributable to the unstaked shares, snapshotted at
+    ///      schedule time (`BondLessRequest.slashFactorSnapshot`). `realizedAmount` is the value
+    ///      actually returned at the current exchange rate.
+    ///      1. The cost-basis is removed from `dep.delegatedAmount` (the position's committed
+    ///         principal is no longer delegated).
+    ///      2. Any realized slash loss (`costBasis - realizedAmount`) is destroyed principal: it is
+    ///         written off `dep.amount` and the asset's `currentDeposits` so it cannot inflate the
+    ///         deposit cap or leave un-withdrawable phantom balance.
+    ///      Every decrement is clamped to the live balance, so this can never underflow or destroy
+    ///      principal that was not actually slashed.
+    ///      LEGACY FALLBACK: requests scheduled by a pre-upgrade implementation carry
+    ///      `costBasis == 0`; for those we reproduce the original `min(realized, delegatedAmount)`
+    ///      behavior so an in-flight unstake settles correctly across a UUPS upgrade.
+    function _settleDelegatedCostBasis(
+        address delegator,
+        bytes32 assetHash,
+        Types.Deposit storage dep,
+        uint256 costBasis,
+        uint256 realizedAmount
+    )
+        private
+    {
+        if (costBasis == 0) {
+            // Pre-upgrade request (no cost-basis snapshot): legacy behavior.
+            uint256 legacyReduction = realizedAmount > dep.delegatedAmount ? dep.delegatedAmount : realizedAmount;
+            dep.delegatedAmount -= legacyReduction;
+            return;
+        }
+
+        // (1) Remove cost-basis from the delegated principal.
+        uint256 delReduction = costBasis > dep.delegatedAmount ? dep.delegatedAmount : costBasis;
+        dep.delegatedAmount -= delReduction;
+
+        // (2) Write off realized slash loss against deposit principal + cap accounting.
+        if (costBasis <= realizedAmount) return;
+        uint256 slashLoss = costBasis - realizedAmount;
+        uint256 byAmount = slashLoss > dep.amount ? dep.amount : slashLoss;
+        uint256 cur = _assetConfigs[assetHash].currentDeposits;
+        uint256 applied = byAmount > cur ? cur : byAmount;
+        if (applied == 0) return;
+
+        dep.amount -= applied;
+        _assetConfigs[assetHash].currentDeposits = cur - applied;
+
+        emit SlashedPrincipalReconciled(delegator, assetHash, applied);
+    }
+
+    /// @notice Emitted when realized slash loss is cleared out of a delegator's deposit accounting.
+    event SlashedPrincipalReconciled(address indexed delegator, bytes32 indexed assetHash, uint256 amount);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // VIEW FUNCTIONS
@@ -857,6 +976,22 @@ abstract contract DelegationManagerLib is OperatorManager {
             revert DelegationErrors.NotFixedMode();
         }
 
+        // Same fail-closed check as the initial Fixed-mode delegation path: a delegator may only
+        // add exposure to a blueprint the operator is actually registered for, otherwise the new
+        // pool is permanently slash-immune (audit MED).
+        if (!_operatorBlueprints[d.operator].contains(blueprintId)) {
+            revert BlueprintNotRegisteredForOperator(d.operator, blueprintId);
+        }
+
+        // Invariant: while a slash is pending against the operator, a Fixed-mode delegator may
+        // not rebalance stake between blueprint pools. Fixed-mode slashing is per-blueprint, so
+        // rebalancing physically moves `totalAssets` out of the pending-slash target pool and into
+        // safe pools, evading the slash and socializing the loss onto honest pool delegators. This
+        // mirrors the dispute-window lock already enforced on every unstake/exit path.
+        if (_operatorPendingSlashCount[d.operator] > 0) {
+            revert DelegationErrors.PendingSlashExists(d.operator, _operatorPendingSlashCount[d.operator]);
+        }
+
         uint64[] storage blueprints = _delegationBlueprints[msg.sender][delegationIndex];
 
         // Check if blueprint already selected
@@ -919,6 +1054,15 @@ abstract contract DelegationManagerLib is OperatorManager {
         // Only Fixed mode delegations can modify blueprints
         if (d.selectionMode != Types.BlueprintSelectionMode.Fixed) {
             revert DelegationErrors.NotFixedMode();
+        }
+
+        // Invariant: while a slash is pending against the operator, a Fixed-mode delegator may
+        // not rebalance stake between blueprint pools. `removeBlueprintFromDelegation` zeroes the
+        // removed pool's position and redistributes its `totalAssets` into the remaining pools; if
+        // the removed blueprint is the pending-slash target the slash collects nothing. Locking
+        // this path during the dispute window mirrors the unstake/exit guards.
+        if (_operatorPendingSlashCount[d.operator] > 0) {
+            revert DelegationErrors.PendingSlashExists(d.operator, _operatorPendingSlashCount[d.operator]);
         }
 
         uint64[] storage blueprints = _delegationBlueprints[msg.sender][delegationIndex];

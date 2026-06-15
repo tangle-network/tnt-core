@@ -16,6 +16,10 @@ import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 abstract contract QuotesCreate is Base {
     using EnumerableSet for EnumerableSet.AddressSet;
 
+    /// @notice A quote's signed exposureBps exceeded the basis-point denominator (100%).
+    /// @dev Declared locally per the quote-signing fix scope (shared Errors lib is off-limits).
+    error QuoteExposureExceedsMax(address operator, uint16 exposureBps, uint16 maxBps);
+
     struct QuoteActivation {
         uint64 serviceId;
         uint256 totalExposure;
@@ -169,8 +173,18 @@ abstract contract QuotesCreate is Base {
         returns (uint256 totalCost)
     {
         uint64 effectiveMaxQuoteAge = _maxQuoteAge > 0 ? _maxQuoteAge : ProtocolConfig.MAX_QUOTE_AGE;
+        // Create quotes must be signed with operation == Create and serviceId == 0 so an
+        // extension quote (low marginal cost) cannot be redeemed as a new service creation.
         (totalCost,) = SignatureLib.verifyQuoteBatch(
-            _usedQuotes, _domainSeparatorView(), quotes, blueprintId, ttl, msg.sender, effectiveMaxQuoteAge
+            _usedQuotes,
+            _domainSeparatorView(),
+            quotes,
+            blueprintId,
+            ttl,
+            msg.sender,
+            effectiveMaxQuoteAge,
+            Types.QuoteOperation.Create,
+            0
         );
         _ensureQuoteConfidentialityConsistent(quotes);
     }
@@ -200,6 +214,13 @@ abstract contract QuotesCreate is Base {
         Types.BlueprintConfig storage bpConfig = _blueprintConfigs[blueprintId];
         activation.confidentiality = quotes[0].details.confidentiality;
 
+        // Enforce the blueprint's min/max operator quorum, mirroring the request/approve
+        // path (ServicesRequests._validateOperatorBounds). Without this, the quote path
+        // could activate a service with fewer operators than the blueprint requires or more
+        // than the per-service ceiling that the bill/distribute/terminate loops assume.
+        uint32 minOps = bpConfig.minOperators > 0 ? bpConfig.minOperators : 1;
+        _validateQuoteOperatorBounds(bpConfig.maxOperators, uint32(operators.length), minOps);
+
         _services[activation.serviceId] = Types.Service({
             blueprintId: blueprintId,
             owner: msg.sender,
@@ -216,7 +237,8 @@ abstract contract QuotesCreate is Base {
             status: Types.ServiceStatus.Active
         });
 
-        activation.totalExposure = _processOperatorQuotes(activation.serviceId, operators, exposures, quotes);
+        activation.totalExposure =
+            _processOperatorQuotes(blueprintId, activation.serviceId, operators, exposures, quotes);
 
         emit ServiceActivated(activation.serviceId, 0, blueprintId, activation.confidentiality);
         _recordServiceCreated(activation.serviceId, blueprintId, msg.sender, operators.length);
@@ -273,6 +295,7 @@ abstract contract QuotesCreate is Base {
     /// @notice Process operator quotes and register them for the service
     /// @dev Extracted to separate function to avoid stack too deep
     function _processOperatorQuotes(
+        uint64 blueprintId,
         uint64 serviceId,
         address[] memory operators,
         uint16[] memory exposures,
@@ -289,6 +312,14 @@ abstract contract QuotesCreate is Base {
             _serviceOperatorSet[serviceId].add(operators[i]);
             totalExposure += exposure;
 
+            // INVARIANT: every operator backing a live service — including RFQ/quote
+            // services — must be counted in _operatorActiveServiceCount so the
+            // unregisterOperator and startLeaving() active-service guards block them
+            // from pulling stake while the service is Active. Mirrors the standard
+            // request/approve activation path (TangleServicesFacet); _terminateService
+            // decrements this for every operator in _serviceOperatorSet on termination.
+            _operatorActiveServiceCount[blueprintId][operators[i]]++;
+
             // Store resource commitment hash for QoS dispute evidence
             Types.ResourceCommitment[] calldata resources = quotes[i].details.resourceCommitments;
             if (resources.length > 0) {
@@ -304,13 +335,37 @@ abstract contract QuotesCreate is Base {
         return _serviceResourceCommitmentHash[serviceId][operator];
     }
 
+    /// @notice Validate the quote-path operator count against blueprint min and the protocol max.
+    /// @dev Mirrors ServicesRequests._validateOperatorBounds (which is private there). A
+    ///      `maxOperators == 0` blueprint config means "unlimited" and clamps to the
+    ///      governance-tunable `_maxOperatorsPerService` ceiling so every per-operator loop
+    ///      in the bill/distribute/terminate paths stays bounded.
+    function _validateQuoteOperatorBounds(uint32 maxOperators, uint32 operatorCount, uint32 minOps) private view {
+        if (operatorCount < minOps) {
+            revert Errors.InsufficientOperators(minOps, operatorCount);
+        }
+        uint32 protocolCeiling = _maxOperatorsPerService;
+        uint32 effectiveMax = (maxOperators == 0 || maxOperators > protocolCeiling) ? protocolCeiling : maxOperators;
+        if (operatorCount > effectiveMax) {
+            revert Errors.TooManyOperators(effectiveMax, operatorCount);
+        }
+    }
+
     function _quoteExposure(Types.SignedQuote calldata quote) private pure returns (uint16) {
         Types.QuoteDetails calldata details = quote.details;
         Types.AssetSecurityCommitment[] calldata commitments = details.securityCommitments;
         if (commitments.length == 0) {
             return BPS_DENOMINATOR;
         }
-        return commitments[0].exposureBps;
+        uint16 exposure = commitments[0].exposureBps;
+        // Mirror the request-path bound (ServicesRequests._validateOperators). A signed
+        // exposureBps is stored verbatim into _serviceOperators and used as the payment
+        // weight; without this clamp an operator could sign exposureBps far above 100%
+        // (e.g. 65535) and over-collect during subscription/event billing.
+        if (exposure > BPS_DENOMINATOR) {
+            revert QuoteExposureExceedsMax(quote.operator, exposure, BPS_DENOMINATOR);
+        }
+        return exposure;
     }
 
     /// @notice Distribute payment from quotes - to be implemented in final contract

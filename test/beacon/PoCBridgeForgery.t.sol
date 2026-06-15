@@ -143,37 +143,41 @@ contract PoCBridgeForgery is Test {
 
         assertEq(slasher.slashCount(), 0, "no slash yet");
 
-        // Anyone may call sendMessage: no caller authorization on the adapter.
+        // FIX VERIFIED: sendMessage is now gated to owner/authorized relayers (the
+        // L2SlashingConnector). An unauthorized attacker can no longer borrow the adapter's
+        // authenticated L1 identity, so the forged slash reverts before any delivery.
+        // (Cache BASE_CHAIN_ID() before the prank — calling it would otherwise consume the
+        // prank and run sendMessage as the test contract, which IS the owner.)
+        uint256 baseChainId = adapter.BASE_CHAIN_ID();
         vm.prank(attacker);
-        adapter.sendMessage(adapter.BASE_CHAIN_ID(), address(receiver), payload, 100_000);
+        vm.expectRevert(abi.encodeWithSelector(BaseCrossChainMessenger.UnauthorizedSender.selector, attacker));
+        adapter.sendMessage(baseChainId, address(receiver), payload, 100_000);
 
-        assertEq(slasher.slashCount(), 1, "forged slash was applied");
-        assertEq(slasher.lastOperator(), victimOperator, "attacker-chosen victim operator slashed");
-        assertEq(slasher.lastSlashBps(), forgedBps, "attacker-chosen slashBps applied");
-        assertEq(receiver.beaconSlashTotal(victimOperator), forgedBps, "beacon slash recorded");
-
-        emit log_named_address("forged victim operator", slasher.lastOperator());
-        emit log_named_uint("forged slashBps applied (no beacon proof)", slasher.lastSlashBps());
+        assertEq(slasher.slashCount(), 0, "no forged slash: adapter rejects unauthorized sender");
     }
 
-    /// @notice DIRECT forged delivery exactly as the finding describes: set the mock's
-    ///         xDomainMessageSender to the adapter address and invoke receiveMessage
-    ///         through the mock with the attacker in the calldata `sender` slot.
-    function test_AttackerForgesSlash_ViaForgedDelivery() public {
+    /// @notice The receiver authenticates the L1 origin via xDomainMessageSender == the
+    ///         registered adapter. A delivery whose xDomainMessageSender is NOT the adapter
+    ///         is rejected. On real OP-Stack the messenger reports the TRUE L1 caller, so
+    ///         an `xDomainMessageSender == adapter` delivery can only originate from the
+    ///         adapter itself — and the adapter now gates sendMessage to authorized relayers
+    ///         (see the EndToEnd test). Faking xDomainMessageSender == adapter for a message
+    ///         the adapter never relayed is not reachable on mainnet (it would require
+    ///         compromising the OP CrossDomainMessenger, which is outside the trust model).
+    function test_ForgedDelivery_FromNonAdapter_IsRejected() public {
         uint16 forgedBps = 5000;
         bytes memory payload = _forgedPayload(forgedBps, 42);
 
-        // Forge the delivery: present the adapter as the authenticated L1 sender while the
-        // calldata `sender` is the attacker (opStack mode ignores it).
+        // Attacker presents THEMSELF as the L1 sender (the only thing they can actually do
+        // on real OP-Stack). The receiver's xDomainMessageSender == adapter check rejects it.
         vm.prank(attacker);
+        vm.expectRevert();
         mockMessenger.relayCall(
-            address(adapter),
+            address(attacker),
             address(receiver),
             abi.encodeCall(L2SlashingReceiver.receiveMessage, (srcChainId, attacker, payload))
         );
 
-        assertEq(slasher.slashCount(), 1, "forged slash applied via direct delivery");
-        assertEq(slasher.lastOperator(), victimOperator, "victim operator slashed");
-        assertEq(slasher.lastSlashBps(), forgedBps, "attacker-chosen slashBps applied");
+        assertEq(slasher.slashCount(), 0, "no slash: receiver rejects non-adapter L1 origin");
     }
 }

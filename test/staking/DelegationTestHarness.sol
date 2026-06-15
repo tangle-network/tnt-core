@@ -353,7 +353,7 @@ abstract contract DelegationTestHarness is Test {
         uint256 startTime = block.timestamp;
         for (uint64 i = 0; i < count; i++) {
             vm.warp(startTime + (i + 1) * roundDuration);
-            delegation.advanceRound();
+            delegation.advanceRound(); // permissionless rate-limited crank (F-SLA-2)
         }
     }
 

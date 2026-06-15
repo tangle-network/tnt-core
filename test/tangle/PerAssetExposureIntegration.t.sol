@@ -161,15 +161,21 @@ contract PerAssetExposureIntegrationTest is BaseTest {
 
         uint64 serviceId = tangle.serviceCount() - 1;
 
-        // With equal stake in each asset, weighted commitment = (10000 + 1000) / 2 = 5500.
-        // Service exposure is 10000 (default), so effective exposure is 5500.
+        // Propose-time `effectiveSlashBps` carries ONLY the service-level exposure
+        // (`opData.exposureBps`), which is the default 100% (10000). The per-asset
+        // commitment exposures (native 10000, ERC20 1000) are NOT folded in here — they
+        // are applied exactly once per asset at execute time in
+        // SlashingManager._slashForService. So the weighted-commitment average (5500) is
+        // intentionally NOT reflected in effectiveSlashBps; doing so was the F-COORD-001
+        // double-count that under-slashed the operator.
+        //   effectiveSlashBps = slashBps(2000) * opData.exposureBps(10000) / 1e4 = 2000.
         uint16 slashBps = 2000;
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, slashBps, keccak256("evidence"));
 
         SlashingLib.SlashProposal memory p = tangle.getSlashProposal(slashId);
         assertEq(p.slashBps, slashBps);
-        assertEq(p.effectiveSlashBps, (uint256(slashBps) * 5500) / 10_000);
+        assertEq(p.effectiveSlashBps, (uint256(slashBps) * 10_000) / 10_000);
     }
 
     function test_ServiceFee_Distribution_RevertsWhenOraclePriceUnavailable() public {

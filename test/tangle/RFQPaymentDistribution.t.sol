@@ -645,7 +645,8 @@ contract RFQPaymentDistributionTest is BaseTest {
             price: price,
             timestamp: baseTimestamp,
             expiry: baseTimestamp + 1 hours,
-            confidentiality: 0
+            confidentiality: 0,
+            inputsHash: keccak256("")
         });
         bytes memory signature = _signJobQuote(details, OPERATOR1_PK);
 
@@ -681,7 +682,8 @@ contract RFQPaymentDistributionTest is BaseTest {
             price: price,
             timestamp: baseTimestamp,
             expiry: baseTimestamp + 1 hours,
-            confidentiality: 0
+            confidentiality: 0,
+            inputsHash: keccak256("")
         });
 
         bytes memory signature = _signJobQuote(details, privateKey);
@@ -698,7 +700,7 @@ contract RFQPaymentDistributionTest is BaseTest {
         returns (bytes memory)
     {
         bytes32 JOB_QUOTE_TYPEHASH_LOCAL = keccak256(
-            "JobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)"
+            "JobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality,bytes32 inputsHash)"
         );
 
         bytes32 domainSeparator = keccak256(
@@ -720,7 +722,8 @@ contract RFQPaymentDistributionTest is BaseTest {
                 details.price,
                 details.timestamp,
                 details.expiry,
-                details.confidentiality
+                details.confidentiality,
+                details.inputsHash
             )
         );
 

@@ -28,6 +28,17 @@ contract BlueprintSelectionTest is DelegationTestHarness {
     // HELPER FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
+    /// @notice Register blueprints for an operator (Tangle-core path; slasher holds TANGLE_ROLE
+    ///         via setTangle(slasher) in the harness). Fixed-mode delegation now fails closed unless
+    ///         the operator is registered for the blueprint, so test setup must mirror the real
+    ///         on-chain operator registration.
+    function _registerBlueprintsForOperator(address operator, uint64[] memory blueprintIds) internal {
+        for (uint256 i = 0; i < blueprintIds.length; i++) {
+            vm.prank(slasher);
+            delegation.addBlueprintForOperator(operator, blueprintIds[i]);
+        }
+    }
+
     /// @notice Deposit and delegate with Fixed mode to specific blueprints
     function _depositAndDelegateFixed(
         address delegator,
@@ -37,6 +48,8 @@ contract BlueprintSelectionTest is DelegationTestHarness {
     )
         internal
     {
+        // Operator must be registered for each selected blueprint (fail-closed Fixed-mode check).
+        _registerBlueprintsForOperator(operator, blueprintIds);
         vm.prank(delegator);
         delegation.depositAndDelegateWithOptions{ value: amount }(
             operator,
@@ -250,6 +263,10 @@ contract BlueprintSelectionTest is DelegationTestHarness {
         blueprints[0] = BLUEPRINT_1;
         _depositAndDelegateFixed(delegator1, operator1, 10 ether, blueprints);
 
+        // Operator must be registered for the blueprint before it can be added (fail-closed check).
+        vm.prank(slasher);
+        delegation.addBlueprintForOperator(operator1, BLUEPRINT_2);
+
         // Add blueprint 2
         vm.prank(delegator1);
         delegation.addBlueprintToDelegation(0, BLUEPRINT_2);
@@ -364,6 +381,7 @@ contract BlueprintSelectionTest is DelegationTestHarness {
         // Delegator1 ALSO delegates to operator2 with blueprint 2
         uint64[] memory bp2 = new uint64[](1);
         bp2[0] = BLUEPRINT_2;
+        _registerBlueprintsForOperator(operator2, bp2);
         vm.prank(delegator1);
         delegation.depositAndDelegateWithOptions{ value: 5 ether }(
             operator2, address(0), 5 ether, Types.BlueprintSelectionMode.Fixed, bp2

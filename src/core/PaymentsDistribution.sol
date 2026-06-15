@@ -423,7 +423,19 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
         private
     {
         PaymentLib.ServiceEscrow storage escrow = _serviceEscrows[serviceId];
-        if (escrow.token != token) {
+        // Invariant: the staker share may only be credited back to a real,
+        // customer-funded escrow (escrow.balance == totalDeposited - totalReleased).
+        // Non-subscription pricing (EventDriven / native PayOnce) routes job
+        // payments through this core with token == address(0) but NEVER deposits to
+        // escrow, so the struct is all-zero (totalDeposited == 0, token == 0). For a
+        // native subscription, token == escrow.token == address(0) as well, so the
+        // token check alone cannot distinguish the two. Gating on a non-zero
+        // totalDeposited is the only signal that a customer ever funded this escrow;
+        // without it the refund would credit a phantom balance the service owner
+        // could later withdraw via withdrawRemainingEscrow, stealing the delegators'
+        // staker pool. When there is no funded escrow to return to, the un-routable
+        // share goes to the treasury (same destination as the cross-token branch).
+        if (escrow.totalDeposited == 0 || escrow.token != token) {
             PaymentLib.transferPayment(_treasury, token, amount);
             return;
         }

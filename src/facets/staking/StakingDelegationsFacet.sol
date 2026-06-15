@@ -177,7 +177,13 @@ contract StakingDelegationsFacet is StakingFacetBase, IFacetSelectors {
             revert DelegationErrors.UnstakeTooEarly(currentRound, unstakeReadyRound);
         }
 
-        uint64 withdrawReadyRound = req.requestedRound + leaveDelegatorsDelay;
+        // The combined execute+withdraw path must impose the SAME total unbonding as the standard
+        // two-step exit (scheduleDelegatorUnstake -> executeDelegatorUnstake -> scheduleWithdraw ->
+        // executeWithdraw), where the withdraw delay starts only once the unstake has matured. Both
+        // delays therefore stack: a single-step redeem cannot become available until
+        // requestedRound + delegationBondLessDelay + leaveDelegatorsDelay. Measuring the withdraw
+        // delay from `requestedRound` alone would halve the effective unbonding period (audit LOW).
+        uint64 withdrawReadyRound = req.requestedRound + delegationBondLessDelay + leaveDelegatorsDelay;
         if (currentRound < withdrawReadyRound) {
             revert DelegationErrors.WithdrawTooEarly(currentRound, withdrawReadyRound);
         }
@@ -246,9 +252,12 @@ contract StakingDelegationsFacet is StakingFacetBase, IFacetSelectors {
 
             d.shares -= req.shares;
 
+            // Mirror the two-step path (DelegationManagerLib._settleDelegatedCostBasis): remove the
+            // unstaked shares' cost-basis from `delegatedAmount` and write off realized slash loss
+            // against `dep.amount` / `currentDeposits` so slashed principal cannot strand.
+            // `slashFactorSnapshot` carries the schedule-time cost-basis for this request.
             Types.Deposit storage dep = _deposits[delegator][assetHash];
-            uint256 depReduction = amountReturned > dep.delegatedAmount ? dep.delegatedAmount : amountReturned;
-            dep.delegatedAmount -= depReduction;
+            _settleDelegatedCostBasisInFacet(delegator, assetHash, dep, req.slashFactorSnapshot, amountReturned);
 
             if (d.shares == 0) {
                 _operatorMetadata[req.operator].delegationCount--;
@@ -266,6 +275,43 @@ contract StakingDelegationsFacet is StakingFacetBase, IFacetSelectors {
         if (!updated) {
             revert DelegationErrors.DelegationNotFound(delegator, operator);
         }
+    }
+
+    /// @notice Facet-local copy of DelegationManagerLib._settleDelegatedCostBasis (which is `private`).
+    /// @dev Removes the unstaked shares' cost-basis from `delegatedAmount` and writes off realized
+    ///      slash loss against `dep.amount` / `currentDeposits`. The realized return
+    ///      (`realizedAmount`) is withdrawn separately by the caller; this only touches the
+    ///      cost-basis and the slash-loss delta, so there is no double-count. Legacy requests
+    ///      (`costBasis == 0`, scheduled pre-upgrade) fall back to the original behavior.
+    function _settleDelegatedCostBasisInFacet(
+        address delegator,
+        bytes32 assetHash,
+        Types.Deposit storage dep,
+        uint256 costBasis,
+        uint256 realizedAmount
+    )
+        private
+    {
+        if (costBasis == 0) {
+            uint256 legacyReduction = realizedAmount > dep.delegatedAmount ? dep.delegatedAmount : realizedAmount;
+            dep.delegatedAmount -= legacyReduction;
+            return;
+        }
+
+        uint256 delReduction = costBasis > dep.delegatedAmount ? dep.delegatedAmount : costBasis;
+        dep.delegatedAmount -= delReduction;
+
+        if (costBasis <= realizedAmount) return;
+        uint256 slashLoss = costBasis - realizedAmount;
+        uint256 byAmount = slashLoss > dep.amount ? dep.amount : slashLoss;
+        uint256 cur = _assetConfigs[assetHash].currentDeposits;
+        uint256 applied = byAmount > cur ? cur : byAmount;
+        if (applied == 0) return;
+
+        dep.amount -= applied;
+        _assetConfigs[assetHash].currentDeposits = cur - applied;
+
+        emit SlashedPrincipalReconciled(delegator, assetHash, applied);
     }
 
     function _applyFixedModeBondlessUnstake(

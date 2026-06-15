@@ -261,8 +261,25 @@ abstract contract PaymentsBilling is PaymentsCore {
     {
         IStaking staking = _staking;
         address oracleAddr = _priceOracle;
-        bool useOracle = oracleAddr != address(0);
         Types.Asset memory bondAsset = _bondAssetForBilling();
+
+        // Oracle mode is a property of the SERVICE pinned at activation, not of the
+        // current `_priceOracle`. The baseline denominator (`subscriptionBaselineStake`)
+        // was committed in either USD scale (oracle on at activation) or raw
+        // token-second scale (oracle off). The bill numerator (`cumDeltaPeriod`) MUST
+        // be computed in that same scale, otherwise the ratio collapses: e.g. a service
+        // activated with the oracle on (USD denominator) and then `setPriceOracle(0)`
+        // would, under a live `_priceOracle != 0` check, switch the numerator to raw
+        // token-seconds — typically orders of magnitude smaller than the USD baseline —
+        // driving every bill toward zero and under-drawing escrow indefinitely.
+        //
+        // We recover the activation-time mode from durable state: `_snapshotBaselinePrice`
+        // / `_snapshotJoinPrice` write a non-zero `_baselinePriceByOpAsset` for every
+        // seeded (op, asset) IFF an oracle was configured when the cursor was seeded, and
+        // return early (leaving the zero sentinel) when it was not. So a non-zero snapshot
+        // anywhere on the service's seeded operators is a permanent witness that the
+        // baseline was pinned in USD scale, independent of the live oracle address.
+        bool useOracle = _subscriptionPinnedInUsd(serviceId, operators, bondAsset);
         uint256 tailSeconds = block.timestamp > periodEnd ? block.timestamp - uint256(periodEnd) : 0;
 
         uint256 n = operators.length;
@@ -301,14 +318,19 @@ abstract contract PaymentsBilling is PaymentsCore {
                         // (op, asset) cursor was first seeded. Immune to oracle
                         // drift post-activation.
                         contribution = (contribution * snapshot) / 1 ether;
-                    } else {
+                    } else if (oracleAddr != address(0)) {
                         // Cursor exists without a snapshot (legacy activation
-                        // path or operator joined before this fix shipped) —
-                        // fall back to the live oracle. Still gas-capped and
-                        // revert-isolated by _safeToUSD.
+                        // path or operator joined before this fix shipped) and
+                        // the oracle is still live — convert at the live price.
+                        // Still gas-capped and revert-isolated by _safeToUSD.
                         address token = bondAsset.kind == Types.AssetKind.Native ? address(0) : bondAsset.token;
                         contribution = _safeToUSD(oracleAddr, token, contribution);
                     }
+                    // else: USD-pinned baseline but no per-pair snapshot AND the
+                    // oracle has since been removed. Keep `contribution` at
+                    // identity scale rather than collapsing to raw token-seconds,
+                    // which would mismatch the USD-scale baseline denominator and
+                    // under-bill the customer indefinitely.
                 }
                 opWeight = contribution;
                 if (!result.hasSecurityCommitments && stakeOp > 0 && fallbackBps > 0) {
@@ -337,10 +359,12 @@ abstract contract PaymentsBilling is PaymentsCore {
                         uint256 snapshot = _baselinePriceByOpAsset[serviceId][op][assetHash];
                         if (snapshot != 0) {
                             contribution = (contribution * snapshot) / 1 ether;
-                        } else {
+                        } else if (oracleAddr != address(0)) {
                             address token = c.asset.kind == Types.AssetKind.Native ? address(0) : c.asset.token;
                             contribution = _safeToUSD(oracleAddr, token, contribution);
                         }
+                        // else: USD-pinned baseline, no per-pair snapshot, oracle
+                        // removed — keep identity scale (see fallback path above).
                     }
                     opWeight += contribution;
                     if (!result.hasSecurityCommitments && stakeOp > 0 && c.exposureBps > 0) {
@@ -377,6 +401,50 @@ abstract contract PaymentsBilling is PaymentsCore {
         // any operator has non-zero current stake committed with non-zero `exposureBps` on
         // any asset. Controls whether the staker pool routes to the `ServiceFeeDistributor`
         // or folds into the operator pool.
+    }
+
+    /// @notice Recover a subscription's activation-time billing scale (USD vs raw).
+    /// @dev The denominator (`subscriptionBaselineStake`) was pinned at activation in one
+    ///      of two scales and can never change for the life of the service. We read that
+    ///      decision from durable state rather than the mutable `_priceOracle`: a non-zero
+    ///      `_baselinePriceByOpAsset` on any seeded (op, asset) is written ONLY when an
+    ///      oracle was configured at seeding time (`_snapshotBaselinePrice` /
+    ///      `_snapshotJoinPrice` early-return on a zero oracle), so its presence is a
+    ///      permanent witness that the baseline was pinned in USD scale. Returning the
+    ///      activation-time mode here keeps every bill's numerator in the same scale as
+    ///      its denominator even after `setPriceOracle` is toggled mid-subscription.
+    /// @return true iff this subscription's baseline was pinned in USD scale.
+    function _subscriptionPinnedInUsd(
+        uint64 serviceId,
+        address[] memory operators,
+        Types.Asset memory bondAsset
+    )
+        internal
+        view
+        returns (bool)
+    {
+        bytes32 bondAssetHash = keccak256(abi.encode(bondAsset.kind, bondAsset.token));
+        uint256 n = operators.length;
+        for (uint256 i = 0; i < n;) {
+            address op = operators[i];
+            Types.AssetSecurityCommitment[] storage commitments = _serviceSecurityCommitments[serviceId][op];
+            uint256 m = commitments.length;
+            if (m == 0) {
+                if (_baselinePriceByOpAsset[serviceId][op][bondAssetHash] != 0) return true;
+            } else {
+                for (uint256 j = 0; j < m;) {
+                    bytes32 assetHash = keccak256(abi.encode(commitments[j].asset.kind, commitments[j].asset.token));
+                    if (_baselinePriceByOpAsset[serviceId][op][assetHash] != 0) return true;
+                    unchecked {
+                        ++j;
+                    }
+                }
+            }
+            unchecked {
+                ++i;
+            }
+        }
+        return false;
     }
 
     /// @notice Resolve the per-period bill adjustment from the blueprint's manager hook.

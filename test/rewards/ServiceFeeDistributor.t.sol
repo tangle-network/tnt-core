@@ -208,7 +208,9 @@ contract ServiceFeeDistributorTest is BaseTest {
 
     function test_Staking_PreventsSelectionModeMixing() public {
         uint64[] memory bps = new uint64[](1);
-        bps[0] = 123;
+        // Use a blueprint operator1 is registered for so the Fixed-mode blueprint guard passes
+        // and we reach the intended SelectionModeMismatch check (not BlueprintNotRegistered).
+        bps[0] = blueprintId;
 
         vm.startPrank(delegator1);
         staking.deposit{ value: 1 ether }();

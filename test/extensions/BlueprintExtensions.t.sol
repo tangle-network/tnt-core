@@ -331,7 +331,7 @@ contract BuybackBlueprintBaseTest is Test {
         _sendEther(address(buyback), 1 ether);
         assertEq(buyback.pendingBuybackBalance(), 1 ether);
 
-        buyback.executeBuyback(0.4 ether);
+        buyback.executeBuyback(0.4 ether, 0);
         assertEq(buyback.pendingBuybackBalance(), 0.6 ether);
         assertEq(buyback.totalTokensBurned(), 100 ether);
     }
@@ -372,7 +372,7 @@ contract BuybackBlueprintBaseTest is Test {
         assertEq(buyback.pendingBuybackBalance(), 1 ether);
 
         vm.expectRevert(BuybackBlueprintBase.BuybackFailed.selector);
-        buyback.executeBuybackAll();
+        buyback.executeBuybackAll(0);
 
         assertEq(buyback.pendingBuybackBalance(), 1 ether);
     }
@@ -385,7 +385,7 @@ contract BuybackBlueprintBaseTest is Test {
         _sendEther(address(buyback), 1 ether);
 
         vm.expectRevert(BuybackBlueprintBase.BuybackFailed.selector);
-        buyback.executeBuyback(1 ether);
+        buyback.executeBuyback(1 ether, 0);
 
         assertEq(buyback.pendingBuybackBalance(), 1 ether);
     }
@@ -406,7 +406,7 @@ contract BuybackBlueprintBaseTest is Test {
         vm.prank(owner);
         buyback.setBuybackPaused(false);
 
-        buyback.executeBuybackAll();
+        buyback.executeBuybackAll(0);
         assertEq(buyback.pendingBuybackBalance(), 0);
         assertEq(buyback.totalBuybackSpent(), 1 ether);
     }

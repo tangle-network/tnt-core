@@ -112,9 +112,15 @@ contract BeaconRootRelayer {
     /// @notice Check if a beacon root exists for a timestamp
     /// @param timestamp The timestamp to check
     /// @return True if a root exists
+    /// @dev Mirrors `_getBeaconRoot`'s success criteria exactly: the EIP-4788 precompile returns a
+    ///      32-byte root on a hit. A bare `success` check is insufficient because a `staticcall` to
+    ///      an account with no code (e.g. chains where the precompile is absent) returns
+    ///      `success == true` with empty returndata, which would make `has` claim a root exists
+    ///      while a subsequent `relayBeaconRoot`/`getBeaconRoot` reverts `BeaconRootNotFound`.
+    ///      Requiring `returndata.length == 32` keeps the has/get contract consistent (fail-closed).
     function hasBeaconRoot(uint64 timestamp) external view returns (bool) {
-        (bool success,) = BEACON_ROOTS_ADDRESS.staticcall(abi.encode(timestamp));
-        return success;
+        (bool success, bytes memory data) = BEACON_ROOTS_ADDRESS.staticcall(abi.encode(timestamp));
+        return success && data.length == 32;
     }
 
     /// @notice Get a beacon root for a timestamp (view only, doesn't relay)

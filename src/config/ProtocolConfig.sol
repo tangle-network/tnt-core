@@ -35,7 +35,12 @@ library ProtocolConfig {
     /// @dev Bounds the per-operator loops in the billing / distribute / terminate
     ///      paths. The live ceiling is governance-tunable via `_maxOperatorsPerService`
     ///      (admin setter); this constant is only used to seed that value at init.
-    uint32 internal constant DEFAULT_MAX_OPERATORS_PER_SERVICE = 256;
+    ///      Seeded conservatively at 128: even though the per-operator distribution
+    ///      loops are individually mitigated (try/catch isolation + pull-based
+    ///      accrual), the seed default keeps the worst-case nested-loop gas of an
+    ///      out-of-the-box deployment bounded. Governance may raise it deliberately
+    ///      via the admin setter once a deployment has measured its gas headroom.
+    uint32 internal constant DEFAULT_MAX_OPERATORS_PER_SERVICE = 128;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE REQUEST TTL

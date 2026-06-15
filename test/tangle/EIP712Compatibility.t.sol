@@ -46,7 +46,8 @@ contract EIP712CompatibilityTest is Test {
             price: 1 ether,
             timestamp: 1_700_000_000,
             expiry: 1_700_003_600,
-            confidentiality: 0
+            confidentiality: 0,
+            inputsHash: keccak256("")
         });
 
         bytes32 domainSep = _testDomainSeparator();
@@ -59,17 +60,18 @@ contract EIP712CompatibilityTest is Test {
             bytes32(0x14a60a86c57fe72bdcbdc59af9a05606ca542a7ed2eeb732756b210d3306f149),
             "domain separator mismatch"
         );
-        // Updated for the v0.13.0 typehash that adds `address requester`. The
-        // Rust test vectors in pricing-engine/tests/eip712_compat.rs MUST be
-        // regenerated with the same `requester=0xbEEF` and the new typehash.
+        // Updated for the typehash that adds `bytes32 inputsHash` (job inputs binding)
+        // on top of `address requester`. The Rust test vectors in
+        // pricing-engine/tests/eip712_compat.rs MUST be regenerated with the same
+        // `requester=0xbEEF`, `inputsHash=keccak256("")`, and the new typehash.
         assertEq(
             structHash,
-            bytes32(0x81efa1579f66bc16802d9c482eb23561fa1a86e1288cb65902b4619005a04a87),
+            bytes32(0x223829f63247a6b4a7724cdd0b3bb9b33ffacf2ac573851b8b4d6d028885c710),
             "struct hash mismatch"
         );
         assertEq(
             digest,
-            bytes32(0xfd2339fda45c2e7e30f8d5dbcc062f82af12757ad80175cbdd6972627fb3c54c),
+            bytes32(0x9bd02b8b280e84cda6136def5cae3eb19e0c5ab5bd4619a0cad56bc2c4f15a11),
             "EIP-712 digest mismatch"
         );
     }
@@ -86,16 +88,17 @@ contract EIP712CompatibilityTest is Test {
             price: 0,
             timestamp: 1_000_000,
             expiry: 1_003_600,
-            confidentiality: 0
+            confidentiality: 0,
+            inputsHash: keccak256("")
         });
 
         bytes32 domainSep = _testDomainSeparator();
         bytes32 digest = SignatureLib.computeJobQuoteDigest(domainSep, details);
 
-        // Updated for the v0.13.0 typehash that adds `address requester`.
+        // Updated for the typehash that adds `bytes32 inputsHash` on top of `address requester`.
         assertEq(
             digest,
-            bytes32(0xc21c630f71383acd4d8f5465a13264f9e376dfb323acfe97d5202bc9a5baa221),
+            bytes32(0x1e88efd60c60a4c1e73e353d8ded5256bfffd2b115bf79c1646a555f8936ebf1),
             "zero-price digest mismatch"
         );
     }
@@ -112,16 +115,17 @@ contract EIP712CompatibilityTest is Test {
             price: type(uint128).max,
             timestamp: 1_700_000_000,
             expiry: 1_700_007_200,
-            confidentiality: 0
+            confidentiality: 0,
+            inputsHash: keccak256("")
         });
 
         bytes32 domainSep = _testDomainSeparator();
         bytes32 digest = SignatureLib.computeJobQuoteDigest(domainSep, details);
 
-        // Updated for the v0.13.0 typehash that adds `address requester`.
+        // Updated for the typehash that adds `bytes32 inputsHash` on top of `address requester`.
         assertEq(
             digest,
-            bytes32(0xebd98b504cfdbe392ddf9813148e2f7808bb6f7ef85c376315fe0446c2ffc9ee),
+            bytes32(0xb8c5094b407d6dd0c0e83ad9cd611be39095713ed16c720a8fe4a829ba84fc7f),
             "large-price digest mismatch"
         );
     }
@@ -139,7 +143,8 @@ contract EIP712CompatibilityTest is Test {
             price: 1 ether,
             timestamp: 1_700_000_000,
             expiry: 1_700_003_600,
-            confidentiality: 0
+            confidentiality: 0,
+            inputsHash: keccak256("")
         });
 
         bytes32 domainSep = _testDomainSeparator();
@@ -149,10 +154,10 @@ contract EIP712CompatibilityTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, digest);
 
         // Verify signature components (Rust test must produce the same)
-        // Updated for the v0.13.0 typehash that adds `address requester`.
+        // Updated for the typehash that adds `bytes32 inputsHash` on top of `address requester`.
         // (v can flip between 27/28 depending on the new digest; pin the actual
         // value the recovery succeeds against.)
-        assertEq(r, bytes32(0x9d22c9909f6ebbcadc4ec85467c487e3d29afa8409f058371894af17f176db4c), "r mismatch");
+        assertEq(r, bytes32(0x2561b12e4d70171c286c5dcedd0680c480eddf0c9846d1306218681793959308), "r mismatch");
 
         // Recover the signer
         address recovered = ecrecover(digest, v, r, s);

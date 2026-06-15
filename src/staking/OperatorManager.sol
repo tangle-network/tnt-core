@@ -238,15 +238,22 @@ abstract contract OperatorManager is DelegationStorage {
             revert DelegationErrors.PendingSlashExists(msg.sender, _operatorPendingSlashCount[msg.sender]);
         }
 
-        // Check for active services via Tangle core
-        if (_tangleCore != address(0)) {
+        // Check for active services via Tangle core.
+        // Invariant: an operator backing any live service may not begin exiting stake. When a core
+        // is wired (a contract with code) this guard is fail-closed: if the query reverts (e.g. the
+        // selector is not routed) or returns malformed data we cannot prove the operator is
+        // service-free, so we block leaving rather than silently skip the check (the previous
+        // fail-open behavior voided the guard for every operator). `_tangleCore` with no code means
+        // no service registry is wired, so there is nothing to consult.
+        if (_tangleCore.code.length > 0) {
             (bool success, bytes memory data) =
                 _tangleCore.staticcall(abi.encodeWithSignature("getOperatorTotalActiveServices(address)", msg.sender));
-            if (success && data.length >= 32) {
-                uint256 activeServices = abi.decode(data, (uint256));
-                if (activeServices > 0) {
-                    revert DelegationErrors.OperatorHasActiveServices(msg.sender);
-                }
+            if (!success || data.length < 32) {
+                revert DelegationErrors.ActiveServiceCheckUnavailable(msg.sender);
+            }
+            uint256 activeServices = abi.decode(data, (uint256));
+            if (activeServices > 0) {
+                revert DelegationErrors.OperatorHasActiveServices(msg.sender);
             }
         }
 

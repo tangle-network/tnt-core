@@ -179,6 +179,19 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     /// @notice Total ever distributed from this pool
     uint256 public totalDistributed;
 
+    /// @notice Outstanding pending reward liabilities (operator + customer + developer) that
+    ///         are held in this contract's balance but already earmarked for a claimant.
+    /// @dev Appended after `totalDistributed` (append-only — DO NOT reorder) so existing
+    ///      deployments keep their storage layout. `poolBalance()` includes these earmarked
+    ///      tokens; budgeting against the raw balance would re-budget funds that are no longer
+    ///      free to distribute, double-counting them each epoch. We track the running total of
+    ///      accrued-but-unclaimed pending rewards here and subtract it from the balance before
+    ///      computing the per-epoch budget. Incremented when pending rewards accrue, decremented
+    ///      when claimed. (Migrated deployments that upgrade into this slot read 0 and self-heal
+    ///      forward — the only effect of the historical undercount is a slightly larger early
+    ///      budget, never an over-spend, because the budget is still clamped to `poolBalance()`.)
+    uint256 public pendingRewardsLiability;
+
     /// @notice Reserved for storage compatibility (unused after timestamp migration).
     uint256 public blocksPerYear;
 
@@ -428,9 +441,14 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         uint256 developersActual = _distributeDeveloperRewards(developersTarget);
         uint256 stakersActual = _distributeStakerInflation(serviceIds, stakersTarget);
 
-        // Handle undistributed amounts
+        // Handle undistributed amounts. `stakersTarget` MUST be included: the permissionless
+        // distributeEpoch() entrypoint passes an empty serviceIds, so _distributeStakerInflation
+        // returns 0 and the whole stakersTarget would otherwise be silently consumed by the epoch
+        // advance without ever reaching stakers. Folding it into `undistributed` reallocates it to
+        // the other active categories in the same epoch.
         uint256 undistributed = (stakingTarget - stakingActual) + (operatorsTarget - operatorsActual)
-            + (customersTarget - customersActual) + (developersTarget - developersActual);
+            + (customersTarget - customersActual) + (developersTarget - developersActual)
+            + (stakersTarget - stakersActual);
 
         if (undistributed > 0) {
             bool hasStaking = stakingActual > 0;
@@ -533,37 +551,53 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         address[] memory assets = vaults.getVaultAssets();
         if (assets.length == 0) return 0;
 
-        // Calculate total deposits across all vaults
-        uint256 totalDeposits = 0;
-        uint256[] memory deposits = new uint256[](assets.length);
+        // Weight the cross-vault split by each vault's lock-multiplier-weighted SCORE
+        // (vaultStates.totalScore), NOT raw deposits. Inside a vault, distributeEpochReward
+        // splits by operator `totalStaked`, which is the score sum (recordStake adds `score`
+        // to totalStaked). Splitting across vaults by raw deposits would under-allocate vaults
+        // full of long-lock delegators relative to the reward weight they actually earned,
+        // breaking the advertised lock incentive on multi-vault deployments.
+        uint256 totalScore = 0;
+        uint256[] memory scores = new uint256[](assets.length);
 
         for (uint256 i = 0; i < assets.length; i++) {
-            (uint256 vaultDeposits,,) = vaults.vaultStates(assets[i]);
-            deposits[i] = vaultDeposits;
-            totalDeposits += vaultDeposits;
+            (, uint256 vaultScore,) = vaults.vaultStates(assets[i]);
+            scores[i] = vaultScore;
+            totalScore += vaultScore;
         }
 
-        if (totalDeposits == 0) return 0;
+        if (totalScore == 0) return 0;
 
-        // Distribute proportionally to vault utilization
+        // Distribute proportionally to vault score.
         for (uint256 i = 0; i < assets.length; i++) {
-            if (deposits[i] == 0) continue;
+            if (scores[i] == 0) continue;
 
-            uint256 vaultShare = (amount * deposits[i]) / totalDeposits;
+            uint256 vaultShare = (amount * scores[i]) / totalScore;
             if (vaultShare == 0) continue;
 
-            // Transfer to vaults (NOT mint!)
-            tntToken.safeTransfer(address(vaults), vaultShare);
-            actualDistributed += vaultShare;
-
-            // Notify vaults of the reward
-            _notifyVaultReward(assets[i], vaultShare);
+            // Settle the vault accounting FIRST, transferring the reward only if the vault
+            // accepts it. If distributeEpochReward reverts (e.g. the operator loop runs out of
+            // gas), we must NOT move the tokens — otherwise TNT lands in the vault but
+            // accumulatedPerShare is never advanced, stranding it as unclaimable dead weight.
+            if (_notifyVaultReward(assets[i], vaultShare)) {
+                tntToken.safeTransfer(address(vaults), vaultShare);
+                actualDistributed += vaultShare;
+            }
         }
     }
 
-    /// @notice Notify vault of epoch staking reward
-    function _notifyVaultReward(address asset, uint256 amount) internal {
-        try vaults.distributeEpochReward(asset, amount) { } catch { }
+    /// @notice Notify a vault of its epoch staking reward.
+    /// @dev The reward must be staged into the vault's per-share accounting BEFORE the tokens are
+    ///      transferred. We pre-fund the vault by transferring inside the success path of the
+    ///      caller, so distributeEpochReward only updates accounting here. Returns whether the
+    ///      vault accepted the reward; a swallowed revert returns false so the caller skips the
+    ///      transfer and the tokens stay in the pool (claimable, never stranded).
+    function _notifyVaultReward(address asset, uint256 amount) internal returns (bool ok) {
+        try vaults.distributeEpochReward(asset, amount) {
+            return true;
+        } catch {
+            return false;
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -610,6 +644,13 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
                 pendingOperatorRewards[trackedOperators[i]] += reward;
                 distributed += reward;
             }
+        }
+
+        // Earmark the accrued (but unclaimed) rewards so subsequent epoch budgeting runs
+        // against the free balance only. Without this, `poolBalance()` still counts these
+        // tokens and they get re-budgeted every epoch (over-accrual).
+        if (distributed > 0) {
+            pendingRewardsLiability += distributed;
         }
 
         // Note: Tokens stay in this contract until claimed
@@ -689,6 +730,11 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
             }
         }
 
+        // Earmark the accrued (but unclaimed) rewards (see _distributeOperatorRewards).
+        if (distributed > 0) {
+            pendingRewardsLiability += distributed;
+        }
+
         // Note: Tokens stay in this contract until claimed
     }
 
@@ -728,6 +774,11 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
                 pendingDeveloperRewards[trackedDevelopers[i]] += reward;
                 distributed += reward;
             }
+        }
+
+        // Earmark the accrued (but unclaimed) rewards (see _distributeOperatorRewards).
+        if (distributed > 0) {
+            pendingRewardsLiability += distributed;
         }
 
         // Note: Tokens stay in this contract until claimed
@@ -918,6 +969,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         if (amount == 0) revert NoRewardsToClaim();
 
         pendingOperatorRewards[msg.sender] = 0;
+        _releaseLiability(amount);
         tntToken.safeTransfer(msg.sender, amount);
 
         emit OperatorRewardClaimed(msg.sender, amount);
@@ -929,6 +981,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         if (amount == 0) revert NoRewardsToClaim();
 
         pendingCustomerRewards[msg.sender] = 0;
+        _releaseLiability(amount);
         tntToken.safeTransfer(msg.sender, amount);
 
         emit CustomerRewardClaimed(msg.sender, amount);
@@ -940,9 +993,18 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         if (amount == 0) revert NoRewardsToClaim();
 
         pendingDeveloperRewards[msg.sender] = 0;
+        _releaseLiability(amount);
         tntToken.safeTransfer(msg.sender, amount);
 
         emit DeveloperRewardClaimed(msg.sender, amount);
+    }
+
+    /// @dev Decrement the earmarked-liability counter on claim, saturating at 0 so a
+    ///      pre-upgrade pending reward (accrued before this slot tracked it) can never
+    ///      underflow the running total.
+    function _releaseLiability(uint256 amount) internal {
+        uint256 liability = pendingRewardsLiability;
+        pendingRewardsLiability = liability > amount ? liability - amount : 0;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1147,6 +1209,9 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         if (to == address(0)) revert ZeroAddress();
         uint256 balance = poolBalance();
         if (balance > 0) {
+            // The entire balance (including earmarked rewards) leaves the contract; reset the
+            // liability counter so a redeployed pool does not carry a phantom earmark.
+            pendingRewardsLiability = 0;
             tntToken.safeTransfer(to, balance);
             emit EmergencyWithdraw(to, balance);
         }
@@ -1161,10 +1226,16 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         return tntToken.balanceOf(address(this));
     }
 
-    /// @notice Calculate per-epoch budget based on remaining pool balance
+    /// @notice Calculate per-epoch budget based on the FREE (un-earmarked) pool balance
+    /// @dev `poolBalance()` includes operator/customer/developer rewards that have already
+    ///      been accrued and are awaiting claim. Those tokens are not free to re-distribute,
+    ///      so budgeting must run against `poolBalance() - pendingRewardsLiability`. Using the
+    ///      raw balance would re-budget the same earmarked tokens every epoch (over-accrual),
+    ///      inflating each epoch's distribution beyond the funding schedule and draining the
+    ///      pool faster than the funding period intends.
     function calculateEpochBudget() public view returns (uint256) {
-        uint256 balance = poolBalance();
-        if (balance == 0) return 0;
+        uint256 free = freeBalance();
+        if (free == 0) return 0;
 
         // Calculate remaining epochs in the funding period (time-based)
         uint256 periodSeconds = fundingPeriodSeconds == 0 ? SECONDS_PER_YEAR : fundingPeriodSeconds;
@@ -1174,8 +1245,16 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         uint256 epochsRemaining = remaining / epochLength;
         if (epochsRemaining == 0) epochsRemaining = 1;
 
-        // Distribute remaining balance over remaining epochs
-        return balance / epochsRemaining;
+        // Distribute the free (un-earmarked) balance over remaining epochs
+        return free / epochsRemaining;
+    }
+
+    /// @notice Pool balance that is free to distribute, i.e. excluding rewards already accrued
+    ///         to operators/customers/developers but not yet claimed.
+    function freeBalance() public view returns (uint256) {
+        uint256 balance = poolBalance();
+        uint256 liability = pendingRewardsLiability;
+        return balance > liability ? balance - liability : 0;
     }
 
     /// @notice Get remaining period budget
@@ -1263,6 +1342,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) { }
 
     /// @dev Reserved storage slots for future upgrades (Round 2 storage F-3).
-    ///      Decremented from 50 → 49 when `operatorStatusSource` was appended above.
-    uint256[49] private __gap;
+    ///      Decremented from 50 → 49 when `operatorStatusSource` was appended above, then
+    ///      49 → 48 when `pendingRewardsLiability` was appended.
+    uint256[48] private __gap;
 }

@@ -92,6 +92,13 @@ contract RewardVaults is
         LockDuration lockDuration; // Lock duration for multiplier
         uint256 lockExpiry; // When lock expires (0 = no lock)
         uint256 boostedScore; // Weighted score minted for this delegator/operator pair
+        // Rewards accrued at the position's prior boostedScore that have been settled
+        // (snapshotted out of the per-share rate) but not yet transferred. MasterChef
+        // requires settling pending before mutating boostedScore; without an external
+        // transfer (recordDelegate is called via swallowed try/catch) we bank the
+        // settled amount here and pay it on claim. Appended last for upgrade safety:
+        // existing positions read 0, the correct "no credit yet" default.
+        uint256 accruedRewards;
     }
 
     /// @notice Snapshot returned when rendering vaults in UI clients
@@ -198,6 +205,16 @@ contract RewardVaults is
     error StillLocked(uint256 expiry);
     error DepositCapExceeded(address asset);
     error InsufficientStake();
+    /// @notice claimDelegatorRewardsFor restricts who may force-realize a position's rewards.
+    error NotAuthorizedClaimer(address caller, address delegator);
+
+    /// @notice Emitted when an expired lock's reward boost is lazily decayed back to base weight.
+    event LockBoostDecayed(
+        address indexed asset, address indexed delegator, address indexed operator, uint256 oldScore, uint256 newScore
+    );
+    /// @notice Emitted when a pool reward cannot be credited to delegators (no staked
+    ///         score) and is parked in the operator's pending commission instead of dropped.
+    event UnattributedRewardParked(address indexed asset, address indexed operator, uint256 amount);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INITIALIZATION
@@ -225,6 +242,16 @@ contract RewardVaults is
         require(_operatorCommissionBps <= MAX_COMMISSION_BPS, "Commission exceeds cap");
         tntToken = TangleToken(_tntToken);
         operatorCommissionBps = _operatorCommissionBps;
+
+        // Lock-duration defaults. These MUST be set here, not via inline field initializers:
+        // this is a UUPS-proxied contract, so field initializers (which run only in the
+        // constructor) never execute behind the proxy and would leave these at 0 — making
+        // every lock-multiplier boost decay instantly (0-second lock). Admin can retune via
+        // setLockDurations.
+        lockDurationOneMonth = 30 days;
+        lockDurationTwoMonths = 60 days;
+        lockDurationThreeMonths = 90 days;
+        lockDurationSixMonths = 180 days;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -363,24 +390,48 @@ contract RewardVaults is
         state.totalScore += score;
 
         // Track delegator's first interaction for reward claiming
+        OperatorPool storage pool = operatorPools[asset][operator];
         DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
         bool isNewDelegator = debt.stakedAmount == 0;
         if (isNewDelegator) {
-            debt.lastAccumulatedPerShare = operatorPools[asset][operator].accumulatedPerShare;
+            debt.lastAccumulatedPerShare = pool.accumulatedPerShare;
+        } else {
+            // Top-up on an existing position. If its prior lock already expired, collapse
+            // the stale boost to base weight first (this also settles pending) so the
+            // expired boost cannot persist or compound onto the new stake. Otherwise just
+            // harvest rewards accrued to the EXISTING boostedScore before it grows, so the
+            // added stake cannot retroactively earn prior-epoch rewards.
+            if (!_decayExpiredLock(asset, delegator, operator, pool, debt)) {
+                _settle(pool, debt);
+            }
         }
         debt.stakedAmount += amount;
         debt.boostedScore += score;
-        debt.lockDuration = LockDuration.None;
-        debt.lockExpiry = 0;
+
+        // A lock-multiplier boost MUST carry a matching lock commitment. Map the boost
+        // bps to a lock duration and stamp the longest applicable lockExpiry; never
+        // shorten an existing, still-active lock (a top-up cannot unlock prior stake).
+        LockDuration lock = _lockDurationFromBps(lockMultiplierBps);
+        if (lock != LockDuration.None) {
+            uint256 newExpiry = block.timestamp + _lockDurationSeconds(lock);
+            if (newExpiry > debt.lockExpiry) {
+                debt.lockExpiry = newExpiry;
+                debt.lockDuration = lock;
+            }
+        } else if (isNewDelegator) {
+            // Fresh unboosted position: no lock. Existing positions keep any prior lock.
+            debt.lockDuration = LockDuration.None;
+            debt.lockExpiry = 0;
+        }
 
         if (isNewDelegator) {
             _trackDelegatorOperator(asset, delegator, operator);
         }
 
         // Update operator pool total (score-weighted)
-        operatorPools[asset][operator].totalStaked += score;
+        pool.totalStaked += score;
 
-        emit StakeRecorded(asset, delegator, operator, amount, LockDuration.None);
+        emit StakeRecorded(asset, delegator, operator, amount, lock);
     }
 
     /// @inheritdoc IRewardsManager
@@ -399,8 +450,20 @@ contract RewardVaults is
 
         // Update vault totals
         VaultState storage state = vaultStates[asset];
+        OperatorPool storage pool = operatorPools[asset][operator];
         DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
         if (debt.stakedAmount < amount) revert InsufficientStake();
+
+        // If the lock already expired, collapse the boost to base weight first (also settles
+        // pending). This keeps the removed proportion computed against the current (base)
+        // weight and prevents a stale boost from lingering on the remaining stake. If no
+        // decay applies, just harvest rewards accrued to the current boostedScore before it
+        // shrinks, so the departing stake's already-earned rewards are banked (not forfeited
+        // by the smaller post-unstake score).
+        if (!_decayExpiredLock(asset, delegator, operator, pool, debt)) {
+            _settle(pool, debt);
+        }
+
         uint256 stakedBefore = debt.stakedAmount;
         uint256 score = debt.boostedScore == 0 ? amount : (debt.boostedScore * amount) / stakedBefore;
         state.totalDeposits -= amount;
@@ -420,7 +483,6 @@ contract RewardVaults is
         }
 
         // Update operator pool total (score-weighted)
-        OperatorPool storage pool = operatorPools[asset][operator];
         if (pool.totalStaked < score) revert InsufficientStake();
         pool.totalStaked -= score;
 
@@ -563,12 +625,26 @@ contract RewardVaults is
         bool isNewDelegator = debt.stakedAmount == 0;
         if (isNewDelegator) {
             debt.lastAccumulatedPerShare = pool.accumulatedPerShare;
+        } else {
+            // Top-up on an existing position. Collapse an already-expired lock boost to base
+            // weight first (also settles pending) so a stale boost cannot persist; otherwise
+            // harvest rewards accrued to the EXISTING boostedScore before it grows, so the
+            // added stake cannot retroactively earn prior-epoch rewards.
+            if (!_decayExpiredLock(asset, delegator, operator, pool, debt)) {
+                _settle(pool, debt);
+            }
         }
         debt.stakedAmount += amount;
-        debt.lockDuration = lock;
+        // A lock boost MUST carry a matching lock commitment, and a top-up must never
+        // SHORTEN an existing active lock. Stamp the longest applicable expiry.
         if (lock != LockDuration.None) {
-            debt.lockExpiry = block.timestamp + _lockDurationSeconds(lock);
-        } else {
+            uint256 newExpiry = block.timestamp + _lockDurationSeconds(lock);
+            if (newExpiry > debt.lockExpiry) {
+                debt.lockExpiry = newExpiry;
+                debt.lockDuration = lock;
+            }
+        } else if (isNewDelegator) {
+            debt.lockDuration = LockDuration.None;
             debt.lockExpiry = 0;
         }
         debt.boostedScore += score;
@@ -594,7 +670,17 @@ contract RewardVaults is
         if (debt.lockExpiry > block.timestamp) revert StillLocked(debt.lockExpiry);
         if (debt.stakedAmount < amount) revert InsufficientStake();
 
-        // Update operator pool before unstaking
+        // Update operator pool
+        OperatorPool storage pool = operatorPools[asset][operator];
+
+        // Past the StillLocked guard the lock has necessarily expired, so collapse the boost
+        // to base weight first (also settles pending). If no decay applies, just harvest
+        // rewards accrued to the current boostedScore before it shrinks, so the departing
+        // stake's already-earned rewards are banked (not forfeited by the smaller
+        // post-unstake score).
+        if (!_decayExpiredLock(asset, delegator, operator, pool, debt)) {
+            _settle(pool, debt);
+        }
 
         // Update vault state
         VaultState storage state = vaultStates[asset];
@@ -604,8 +690,7 @@ contract RewardVaults is
         state.totalDeposits -= amount;
         state.totalScore -= score;
 
-        // Update operator pool
-        OperatorPool storage pool = operatorPools[asset][operator];
+        // Update operator pool total (score-weighted)
         if (pool.totalStaked < score) revert InsufficientStake();
         pool.totalStaked -= score;
 
@@ -670,6 +755,15 @@ contract RewardVaults is
         nonReentrant
         returns (uint256)
     {
+        // Restrict who may force-realize a position's rewards. Funds always go to
+        // `delegator` (no theft is possible), but an unrestricted force-claim lets any
+        // address dictate the timing of another account's reward realization (resetting
+        // their accrual snapshot, fixing a tax/cost-basis event, etc.). Only the position
+        // owner or the protocol's rewards manager (the on-chain caller wiring) may trigger
+        // it. Fail-closed: anyone else reverts.
+        if (msg.sender != delegator && !hasRole(REWARDS_MANAGER_ROLE, msg.sender)) {
+            revert NotAuthorizedClaimer(msg.sender, delegator);
+        }
         uint256 claimed = _claimDelegatorReward(delegator, asset, operator);
         if (claimed == 0) revert NoRewardsToClaim();
         return claimed;
@@ -763,8 +857,19 @@ contract RewardVaults is
 
         pool.pendingCommission += commission;
 
-        if (pool.totalStaked > 0 && poolReward > 0) {
-            pool.accumulatedPerShare += (poolReward * PRECISION) / pool.totalStaked;
+        if (poolReward > 0) {
+            if (pool.totalStaked > 0) {
+                pool.accumulatedPerShare += (poolReward * PRECISION) / pool.totalStaked;
+            } else {
+                // No delegator score to credit: advancing accumulatedPerShare would divide
+                // by zero and silently drop poolReward (delegators joining later cannot
+                // recover it because the per-share rate never moved). Park it in the
+                // operator's pending commission so the funds stay attributable and the
+                // vault's accounted (rewardsDistributed) reward equals what was actually
+                // assigned to a claimable bucket. Fail-closed: nothing is burned.
+                pool.pendingCommission += poolReward;
+                emit UnattributedRewardParked(asset, operator, poolReward);
+            }
         }
 
         vaultStates[asset].rewardsDistributed += amount;
@@ -772,7 +877,7 @@ contract RewardVaults is
         emit RewardsDistributed(asset, operator, poolReward, commission);
     }
 
-    /// @notice Calculate delegator rewards owed
+    /// @notice Calculate delegator rewards owed (banked credit + unsettled accrual)
     function _calculateDelegatorRewards(
         OperatorPool storage pool,
         DelegatorDebt storage debt
@@ -781,10 +886,99 @@ contract RewardVaults is
         view
         returns (uint256)
     {
-        if (debt.stakedAmount == 0) return 0;
-
         uint256 accumulatedDiff = pool.accumulatedPerShare - debt.lastAccumulatedPerShare;
-        return (debt.boostedScore * accumulatedDiff) / PRECISION;
+        // Use the decay-aware effective score: an expired lock accrues only at base weight,
+        // so the unsettled portion (rewards minted since the last snapshot) is valued at the
+        // weight a claim would settle at — never the stale boosted weight.
+        return debt.accruedRewards + (_effectiveScore(debt) * accumulatedDiff) / PRECISION;
+    }
+
+    /// @notice Settle a position's pending rewards before its boostedScore changes.
+    /// @dev INVARIANT: boostedScore must NEVER be mutated (top-up or partial unstake)
+    ///      without first banking the rewards already accrued to the OLD boostedScore and
+    ///      advancing lastAccumulatedPerShare to the current per-share rate. Otherwise the
+    ///      new score retroactively earns (or forfeits) rewards from epochs it did not
+    ///      participate in — the MasterChef "harvest before resize" rule. We bank into
+    ///      accruedRewards (no external transfer) because the live caller wraps this in a
+    ///      swallowed try/catch and a failed payout would silently skip settlement.
+    function _settle(OperatorPool storage pool, DelegatorDebt storage debt) internal {
+        uint256 accumulatedDiff = pool.accumulatedPerShare - debt.lastAccumulatedPerShare;
+        if (accumulatedDiff != 0 && debt.boostedScore != 0) {
+            debt.accruedRewards += (debt.boostedScore * accumulatedDiff) / PRECISION;
+        }
+        debt.lastAccumulatedPerShare = pool.accumulatedPerShare;
+    }
+
+    /// @notice Lazily decay an expired lock's reward boost back to the position's base
+    ///         (unboosted) weight.
+    /// @dev ROOT CAUSE FIX (lock boost was permanent): the lock multiplier is the *price*
+    ///      of a time commitment. Once `lockExpiry` passes, the commitment is over, so the
+    ///      boosted weight MUST collapse to the raw stake — otherwise a delegator who
+    ///      locked once keeps siphoning a higher share of every future epoch forever while
+    ///      bearing no remaining lock risk. We settle pending rewards FIRST (harvest-before-
+    ///      resize invariant — see `_settle`) so the decay never retroactively claws back
+    ///      rewards already earned during the lock; it only changes the weight applied to
+    ///      FUTURE epochs. The base weight is `stakedAmount` (1.0x), matching how a
+    ///      `LockDuration.None` position is scored. Returns true if a decay was applied.
+    function _decayExpiredLock(
+        address asset,
+        address delegator,
+        address operator,
+        OperatorPool storage pool,
+        DelegatorDebt storage debt
+    )
+        internal
+        returns (bool)
+    {
+        if (debt.lockExpiry == 0 || block.timestamp < debt.lockExpiry) return false;
+        // Base weight for an unboosted position is the raw stake. If the score is already
+        // at (or below) base there is nothing to decay.
+        if (debt.boostedScore <= debt.stakedAmount) {
+            // Lock has expired with no remaining boost: clear the stale lock metadata so the
+            // position reads as unlocked.
+            debt.lockDuration = LockDuration.None;
+            debt.lockExpiry = 0;
+            return false;
+        }
+
+        // Harvest before resize so rewards accrued at the boosted weight stay banked.
+        _settle(pool, debt);
+
+        uint256 oldScore = debt.boostedScore;
+        uint256 newScore = debt.stakedAmount;
+        uint256 delta = oldScore - newScore;
+
+        debt.boostedScore = newScore;
+        debt.lockDuration = LockDuration.None;
+        debt.lockExpiry = 0;
+
+        // Keep the pool- and vault-level score aggregates in lockstep with the position.
+        if (pool.totalStaked >= delta) {
+            pool.totalStaked -= delta;
+        } else {
+            pool.totalStaked = 0;
+        }
+        VaultState storage state = vaultStates[asset];
+        if (state.totalScore >= delta) {
+            state.totalScore -= delta;
+        } else {
+            state.totalScore = 0;
+        }
+
+        emit LockBoostDecayed(asset, delegator, operator, oldScore, newScore);
+        return true;
+    }
+
+    /// @notice Effective (decay-aware) boosted score for views, without mutating storage.
+    /// @dev Mirrors `_decayExpiredLock`: once the lock has expired the position earns only
+    ///      its base weight (`stakedAmount`). View functions must report the same weight a
+    ///      claim would settle at, so pending-reward dashboards do not over-promise a boost
+    ///      the next claim will strip.
+    function _effectiveScore(DelegatorDebt storage debt) internal view returns (uint256) {
+        if (debt.lockExpiry != 0 && block.timestamp >= debt.lockExpiry && debt.boostedScore > debt.stakedAmount) {
+            return debt.stakedAmount;
+        }
+        return debt.boostedScore;
     }
 
     /// @notice Shared implementation for delegator reward claims
@@ -794,12 +988,18 @@ contract RewardVaults is
         DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
         OperatorPool storage pool = operatorPools[asset][operator];
 
+        // Lazily collapse an expired lock's boost to base weight before settling, so a
+        // claim never pays out more than the position is currently entitled to and future
+        // accrual happens at the unboosted weight.
+        _decayExpiredLock(asset, delegator, operator, pool, debt);
+
         uint256 owed = _calculateDelegatorRewards(pool, debt);
         if (owed == 0) {
             return 0;
         }
 
         debt.lastAccumulatedPerShare = pool.accumulatedPerShare;
+        debt.accruedRewards = 0;
         _transferRewards(delegator, owed);
 
         emit DelegatorRewardsClaimed(asset, delegator, operator, owed);
@@ -810,6 +1010,18 @@ contract RewardVaults is
     function _calculateScore(uint256 amount, LockDuration lock) internal pure returns (uint256) {
         uint256 multiplierBps = _lockMultiplierBps(lock);
         return (amount * multiplierBps) / BPS_DENOMINATOR;
+    }
+
+    /// @notice Map an inbound lock-multiplier (bps) to the lock duration that earns it.
+    /// @dev Inverse of `_lockMultiplierBps`. The live recordDelegate path only forwards a
+    ///      raw multiplier, so we recover the commitment tier it implies and snap any
+    ///      in-between value DOWN to the nearest tier (you only get the lock you commit to).
+    function _lockDurationFromBps(uint16 lockMultiplierBps) internal pure returns (LockDuration) {
+        if (lockMultiplierBps >= 16_000) return LockDuration.SixMonths;
+        if (lockMultiplierBps >= 13_000) return LockDuration.ThreeMonths;
+        if (lockMultiplierBps >= 12_000) return LockDuration.TwoMonths;
+        if (lockMultiplierBps >= 11_000) return LockDuration.OneMonth;
+        return LockDuration.None;
     }
 
     /// @notice Get lock multiplier in basis points

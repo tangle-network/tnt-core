@@ -24,6 +24,19 @@ interface ISequencerUptimeFeed {
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
 }
 
+/// @title IChainlinkAggregatorBounds
+/// @notice Circuit-breaker bounds exposed by Chainlink's underlying off-chain aggregator. A
+///         consumer-facing proxy (the address registered via {configurePriceFeed}) forwards reads
+///         to its current `aggregator()`, which is an `AccessControlledOffchainAggregator` carrying
+///         immutable `minAnswer`/`maxAnswer` bounds. During an extreme market dislocation the
+///         aggregator clamps its reported answer to these bounds, so a price sitting exactly at a
+///         bound is a saturated (untrustworthy) reading rather than a true market price.
+interface IChainlinkAggregatorBounds {
+    function aggregator() external view returns (address);
+    function minAnswer() external view returns (int192);
+    function maxAnswer() external view returns (int192);
+}
+
 /// @title IERC20Decimals
 /// @notice Minimal ERC20 interface for decimals
 interface IERC20Decimals {
@@ -79,6 +92,10 @@ contract ChainlinkOracle is IPriceOracle, IPriceOracleAdmin, Ownable {
 
     /// @notice Chainlink round was emitted before its data was finalized
     error StaleRound(address token, uint80 roundId, uint80 answeredInRound);
+
+    /// @notice Reported answer sits at the aggregator's min/maxAnswer circuit-breaker bound, i.e.
+    ///         the feed is saturated and the value is not a trustworthy market price.
+    error AnswerOutOfBounds(address token, int256 answer, int192 minAnswer, int192 maxAnswer);
 
     event SequencerUptimeFeedConfigured(address indexed feed, uint256 gracePeriod);
 
@@ -267,6 +284,13 @@ contract ChainlinkOracle is IPriceOracle, IPriceOracleAdmin, Ownable {
                 revert StalePrice(token, updatedAt, maxAge);
             }
 
+            // Circuit breaker: reject an answer clamped to the aggregator's min/maxAnswer bound.
+            // When the off-chain aggregator saturates at a bound during an extreme dislocation, the
+            // proxy keeps reporting that bound as if it were a live price; accepting it would let a
+            // crashing asset be valued at its floor (under-slashing) or a spiking asset at its
+            // ceiling. Fail closed so the protocol falls back rather than trusting a pinned value.
+            _checkAnswerBounds(token, feed, answer);
+
             // Get feed decimals and normalize to 18
             uint8 feedDecimals = aggregator.decimals();
             uint256 normalizedPrice;
@@ -308,5 +332,33 @@ contract ChainlinkOracle is IPriceOracle, IPriceOracleAdmin, Ownable {
         if (startedAt == 0) revert StalePrice_Sequencer();
         if (answer != 0) revert SequencerDown();
         if (block.timestamp - startedAt < sequencerGracePeriod) revert SequencerDown();
+    }
+
+    /// @dev Revert when `answer` is pinned to the underlying aggregator's circuit-breaker bound.
+    ///      Bounds live on the proxy's current `aggregator()`, not the proxy, so we resolve it
+    ///      first. Feeds that do not expose these getters (older deployments, non-standard
+    ///      aggregators) are skipped via try/catch — the staleness/sign checks above still apply.
+    function _checkAnswerBounds(address token, address feed, int256 answer) internal view {
+        try IChainlinkAggregatorBounds(feed).aggregator() returns (address agg) {
+            if (agg == address(0)) return;
+            try IChainlinkAggregatorBounds(agg).minAnswer() returns (int192 minAnswer) {
+                try IChainlinkAggregatorBounds(agg).maxAnswer() returns (int192 maxAnswer) {
+                    // Only enforce a sane [min, max] window; a misconfigured (min >= max) pair is
+                    // ignored rather than bricking the feed.
+                    if (minAnswer < maxAnswer && (answer <= minAnswer || answer >= maxAnswer)) {
+                        revert AnswerOutOfBounds(token, answer, minAnswer, maxAnswer);
+                    }
+                } catch { }
+            } catch { }
+        } catch {
+            // Some proxies expose minAnswer()/maxAnswer() directly without aggregator().
+            try IChainlinkAggregatorBounds(feed).minAnswer() returns (int192 minAnswer) {
+                try IChainlinkAggregatorBounds(feed).maxAnswer() returns (int192 maxAnswer) {
+                    if (minAnswer < maxAnswer && (answer <= minAnswer || answer >= maxAnswer)) {
+                        revert AnswerOutOfBounds(token, answer, minAnswer, maxAnswer);
+                    }
+                } catch { }
+            } catch { }
+        }
     }
 }

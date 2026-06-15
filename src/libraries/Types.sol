@@ -648,11 +648,26 @@ library Types {
         uint64 count; // Quantity of the resource
     }
 
+    /// @notice Service-quote operation discriminator.
+    /// @dev Bound into the EIP-712 typed data so an operator's signature commits to the flow
+    ///      it was issued for. Without it, `createServiceFromQuotes` and `extendServiceFromQuotes`
+    ///      verify against the same `QUOTE_TYPEHASH` + `_usedQuotes` map, letting a low-cost
+    ///      extension quote be redeemed as a full new service creation (or vice versa) whenever
+    ///      `blueprintId`/`ttlBlocks`/`requester` happen to match.
+    enum QuoteOperation {
+        Create, // Quote may only be redeemed via createServiceFromQuotes
+        Extend // Quote may only be redeemed via extendServiceFromQuotes for `serviceId`
+
+    }
+
     /// @notice Quote details from an operator
     /// @dev `requester` binds the quote to a specific buyer to defeat mempool front-running
     ///      of `createServiceFromQuotes` / `extendServiceFromQuotes`. Operators sign for a
     ///      specific recipient; the contract enforces `requester == msg.sender` (or `requester
     ///      == address(0)` for explicit "anyone" quotes — discouraged).
+    /// @dev `operation` + `serviceId` bind the quote to a specific flow so a create quote
+    ///      cannot be replayed against the extend path and vice versa. On `Create`, `serviceId`
+    ///      MUST be 0; on `Extend`, `serviceId` MUST equal the service being extended.
     struct QuoteDetails {
         address requester; // Who is allowed to redeem this quote (address(0) = open)
         uint64 blueprintId; // Which blueprint
@@ -661,6 +676,8 @@ library Types {
         uint64 timestamp; // When quote was generated
         uint64 expiry; // Quote expiry timestamp
         ConfidentialityPolicy confidentiality; // Requested execution confidentiality
+        QuoteOperation operation; // Flow this quote may be redeemed in (create vs extend)
+        uint64 serviceId; // Target service for extend (0 for create)
         AssetSecurityCommitment[] securityCommitments; // Operator's security commitments
         ResourceCommitment[] resourceCommitments; // Operator's resource commitments
     }
@@ -687,6 +704,10 @@ library Types {
     ///      service-creation `QuoteDetails` and prevents another permitted caller
     ///      (or any mempool observer) from front-running and consuming a signed
     ///      single-use job-quote digest before the intended caller's tx lands.
+    /// @dev `inputsHash` binds the operator-signed price to the exact job inputs being submitted
+    ///      (`keccak256(inputs)`). Without it, `submitJobFromQuote` accepts caller-supplied
+    ///      `inputs` that were never committed to in the signature, so a fixed-price quote could
+    ///      be redeemed for arbitrary (e.g. far more expensive) work.
     struct JobQuoteDetails {
         address requester; // Caller authorized to consume this quote
         uint64 serviceId; // Which service instance
@@ -695,6 +716,7 @@ library Types {
         uint64 timestamp; // When quote generated
         uint64 expiry; // Quote expiry timestamp
         uint8 confidentiality; // 0=Any, 1=Required, 2=Preferred
+        bytes32 inputsHash; // keccak256(inputs) the price is quoted against
     }
 
     /// @notice Signed per-job quote from an operator

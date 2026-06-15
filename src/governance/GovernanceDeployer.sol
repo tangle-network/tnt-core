@@ -33,6 +33,31 @@ import { TangleTimelock } from "./TangleTimelock.sol";
 /// ```
 contract GovernanceDeployer {
     // ═══════════════════════════════════════════════════════════════════════════
+    // ACCESS CONTROL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice The account that deployed this helper and is allowed to drive the
+    ///         privileged role-configuration / handover functions.
+    /// @dev Invariant: every function that exercises an admin role transiently held by
+    ///      this contract (timelock DEFAULT_ADMIN during bootstrap, or a protocol's
+    ///      DEFAULT_ADMIN before handover) MUST be callable only by `owner`. Without
+    ///      this, any address could front-run the deploy-then-renounce sequence and
+    ///      redirect DEFAULT_ADMIN_ROLE / grantRole targets to itself, seizing the
+    ///      Timelock and therefore the whole protocol.
+    address public immutable owner;
+
+    error NotOwner(address caller, address owner);
+
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner(msg.sender, owner);
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -76,7 +101,11 @@ contract GovernanceDeployer {
     /// @notice Deploy complete governance system
     /// @param params Deployment parameters
     /// @return contracts The deployed contract addresses
-    function deployGovernance(DeployParams calldata params) external returns (DeployedContracts memory contracts) {
+    function deployGovernance(DeployParams calldata params)
+        external
+        onlyOwner
+        returns (DeployedContracts memory contracts)
+    {
         // Deploy implementations / reuse existing TNT
         TangleTimelock timelockImpl = new TangleTimelock();
         TangleGovernor governorImpl = new TangleGovernor();
@@ -142,7 +171,14 @@ contract GovernanceDeployer {
     /// @param protocolContract The protocol contract (Tangle, MultiAssetDelegation, etc.)
     /// @param roles The role identifiers to grant to timelock
     /// @dev Caller must have DEFAULT_ADMIN_ROLE on protocolContract
-    function configureProtocolRoles(address timelock, address protocolContract, bytes32[] calldata roles) external {
+    function configureProtocolRoles(
+        address timelock,
+        address protocolContract,
+        bytes32[] calldata roles
+    )
+        external
+        onlyOwner
+    {
         IAccessControl protocol = IAccessControl(protocolContract);
 
         for (uint256 i = 0; i < roles.length; i++) {
@@ -155,6 +191,10 @@ contract GovernanceDeployer {
     /// @notice Renounce admin role on timelock for full decentralization
     /// @param timelock The timelock to renounce admin on
     /// @dev After calling this, only governance can modify timelock
+    /// @dev Intentionally NOT `onlyOwner`: this only renounces THIS contract's own
+    ///      DEFAULT_ADMIN_ROLE and grants nothing to anyone, so it cannot be used for
+    ///      privilege escalation / takeover. The escalation paths (granting a role to a
+    ///      caller-chosen address) are the ones that carry `onlyOwner`.
     function renounceTimelockAdmin(TangleTimelock timelock) external {
         timelock.renounceRole(timelock.DEFAULT_ADMIN_ROLE(), address(this));
     }
@@ -162,7 +202,7 @@ contract GovernanceDeployer {
     /// @notice Transfer timelock admin to a new address (e.g., multisig as backup)
     /// @param timelock The timelock
     /// @param newAdmin The new admin address
-    function transferTimelockAdmin(TangleTimelock timelock, address newAdmin) external {
+    function transferTimelockAdmin(TangleTimelock timelock, address newAdmin) external onlyOwner {
         timelock.grantRole(timelock.DEFAULT_ADMIN_ROLE(), newAdmin);
         timelock.renounceRole(timelock.DEFAULT_ADMIN_ROLE(), address(this));
     }
@@ -180,6 +220,7 @@ contract GovernanceDeployer {
         address originalAdmin
     )
         external
+        onlyOwner
     {
         IAccessControl protocol = IAccessControl(protocolContract);
 

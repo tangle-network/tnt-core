@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import { IPriceOracle, IPriceOracleAdmin } from "./interfaces/IPriceOracle.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @title IUniswapV3Pool
 /// @notice Minimal Uniswap V3 pool interface for TWAP
@@ -27,6 +28,29 @@ interface IUniswapV3Pool {
 
     function token0() external view returns (address);
     function token1() external view returns (address);
+}
+
+/// @title IUniswapV3PoolCardinality
+/// @notice Cardinality-growth surface kept separate from {IUniswapV3Pool} so test/mock pools that
+///         predate observation-buffer enforcement remain ABI-compatible with {IUniswapV3Pool}.
+///         We invoke `increaseObservationCardinalityNext` opportunistically (via try/catch) at
+///         config time to grow a thin pool's observation ring buffer; a pool that does not expose
+///         it simply cannot be auto-grown and must already satisfy the cardinality requirement.
+interface IUniswapV3PoolCardinality {
+    function increaseObservationCardinalityNext(uint16 observationCardinalityNext) external;
+}
+
+/// @title ISequencerUptimeFeed
+/// @notice L2 sequencer uptime feed (e.g. Base / Arbitrum canonical feed). `answer == 0` means the
+///         sequencer is up; `answer == 1` means it is down or has just restarted. Reading any
+///         Chainlink quote feed on an L2 while the sequencer is down (or freshly restarted) yields
+///         a price that has been frozen during the outage, so the TWAP-to-USD conversion would
+///         publish a stale-but-"valid" value. We gate on it for parity with ChainlinkOracle.
+interface ISequencerUptimeFeed {
+    function latestRoundData()
+        external
+        view
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
 }
 
 /// @title IERC20Decimals
@@ -99,6 +123,32 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     /// @notice WETH address (common quote token)
     address public weth;
 
+    // ── Storage appended after the original layout (UUPS-safe; never reorder above) ──
+
+    /// @notice Optional L2 sequencer uptime feed. When set, prices revert if the sequencer
+    ///         is reported down or has been up for less than `sequencerGracePeriod`. Mirrors the
+    ///         ChainlinkOracle gate so the quote-feed path cannot read frozen L2 prices.
+    address public sequencerUptimeFeed;
+
+    /// @notice Required time the sequencer must have been up before prices are accepted.
+    uint256 public sequencerGracePeriod;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ERRORS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Sequencer down or recently restarted (within grace period)
+    error SequencerDown();
+
+    /// @notice Sequencer feed reports a stalled round
+    error StalePrice_Sequencer();
+
+    /// @notice Configured pool does not have enough TWAP observation slots for `twapPeriod`,
+    ///         so the TWAP would degenerate toward manipulable spot. `have` < `need`.
+    error InsufficientObservationCardinality(address pool, uint16 have, uint16 need);
+
+    event SequencerUptimeFeedConfigured(address indexed feed, uint256 gracePeriod);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
     // ═══════════════════════════════════════════════════════════════════════════
@@ -107,6 +157,7 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
         weth = _weth;
         twapPeriod = DEFAULT_TWAP_PERIOD;
         maxAge = 1 hours;
+        sequencerGracePeriod = 1 hours;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -218,6 +269,13 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
 
         address quoteToken = isToken0 ? token1 : token0;
 
+        // Enforce enough TWAP observation slots so observe() does not extrapolate from a near-empty
+        // ring buffer. With ~12s blocks the buffer needs at least ceil(twapPeriod/12) slots to span
+        // the window; a thin pool with low cardinality lets the TWAP collapse toward single-block
+        // (manipulable) spot. If the pool can already cover the window we accept it; otherwise we
+        // grow it in-place via increaseObservationCardinalityNext and require the request to take.
+        _ensureObservationCardinality(uniPool);
+
         poolConfigs[token] = PoolConfig({
             pool: pool,
             quoteToken: quoteToken,
@@ -267,6 +325,19 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
         twapPeriod = period;
     }
 
+    /// @notice Configure the L2 sequencer uptime feed. Set to `address(0)` to disable on L1.
+    /// @dev Mirrors {ChainlinkOracle.setSequencerUptimeFeed}. When configured, the quote-feed
+    ///      path in {_getPriceData} reverts while the sequencer is down or within the grace
+    ///      period after a restart, so the oracle cannot publish a frozen-but-"valid" L2 price.
+    /// @param feed Sequencer uptime feed address (Base mainnet: 0xBCF85224fc0756B9Fa45aA7892530B47e10b6433)
+    /// @param gracePeriodSeconds Seconds the sequencer must have been up before prices are valid
+    function setSequencerUptimeFeed(address feed, uint256 gracePeriodSeconds) external onlyOwner {
+        require(gracePeriodSeconds > 0, "Invalid grace period");
+        sequencerUptimeFeed = feed;
+        sequencerGracePeriod = gracePeriodSeconds;
+        emit SequencerUptimeFeedConfigured(feed, gracePeriodSeconds);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // INTERNAL FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -277,6 +348,12 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
         if (config.pool == address(0)) {
             revert TokenNotSupported(token);
         }
+
+        // Gate the entire pricing path on L2 sequencer liveness, for parity with ChainlinkOracle.
+        // The quote-feed branch below reads a Chainlink feed whose value freezes during a sequencer
+        // outage; without this gate the oracle would publish that frozen value as a fresh, "valid"
+        // price. On L1 (no feed configured) this is a no-op.
+        _requireSequencerUp();
 
         // Get TWAP tick
         int24 arithmeticMeanTick = _getArithmeticMeanTick(config.pool, twapPeriod);
@@ -322,11 +399,66 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
 
         // Final price in USD = priceInQuote * quoteUsdPrice / 10^quoteDecimals
         data.price = (priceInQuote * quoteUsdPrice) / (10 ** config.quoteDecimals);
+
+        // Fail closed on a zero price. Even after the full-precision mulDiv conversion, a deep
+        // out-of-range tick (or a degenerate decimal pairing) can floor `priceInQuote` to 0, and
+        // a 0 USD price is never a legitimate quote: downstream toUSD() would value the asset at $0
+        // (escaping exposure/slashing) and fromUSD() would divide by zero (DoS). Surfacing
+        // PriceNotAvailable here is strictly safer than marking the data valid.
+        if (data.price == 0) {
+            revert PriceNotAvailable(token);
+        }
+
         // Tie freshness to the underlying quote feed when applicable so downstream
         // staleness checks reflect the slowest input, not "now".
         data.updatedAt = quoteUpdatedAt;
         data.decimals = config.tokenDecimals;
         data.isValid = true;
+    }
+
+    /// @dev Reverts if the sequencer feed (when configured) reports the L2 sequencer
+    ///      as down or recently restarted within `sequencerGracePeriod`. No-op on L1.
+    function _requireSequencerUp() internal view {
+        address feed = sequencerUptimeFeed;
+        if (feed == address(0)) return;
+
+        (, int256 answer, uint256 startedAt,,) = ISequencerUptimeFeed(feed).latestRoundData();
+        if (startedAt == 0) revert StalePrice_Sequencer();
+        if (answer != 0) revert SequencerDown();
+        if (block.timestamp - startedAt < sequencerGracePeriod) revert SequencerDown();
+    }
+
+    /// @dev Ensure the configured pool's observation ring buffer can actually span `twapPeriod`.
+    ///      With ~12s L2/L1 blocks the buffer needs at least ceil(twapPeriod / 12) slots; below
+    ///      that, observe() interpolates from too few points and the TWAP collapses toward
+    ///      single-block (manipulable) spot. We accept a pool that already covers the window (live
+    ///      or already-requested cardinality), otherwise we opportunistically grow it in place and
+    ///      require the request to take. A pool reporting cardinality 0 is not an initialized
+    ///      Uniswap V3 pool (initialize() sets it to 1); we cannot enforce against such a pool and
+    ///      defer to the owner-trusted configuration that points the oracle at it.
+    function _ensureObservationCardinality(IUniswapV3Pool uniPool) internal {
+        (,,, uint16 cardinality, uint16 cardinalityNext,,) = uniPool.slot0();
+
+        // ceil(twapPeriod / 12), clamped to the uint16 range the pool stores cardinality in.
+        uint256 needed256 = (uint256(twapPeriod) + 11) / 12;
+        if (needed256 > type(uint16).max) needed256 = type(uint16).max;
+        uint16 needed = uint16(needed256);
+
+        // Already deep enough (current or pending growth) — nothing to do.
+        if (cardinality >= needed || cardinalityNext >= needed) return;
+
+        // A real initialized pool always reports cardinality >= 1. Only a non-initialized
+        // (or stubbed) pool reports 0; we cannot meaningfully enforce or grow it.
+        if (cardinality == 0) return;
+
+        // Grow the buffer in place. The pool may not expose the growth call (older/forked pools);
+        // in that case we fall through to the requirement check and revert below.
+        try IUniswapV3PoolCardinality(address(uniPool)).increaseObservationCardinalityNext(needed) { } catch { }
+
+        (,,, uint16 newCardinality, uint16 newCardinalityNext,,) = uniPool.slot0();
+        if (newCardinality < needed && newCardinalityNext < needed) {
+            revert InsufficientObservationCardinality(address(uniPool), newCardinality, needed);
+        }
     }
 
     /// @notice Get arithmetic mean tick from TWAP
@@ -382,7 +514,24 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
         return (ratio >> 32) + (ratio % (1 << 32) == 0 ? 0 : 1);
     }
 
-    /// @notice Get price from sqrtPriceX96
+    /// @notice Get the price of one WHOLE priced-token expressed in QUOTE smallest units (raw quote wei).
+    /// @dev sqrtPriceX96 = sqrt(token1_raw / token0_raw) * 2^96, where the ratio is in smallest units
+    ///      (wei), so (sqrtPriceX96^2 / 2^192) is the dimensionless raw token1/token0 ratio.
+    ///
+    ///      INVARIANT: the returned `priceInQuote` MUST be denominated in raw quote-token units per
+    ///      ONE WHOLE priced token, because `_getPriceData` finishes the conversion with
+    ///        data.price = priceInQuote * quoteUsdPrice(18dp, per WHOLE quote token) / 10^quoteDecimals
+    ///      which then yields an 18-decimal USD price per whole priced token. Concretely:
+    ///        priceInQuote = rawRatio * 10^tokenDecimals
+    ///      (the `quoteDecimals` cancel in the chain above; they MUST NOT appear here).
+    ///
+    ///      Two correctness requirements the previous implementation violated:
+    ///      1) MULTIPLY-BEFORE-DIVIDE / no early >>192 truncation. The raw ratio is < 1 for almost
+    ///         every real pair (e.g. an 18-dec token quoted in 6-dec USDC), so flooring it to an
+    ///         integer before applying decimals produced 0. We fold the 10^tokenDecimals scale into
+    ///         the division so the result keeps full precision, using 512-bit `Math.mulDiv` to avoid
+    ///         the uint256 overflow of `sqrtPriceX96^2` at high ticks.
+    ///      2) CORRECT decimal factor: scale by 10^tokenDecimals (NOT 10^quoteDecimals / 10^tokenDecimals).
     function _getPriceFromSqrtX96(
         uint256 sqrtPriceX96,
         bool isToken0,
@@ -393,28 +542,27 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
         pure
         returns (uint256)
     {
-        // sqrtPriceX96 = sqrt(token1/token0) * 2^96
-        // price = (sqrtPriceX96 / 2^96)^2
-        // Adjust for decimals
+        quoteDecimals; // unused: quote decimals cancel in the _getPriceData conversion chain.
 
-        uint256 price;
+        uint256 tokenScale = 10 ** tokenDecimals;
+
         if (isToken0) {
-            // Price of token0 in token1
-            // price = (sqrtPriceX96)^2 / 2^192
-            price = (sqrtPriceX96 * sqrtPriceX96) >> 192;
-            // Adjust for decimals: multiply by 10^quoteDecimals, result in quote decimals
-            price = (price * (10 ** quoteDecimals)) / (10 ** tokenDecimals);
+            // Priced token is token0, quote is token1.
+            // priceInQuote = (sqrtPriceX96^2 / 2^192) * 10^tokenDecimals
+            //             = mulDiv( mulDiv(sqrtPriceX96, sqrtPriceX96, Q96), 10^tokenDecimals, Q96 )
+            // First mulDiv yields rawRatio * 2^96 (fits in uint256 across the full tick range);
+            // second applies the token scale and the remaining 2^96 divisor with full precision.
+            uint256 ratioX96 = Math.mulDiv(sqrtPriceX96, sqrtPriceX96, Q96);
+            return Math.mulDiv(ratioX96, tokenScale, Q96);
         } else {
-            // Price of token1 in token0
-            // price = 2^192 / (sqrtPriceX96)^2
-            uint256 sqrtSquared = (sqrtPriceX96 * sqrtPriceX96);
-            if (sqrtSquared > 0) {
-                price = (1 << 192) / sqrtSquared;
-                price = (price * (10 ** quoteDecimals)) / (10 ** tokenDecimals);
-            }
+            // Priced token is token1, quote is token0.
+            // priceInQuote = (2^192 / sqrtPriceX96^2) * 10^tokenDecimals
+            //             = mulDiv( mulDiv(Q96, Q96, sqrtPriceX96), 10^tokenDecimals, sqrtPriceX96 )
+            // Avoids both the uint256 overflow of sqrtPriceX96^2 and truncation-to-0 when price > 1.
+            if (sqrtPriceX96 == 0) return 0;
+            uint256 invX96 = Math.mulDiv(Q96, Q96, sqrtPriceX96); // = 2^192 / sqrtPriceX96
+            return Math.mulDiv(invX96, tokenScale, sqrtPriceX96);
         }
-
-        return price;
     }
 }
 

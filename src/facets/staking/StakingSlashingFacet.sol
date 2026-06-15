@@ -9,6 +9,42 @@ import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 /// @notice Facet for slashing and round management
 contract StakingSlashingFacet is StakingFacetBase, IFacetSelectors {
     event RoundAdvanced(uint64 indexed round);
+    event OperatorSnapshotted(uint64 indexed round, address indexed operator);
+
+    /// @notice Snapshot for (round, operator) already exists and cannot be overwritten.
+    /// @dev Snapshots feed historical slashing math; allowing a re-snapshot mid-round would
+    ///      let a privileged caller retroactively change the stake basis a slash is computed
+    ///      against. Snapshots are therefore write-once per round.
+    error SnapshotAlreadyTaken(uint64 round, address operator);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ERC-7201 facet-local storage
+    //
+    // DelegationStorage is the shared sequential layout for every staking facet and
+    // must not be touched. The write-once snapshot guard needs new state, so it lives
+    // in a namespaced (ERC-7201) slot derived from a unique string — this slot is
+    // collision-free against the sequential layout by construction and requires no
+    // storage migration on upgrade.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @custom:storage-location erc7201:tangle.staking.StakingSlashingFacet
+    struct SlashingFacetStorage {
+        // round => operator => snapshot already taken this round
+        mapping(uint64 => mapping(address => bool)) snapshotTaken;
+    }
+
+    /// @notice ERC-7201 slot:
+    ///         keccak256(abi.encode(uint256(keccak256("tangle.staking.StakingSlashingFacet")) - 1))
+    ///         & ~bytes32(uint256(0xff))
+    bytes32 private constant SLASHING_FACET_STORAGE_SLOT =
+        0x1a01f77f53227e89a61746b347de7a926d541cbf27bb593f17507e031e657e00;
+
+    function _slashingFacetStorage() private pure returns (SlashingFacetStorage storage $) {
+        bytes32 slot = SLASHING_FACET_STORAGE_SLOT;
+        assembly {
+            $.slot := slot
+        }
+    }
 
     function selectors() external pure returns (bytes4[] memory selectorList) {
         selectorList = new bytes4[](8);
@@ -71,14 +107,31 @@ contract StakingSlashingFacet is StakingFacetBase, IFacetSelectors {
     }
 
     /// @notice Advance to next round
+    /// @dev Permissionless crank by design: round advancement gates time-based unbonding /
+    ///      withdrawal delays for ALL participants, so it must NOT depend on a privileged
+    ///      caller being online (that would freeze every withdrawal protocol-wide). Racing is
+    ///      already prevented because _advanceRound enforces roundDuration rate limiting (a
+    ///      round cannot be advanced before its duration elapses). The integrity-sensitive
+    ///      operation — the per-operator stake snapshot historical slashing is computed
+    ///      against — is the one that is gated and write-once (see snapshotOperator).
     function advanceRound() external {
         _advanceRound();
         emit RoundAdvanced(currentRound);
     }
 
-    /// @notice Take snapshot of operator state
-    function snapshotOperator(address operator) external {
+    /// @notice Take snapshot of operator state for the current round
+    /// @dev Restricted to SLASHER_ROLE and write-once per (round, operator): the snapshot is the
+    ///      stake basis historical slashing is computed against, so it must not be permissionless
+    ///      nor re-writable within a round.
+    function snapshotOperator(address operator) external onlyRole(SLASHER_ROLE) {
+        SlashingFacetStorage storage $ = _slashingFacetStorage();
+        uint64 round = currentRound;
+        if ($.snapshotTaken[round][operator]) {
+            revert SnapshotAlreadyTaken(round, operator);
+        }
+        $.snapshotTaken[round][operator] = true;
         _snapshotOperator(operator);
+        emit OperatorSnapshotted(round, operator);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

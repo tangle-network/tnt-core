@@ -16,6 +16,17 @@ abstract contract JobsAggregation is Base {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // ERRORS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Raised when an aggregated result is submitted for a service that has no
+    ///         staking-active operators. With zero eligible operators the count/stake
+    ///         threshold computes `required == 0`, and the `achieved < required` quorum
+    ///         check degenerates to `0 < 0` (false) — accepting an empty signer set with
+    ///         no signature. Fail closed: a quorum over an empty set is never satisfiable.
+    error NoActiveOperators(uint64 serviceId);
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -181,16 +192,31 @@ abstract contract JobsAggregation is Base {
     {
         SignerStats memory stats = _computeSignerStats(serviceId, signerBitmap, thresholdType);
 
+        // ROOT-CAUSE GUARD: with no staking-active operators the threshold below computes
+        // `required == 0` for BOTH paths (operatorCount/totalWeight are 0). The downstream
+        // `achieved < required` quorum check would then be `0 < 0` (false) and accept an
+        // aggregated result with an EMPTY signer set and a zero/infinity signature —
+        // result spoofing, and (for EventDriven jobs) payment drawn for nonexistent work.
+        // A quorum over an empty operator set can never be legitimately met, so fail closed.
+        if (stats.operatorCount == 0) {
+            revert NoActiveOperators(serviceId);
+        }
+
         if (thresholdType == 0) {
             // CountBased: achieved = signerCount, required = threshold% of operatorCount
             achieved = stats.signerCount;
             required = _ceilDiv(uint256(stats.operatorCount) * thresholdBps, BPS_DENOMINATOR);
-            if (required == 0 && stats.operatorCount > 0) required = 1; // At least 1 signer required
+            if (required == 0) required = 1; // At least 1 signer required (operatorCount > 0 here)
         } else {
             // StakeWeighted: achieved = signerWeight, required = threshold% of totalWeight
             achieved = stats.signerWeight;
             required = _ceilDiv(stats.totalWeight * thresholdBps, BPS_DENOMINATOR);
-            if (required == 0 && stats.totalWeight > 0) required = 1;
+            // totalWeight can still be 0 if every active operator has exposureBps == 0;
+            // a stake-weighted quorum over zero total stake is likewise unsatisfiable.
+            if (stats.totalWeight == 0) {
+                revert NoActiveOperators(serviceId);
+            }
+            if (required == 0) required = 1;
         }
     }
 

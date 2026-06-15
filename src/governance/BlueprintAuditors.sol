@@ -175,10 +175,23 @@ contract BlueprintAuditors is Initializable, AccessControlUpgradeable, UUPSUpgra
     }
 
     /// @notice Toggle an auditor's active flag. Governance-only.
+    /// @dev Deactivating zeroes the weight so the registry's advertised invariant
+    ///      "inactive ⇒ weight 0" holds for every deactivation path, not just
+    ///      `removeAuditor`. Without this, an aggregator that scored by `weight`
+    ///      (rather than re-checking `active`) would keep counting a deactivated
+    ///      auditor's influence. Re-activation intentionally restores the auditor
+    ///      with weight 0; governance sets the new weight via `setAuditorWeight`.
+    ///      Emits `AuditorWeightSet` on the zeroing so weight-tracking consumers
+    ///      see the transition in their single event stream.
     function setAuditorActive(address auditor, bool active) external onlyRole(GOVERNANCE_ROLE) {
         Auditor storage row = auditors[auditor];
         if (row.admittedAt == 0) revert Errors.AuditorNotFound();
         row.active = active;
+        if (!active && row.weight != 0) {
+            uint16 oldWeight = row.weight;
+            row.weight = 0;
+            emit AuditorWeightSet(auditor, oldWeight, 0);
+        }
         emit AuditorActiveSet(auditor, active);
     }
 
