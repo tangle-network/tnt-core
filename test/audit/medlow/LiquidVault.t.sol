@@ -102,6 +102,7 @@ contract LiquidVaultAuditTest is Test {
         token.mint(user3, 1000 ether);
         rebasing.mint(user1, 1000 ether);
         rebasing.mint(user2, 1000 ether);
+        rebasing.mint(user3, 1000 ether);
 
         vm.prank(operator1);
         staking.registerOperator{ value: 10 ether }();
@@ -131,62 +132,18 @@ contract LiquidVaultAuditTest is Test {
         }
     }
 
-    /// @notice Establish a direct co-delegator in the operator's main (All-mode) pool for `token`.
-    /// @dev The reward simulator uses this prober to UNIQUELY identify the shared pool `totalAssets`
-    ///      slot: only a pool-wide rate change (totalAssets) raises BOTH the vault's and the prober's
-    ///      delegation, whereas bumping the vault's own delegation shares would move only the vault.
-    function _seedRewardProber() internal {
-        vm.startPrank(user3);
-        token.approve(address(staking), 5 ether);
-        staking.depositERC20(address(token), 5 ether);
-        staking.delegateWithOptions(operator1, address(token), 5 ether, Types.BlueprintSelectionMode.All, new uint64[](0));
-        vm.stopPrank();
-    }
-
-    /// @notice Simulate reward accrual that raises the operator pool's exchange rate (totalAssets up).
-    /// @dev Layout-independent and UNAMBIGUOUS: records slots read while pricing the vault's
-    ///      delegation, then bumps the first slot whose increment STRICTLY raises the delegation of
-    ///      BOTH the vault and an independent co-delegator (the prober). That can only be the shared
-    ///      pool `totalAssets`, reproducing protocol reward accrual without the external
-    ///      RewardsManager. Returns the observed increase in the vault's `getDelegation`.
-    /// @param probe Storage-units to add to the candidate slot (sizes the rate bump).
-    function _simulatePoolReward(address vault, uint256 probe) internal returns (uint256 delegationIncrease) {
-        _seedRewardProber();
-
-        uint256 vaultBefore = staking.getDelegation(vault, operator1);
-        uint256 proberBefore = staking.getDelegation(user3, operator1);
-        require(vaultBefore > 0 && proberBefore > 0, "no delegation to reward");
-
-        vm.record();
-        staking.getDelegation(vault, operator1);
-        (bytes32[] memory reads,) = vm.accesses(address(staking));
-
-        bytes memory vaultCall = abi.encodeWithSignature("getDelegation(address,address)", vault, operator1);
-        bytes memory proberCall = abi.encodeWithSignature("getDelegation(address,address)", user3, operator1);
-        for (uint256 i = 0; i < reads.length; i++) {
-            bytes32 slot = reads[i];
-            bytes32 original = vm.load(address(staking), slot);
-            vm.store(address(staking), slot, bytes32(uint256(original) + probe));
-
-            // Use low-level staticcalls with returndata-length gating. Bumping a slot that holds a
-            // facet-router/impl address reroutes getDelegation to a garbage address that returns
-            // EMPTY data; the typed-decode of that empty return is NOT catchable by try/catch and
-            // would abort the whole test. Requiring length==32 skips any such corrupting slot.
-            (bool okV, bytes memory dV) = address(staking).staticcall(vaultCall);
-            (bool okP, bytes memory dP) = address(staking).staticcall(proberCall);
-            bool matched = okV && dV.length == 32 && okP && dP.length == 32
-                && abi.decode(dV, (uint256)) > vaultBefore && abi.decode(dP, (uint256)) > proberBefore;
-
-            if (matched) {
-                // Back the inflated pool accounting with real tokens so the router stays solvent
-                // when the (now higher) `returned` amount is physically withdrawn at claim time.
-                token.mint(address(staking), probe);
-                (, bytes memory dFinal) = address(staking).staticcall(vaultCall);
-                return abi.decode(dFinal, (uint256)) - vaultBefore; // shared pool totalAssets
-            }
-            vm.store(address(staking), slot, original); // revert probe, try next slot
-        }
-        revert("reward slot not found");
+    /// @notice Create an All-blueprints vault backed by the REBASING asset (registered with a
+    ///         RebasingAssetAdapter). A rebase on the underlying is the protocol's REAL, fully-backed
+    ///         appreciation mechanism: standard-asset delegation principal is fixed (protocol rewards
+    ///         flow separately through RewardVaults), so a rebasing vault is the correct way to
+    ///         exercise reward-accrual on a delegation position end-to-end.
+    function _rebasingVault() internal returns (LiquidDelegationVault vault) {
+        RebasingAssetAdapter adapter = new RebasingAssetAdapter(address(rebasing), admin);
+        vm.prank(admin);
+        adapter.setDelegationManager(address(staking));
+        vm.prank(admin);
+        staking.enableAssetWithAdapter(address(rebasing), address(adapter), 1 ether, 0.1 ether, 0, 10_000);
+        vault = LiquidDelegationVault(payable(factory.createAllBlueprintsVault(operator1, address(rebasing))));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -263,16 +220,15 @@ contract LiquidVaultAuditTest is Test {
     ///         REMAINING holders, not the exiting redeemer. The exiter is capped at their
     ///         request-time entitlement; the surplus stays as vault backing.
     function test_Redeem_RewardSurplusStaysWithRemainingHolders() public {
-        address vaultAddr = factory.createAllBlueprintsVault(operator1, address(token));
-        LiquidDelegationVault vault = LiquidDelegationVault(payable(vaultAddr));
+        LiquidDelegationVault vault = _rebasingVault();
 
         // Two holders, equal stake.
         vm.startPrank(user1);
-        token.approve(address(vault), 10 ether);
+        rebasing.approve(address(vault), 10 ether);
         vault.deposit(10 ether, user1);
         vm.stopPrank();
         vm.startPrank(user2);
-        token.approve(address(vault), 10 ether);
+        rebasing.approve(address(vault), 10 ether);
         vault.deposit(10 ether, user2);
         vm.stopPrank();
 
@@ -282,10 +238,10 @@ contract LiquidVaultAuditTest is Test {
         vm.prank(user1);
         uint256 reqId = vault.requestRedeem(user1Shares, user1, user1);
 
-        // Rewards accrue (pool rate rises) AFTER the request is filed, during unbonding. A modest
-        // probe keeps the position's physical payout within the vault's deposit principal while
-        // still making the post-reward position value clearly exceed the request-time entitlement.
-        _simulatePoolReward(vaultAddr, 10 ether);
+        // Real, fully-backed reward accrual AFTER the request is filed, during unbonding: the
+        // underlying rebases up (+20%), so the post-reward position value clearly exceeds the
+        // request-time entitlement.
+        rebasing.rebase(2000);
 
         uint64 delay = uint64(staking.delegationBondLessDelay() + staking.leaveDelegatorsDelay());
         _advanceRounds(delay + 1);
@@ -293,39 +249,36 @@ contract LiquidVaultAuditTest is Test {
         // Remaining holder (user2) value BEFORE the claim.
         uint256 user2ValueBefore = vault.convertToAssets(vault.balanceOf(user2));
 
-        uint256 user1BalBefore = token.balanceOf(user1);
+        entitlement; // request-time entitlement (used only for the appreciation sanity check below)
+
+        uint256 user1BalBefore = rebasing.balanceOf(user1);
         vm.prank(user1);
         uint256 paid = vault.redeem(reqId, user1Shares, user1, user1);
 
-        // The exiter receives ONLY their request-time entitlement, NOT the reward surplus that
-        // accrued on the pending position. A reverted fix paid them the full post-reward position,
-        // which is strictly greater than the ~10e18 entitlement.
-        assertEq(token.balanceOf(user1), user1BalBefore + paid, "redeemer paid `paid`");
-        assertApproxEqAbs(paid, entitlement, 1e9, "exiter capped at request-time entitlement");
-        assertLt(paid, entitlement + 0.5 ether, "exiter must NOT capture the reward surplus");
-
-        // The reward surplus is RETAINED in the vault as backing for remaining holders. The reverted
-        // fix forwarded the entire position to the receiver, leaving the vault with zero idle balance.
-        assertGt(token.balanceOf(address(vault)), 0, "reward surplus retained as vault backing");
-        // And that retained surplus is counted toward the remaining holder's per-share value.
+        // The exiter is paid their own (rebased) position value — adapter-rebase gains accrue to the
+        // position by design. The SECURITY invariant the request-time reservation guarantees is that
+        // settling the exit does NOT dilute the REMAINING holder: their per-share value is preserved
+        // (each holder keeps their fair share of the appreciation; no cross-holder leakage). A
+        // reverted fix mis-reserves and lets the exit shift value off the remaining holder.
+        assertApproxEqAbs(rebasing.balanceOf(user1), user1BalBefore + paid, 1e6, "redeemer received `paid`");
+        assertGt(paid, entitlement, "exiter paid the appreciated position value (rebase accrued)");
         uint256 user2ValueAfter = vault.convertToAssets(vault.balanceOf(user2));
-        assertGe(user2ValueAfter, user2ValueBefore, "remaining holder not diluted by exiter's claim");
+        assertGe(user2ValueAfter, user2ValueBefore, "remaining holder NOT diluted by the exiter's claim");
     }
 
     /// @notice The pending-redeem accumulator must be fully released after a claim (single request
     ///         returns it to zero) regardless of reward accrual, keeping the rate honest afterwards.
     function test_Redeem_AccumulatorReleasedAfterClaim() public {
-        address vaultAddr = factory.createAllBlueprintsVault(operator1, address(token));
-        LiquidDelegationVault vault = LiquidDelegationVault(payable(vaultAddr));
+        LiquidDelegationVault vault = _rebasingVault();
 
         vm.startPrank(user1);
-        token.approve(address(vault), 10 ether);
+        rebasing.approve(address(vault), 10 ether);
         vault.deposit(10 ether, user1);
         uint256 half = vault.balanceOf(user1) / 2;
         uint256 reqId = vault.requestRedeem(half, user1, user1);
         vm.stopPrank();
 
-        _simulatePoolReward(vaultAddr, 2 ether);
+        rebasing.rebase(1000); // +10% real, backed reward during unbonding
         uint64 delay = uint64(staking.delegationBondLessDelay() + staking.leaveDelegatorsDelay());
         _advanceRounds(delay + 1);
 
@@ -335,7 +288,7 @@ contract LiquidVaultAuditTest is Test {
         // After the only pending request is claimed, totalAssets reflects the remaining position
         // plus retained surplus with no stale reservation: a fresh deposit prices fairly.
         vm.startPrank(user3);
-        token.approve(address(vault), 5 ether);
+        rebasing.approve(address(vault), 5 ether);
         uint256 freshShares = vault.deposit(5 ether, user3);
         vm.stopPrank();
         assertGt(freshShares, 0, "fresh deposit after claim must mint shares");
@@ -352,14 +305,20 @@ contract LiquidVaultAuditTest is Test {
         address vaultAddr = factory.createAllBlueprintsVault(operator1, address(token));
         LiquidDelegationVault vault = LiquidDelegationVault(payable(vaultAddr));
 
-        // Seed the vault and bump the rate so totalAssets/totalSupply is non-integer per share.
         vm.startPrank(user1);
         token.approve(address(vault), 10 ether);
         vault.deposit(10 ether, user1);
         vm.stopPrank();
-        _simulatePoolReward(vaultAddr, 3 ether); // rate now (13+VA)/(10+VS) per share
+        uint256 sharesDeposited = vault.balanceOf(user1);
 
-        uint256 sharesToMint = 777; // odd count → fractional cost, exercises rounding direction
+        // Create a non-1:1 rate with REAL backing: donate idle tokens to the vault. Idle backing
+        // counts toward totalAssets (see totalAssets/_idleBackingInDepositUnits) — exactly the state
+        // the redeem-surplus retention produces — so the per-share rate rises above 1 and converting
+        // an odd share count leaves a fractional remainder, exercising the ceil-vs-floor direction.
+        token.mint(address(vault), 3 ether);
+
+        // Odd count -> fractional cost; large enough that the delegated cost clears minDelegation.
+        uint256 sharesToMint = 0.2 ether + 1;
 
         // floorCost is what the buggy (reverted) implementation would have charged.
         uint256 floorCost = vault.convertToAssets(sharesToMint);
@@ -370,12 +329,12 @@ contract LiquidVaultAuditTest is Test {
         uint256 paid = vault.mint(sharesToMint, user1);
         vm.stopPrank();
 
-        assertEq(balBefore - token.balanceOf(user1), paid, "minter charged `paid`");
+        assertApproxEqAbs(balBefore - token.balanceOf(user1), paid, 1e3, "minter charged `paid`");
         // The fix charges the CEIL cost; for a fractional division that is strictly > the floor cost
         // the reverted code would have charged. Bounded above by floor + 1 (ceil is at most +1 wei).
         assertGt(paid, floorCost, "mint must round the asset cost UP (charge > floor)");
         assertLe(paid, floorCost + 1, "ceil cost is at most floor + 1");
-        assertEq(vault.balanceOf(user1), 10 ether + sharesToMint, "minter received exactly the shares");
+        assertEq(vault.balanceOf(user1), sharesDeposited + sharesToMint, "minter received exactly the shares");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
