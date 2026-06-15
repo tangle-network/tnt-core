@@ -527,6 +527,14 @@ contract DelegationEdgeCasesTest is Test {
         blueprints[0] = 1;
         blueprints[1] = 2;
 
+        // Fixed-mode delegation now requires the operator be registered for each blueprint
+        // (audit: reject Fixed delegation to unregistered blueprints → slash-immune stake).
+        vm.startPrank(admin);
+        delegation.setTangle(admin);
+        delegation.addBlueprintForOperator(operator1, 1);
+        delegation.addBlueprintForOperator(operator1, 2);
+        vm.stopPrank();
+
         vm.startPrank(delegator1);
         delegation.deposit{ value: 5 ether }();
         delegation.delegateWithOptions(operator1, address(0), 5 ether, Types.BlueprintSelectionMode.Fixed, blueprints);

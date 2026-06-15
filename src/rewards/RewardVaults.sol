@@ -242,6 +242,16 @@ contract RewardVaults is
         require(_operatorCommissionBps <= MAX_COMMISSION_BPS, "Commission exceeds cap");
         tntToken = TangleToken(_tntToken);
         operatorCommissionBps = _operatorCommissionBps;
+
+        // Lock-duration defaults. These MUST be set here, not via inline field initializers:
+        // this is a UUPS-proxied contract, so field initializers (which run only in the
+        // constructor) never execute behind the proxy and would leave these at 0 — making
+        // every lock-multiplier boost decay instantly (0-second lock). Admin can retune via
+        // setLockDurations.
+        lockDurationOneMonth = 30 days;
+        lockDurationTwoMonths = 60 days;
+        lockDurationThreeMonths = 90 days;
+        lockDurationSixMonths = 180 days;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -300,11 +300,14 @@ contract BeaconBridgesAuditTest is Test {
         baseAdapter.setGasBuffer(0);
         uint256 overflowing = uint256(type(uint32).max) + 1;
 
+        // Cache BASE_CHAIN_ID() BEFORE the prank: evaluating it as a call argument consumes the
+        // prank, so sendMessage would run as the test contract, not the authorized connector.
+        uint256 baseChainId = baseAdapter.BASE_CHAIN_ID();
         vm.prank(connector);
         vm.expectRevert(
             abi.encodeWithSelector(BaseCrossChainMessenger.GasLimitTooHigh.selector, overflowing)
         );
-        baseAdapter.sendMessage(baseAdapter.BASE_CHAIN_ID(), makeAddr("anyTarget"), slashPayload, overflowing);
+        baseAdapter.sendMessage(baseChainId, makeAddr("anyTarget"), slashPayload, overflowing);
     }
 
     /// @notice The maximum in-range effective gas limit is accepted and forwarded un-truncated.
