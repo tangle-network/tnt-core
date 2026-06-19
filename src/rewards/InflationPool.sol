@@ -415,7 +415,14 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         // Calculate epoch budget based on pool balance
         uint256 epochBudget = calculateEpochBudget();
 
-        // Can only distribute what we have
+        // Can only distribute what we have. NOTE (F6): in normal operation this clamp never
+        // triggers because `calculateEpochBudget()` is derived from `freeBalance()`
+        // (= poolBalance - pendingRewardsLiability) <= poolBalance. It is retained as
+        // defense-in-depth. The only way `freeBalance()` could overstate availability is an
+        // upgrade FROM a pre-`pendingRewardsLiability` deployment carrying unclaimed pending
+        // rewards (liability would read 0). No such prior deployment exists for this codebase
+        // (liability has been tracked from genesis); any future migration that introduces it
+        // MUST seed `pendingRewardsLiability` in a reinitializer before the first distribution.
         uint256 available = poolBalance();
         if (epochBudget > available) {
             epochBudget = available;
@@ -441,14 +448,22 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         uint256 developersActual = _distributeDeveloperRewards(developersTarget);
         uint256 stakersActual = _distributeStakerInflation(serviceIds, stakersTarget);
 
-        // Handle undistributed amounts. `stakersTarget` MUST be included: the permissionless
-        // distributeEpoch() entrypoint passes an empty serviceIds, so _distributeStakerInflation
-        // returns 0 and the whole stakersTarget would otherwise be silently consumed by the epoch
-        // advance without ever reaching stakers. Folding it into `undistributed` reallocates it to
-        // the other active categories in the same epoch.
+        // Handle undistributed amounts.
+        //
+        // F7: the staker shortfall is reallocated to the other categories ONLY when staker
+        // distribution was actually attempted (`serviceIds` provided, i.e. the gated
+        // `distributeEpochWithServices`). The permissionless `distributeEpoch()` passes an empty
+        // `serviceIds`, so `_distributeStakerInflation` returns 0; folding that full `stakersTarget`
+        // into `undistributed` would let anyone front-run the keeper and REDIRECT staker inflation
+        // into operator/customer/developer pools (which an attacker can be a member of). Instead we
+        // leave the unspent `stakersTarget` in the pool, where it rolls into a later epoch's budget
+        // and reaches stakers once the keeper supplies services. Genuine shortfalls from categories
+        // that WERE attempted are still reallocated.
         uint256 undistributed = (stakingTarget - stakingActual) + (operatorsTarget - operatorsActual)
-            + (customersTarget - customersActual) + (developersTarget - developersActual)
-            + (stakersTarget - stakersActual);
+            + (customersTarget - customersActual) + (developersTarget - developersActual);
+        if (serviceIds.length > 0) {
+            undistributed += (stakersTarget - stakersActual);
+        }
 
         if (undistributed > 0) {
             bool hasStaking = stakingActual > 0;

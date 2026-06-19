@@ -208,6 +208,9 @@ contract TokenizedBlueprintBaseTest is Test {
         assertEq(blueprint.totalStaked(), 40 ether);
         assertEq(blueprint.balanceOf(staker), 60 ether);
 
+        // F4: the base now applies a non-zero default stake-lock; advance past it before withdrawing.
+        vm.warp(block.timestamp + blueprint.stakeLockDuration() + 1);
+
         vm.prank(staker);
         blueprint.withdraw(25 ether);
         assertEq(blueprint.stakedBalance(staker), 15 ether);

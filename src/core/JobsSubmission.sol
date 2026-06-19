@@ -241,7 +241,13 @@ abstract contract JobsSubmission is Base {
             abi.encodeWithSelector(IBlueprintServiceManager.requiresAggregation.selector, serviceId, jobIndex),
             32
         );
-        if (ok && abi.decode(ret, (bool))) revert Errors.AggregationRequired(serviceId, jobIndex);
+        // F3: FAIL CLOSED. `requiresAggregation` is implemented by the BSM base (defaults to
+        // false), so `!ok` means the hook genuinely failed (revert / OOG / gas-grief). Treating
+        // that as "aggregation not required" let a single operator submit a plain result and
+        // finalize a job that should require a BLS quorum (`_getRequiredResultCount` also
+        // defaults to 1 on hook failure). When we cannot confirm aggregation is NOT required,
+        // assume it IS and block the plain-submission path.
+        if (!ok || abi.decode(ret, (bool))) revert Errors.AggregationRequired(serviceId, jobIndex);
     }
 
     function _validateResultSubmissionState(uint64 serviceId, uint64 callId, Types.JobCall storage job) private view {

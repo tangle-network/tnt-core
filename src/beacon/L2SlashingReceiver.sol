@@ -403,6 +403,14 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
             revert InvalidPayload();
         }
 
+        // F10: bound the incoming bps at receipt (defense-in-depth). The L1 connector already
+        // clamps to BPS_DENOMINATOR, but the receiver must not trust an unbounded cross-chain
+        // value: a >100% message would inflate the deferred accumulator beyond what any single
+        // flush can ever realise, overstating booked debt. A single slash can never exceed 100%.
+        if (slashBps > BPS_DENOMINATOR) {
+            revert InvalidPayload();
+        }
+
         // The nonce is consumed exactly once regardless of which branch we take below; the slash
         // can no longer be replayed once banked or applied.
         $.processedNonces[sourceChainId][sender][nonce] = true;

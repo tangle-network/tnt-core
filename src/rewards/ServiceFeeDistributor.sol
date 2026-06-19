@@ -253,6 +253,14 @@ contract ServiceFeeDistributor is
         uint256 principalBefore = _positionPrincipal[delegator][operator][assetHash];
         uint256 scoreBefore = _positionScore[delegator][operator][assetHash];
 
+        // KNOWN LIMITATION (F5, tracked for a focused follow-up): `lockMultiplierBps` is baked
+        // into the position score here but this contract receives no lock-expiry, so the boost
+        // does not decay when the lock elapses — a locker keeps an inflated reward share until
+        // they next interact (diluting others). A correct fix requires threading the lock expiry
+        // through `onDelegationChanged` (interface + staking-layer change) and adding lazy
+        // decay-on-expiry to the reward-accumulator math (mirroring `RewardVaults._decayExpiredLock`).
+        // That is deliberately NOT done inline: a rushed change to this O(1) accumulator/debt
+        // accounting risks misallocating live rewards. See the audit batch-2 PR description.
         uint256 scoreDelta;
         uint256 principalAfter;
         uint256 scoreAfter;

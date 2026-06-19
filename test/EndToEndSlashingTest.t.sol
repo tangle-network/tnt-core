@@ -389,9 +389,9 @@ contract EndToEndSlashingTest is BaseTest {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(0, operator1, 2000, keccak256("ev"));
 
-        // Operator disputes
+        // Operator disputes (must post the default dispute bond, F2)
         vm.prank(operator1);
-        tangle.disputeSlash(slashId, "Invalid evidence");
+        tangle.disputeSlash{ value: 0.02 ether }(slashId, "Invalid evidence");
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(uint8(proposal.status), uint8(SlashingLib.SlashStatus.Disputed));

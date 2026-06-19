@@ -67,7 +67,8 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
         uint256 rewardRate; // Reward per second (for streaming mode)
         uint256 periodFinish; // When current reward period ends (for streaming)
         uint256 pendingRewards; // Undistributed rewards (for instant mode)
-        // ─── appended storage (audit remediation) ────────────────────────────
+        // ─── appended storage (audit remediation)
+        // ────────────────────────────
         // Carries the per-distribution truncation residue of the
         // (amount * 1e18) / totalStaked division so that dust is folded into the
         // next distribution instead of being silently lost. Scaled by 1e18.
@@ -127,12 +128,15 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
     ///      immediately before a known payment and unstake immediately after,
     ///      capturing rewards with zero time-at-risk and diluting honest stakers.
     ///      The withdraw path always enforces this window; the value is the policy
-    ///      knob. Defaults to 0 (disabled) so the base preserves the historical
-    ///      no-lock behavior; production blueprints exposed to instant-mode revenue
-    ///      MUST set a non-zero window via `_setStakeLockDuration` (e.g. 1 day) to
-    ///      close the JIT-reward vector. Streaming mode is intrinsically immune
-    ///      since rewards accrue per-second of time-at-risk.
+    ///      knob. F4: defaults to a non-zero `DEFAULT_STAKE_LOCK_DURATION` (set in the
+    ///      constructor) so the base fails SAFE — a blueprint that forgets to configure a
+    ///      lock is not silently exposed to the JIT-reward vector. Integrators can tune it
+    ///      (including to 0, accepting the risk) via `_setStakeLockDuration`. Streaming mode
+    ///      is intrinsically immune since rewards accrue per-second of time-at-risk.
     uint256 public stakeLockDuration;
+
+    /// @notice Failsafe default stake-lock window applied at construction (F4).
+    uint256 public constant DEFAULT_STAKE_LOCK_DURATION = 1 days;
 
     /// @notice Per-user earliest withdrawal timestamp. Refreshed on every stake.
     mapping(address => uint256) public stakeUnlockTime;
@@ -144,6 +148,10 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
     constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {
         // Native ETH is always a reward token
         _addRewardToken(address(0));
+        // F4: fail safe — seed a non-zero stake-lock so instant-mode revenue cannot be
+        // captured just-in-time with zero time-at-risk. Integrators may retune via
+        // `_setStakeLockDuration`.
+        stakeLockDuration = DEFAULT_STAKE_LOCK_DURATION;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

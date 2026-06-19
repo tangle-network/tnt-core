@@ -515,13 +515,22 @@ abstract contract TangleStorage {
     /// @notice Service ID => operator => last acknowledged version (per operator).
     mapping(uint64 => mapping(address => uint64)) internal _serviceOperatorAckedVersionId;
 
+    /// @notice Slash ID => per-asset security commitments snapshotted at propose time.
+    /// @dev F1: `executeSlash` must slash against the commitments the operator had backing
+    ///      the service WHEN the slash was proposed, not whatever is live at execution. Reading
+    ///      live commitments let an operator self-dispute, leave, and rejoin with a 1-bps
+    ///      commitment to evade ~99.99% of the slash. Captured in `proposeSlash`, consumed
+    ///      (and cleared) in `executeSlash`. Appended at the end of layout; the reserved gap
+    ///      is shrunk by one to preserve total storage size for upgrade safety.
+    mapping(uint64 => Types.AssetSecurityCommitment[]) internal _slashCommitmentSnapshots;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Reserved storage slots for future upgrades. Standard gap size is 50.
     ///      Slots already consumed: 10 (initial) + 5 (binary versions block) + 5
-    ///      (supply-chain hardening block above). Shrunk 34 -> 29 when that block
-    ///      was appended.
-    uint256[29] private __gap;
+    ///      (supply-chain hardening block above) + 1 (slash commitment snapshot).
+    ///      Shrunk 34 -> 29 -> 28 as those blocks were appended.
+    uint256[28] private __gap;
 }
