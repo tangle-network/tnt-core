@@ -186,7 +186,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         vm.warp(block.timestamp + 7 days - 1);
 
         vm.prank(operator1);
-        tangle.disputeSlash(slashId, "Last second dispute");
+        tangle.disputeSlash{ value: 0.02 ether }(slashId, "Last second dispute");
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(uint8(proposal.status), uint8(SlashingLib.SlashStatus.Disputed));
@@ -202,7 +202,7 @@ contract SlashingEdgeCasesTest is BaseTest {
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.DisputeWindowPassed.selector, slashId));
-        tangle.disputeSlash(slashId, "Too late");
+        tangle.disputeSlash{ value: 0.02 ether }(slashId, "Too late");
     }
 
     function test_ExecuteAtExactWindowBoundary() public {
@@ -443,7 +443,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         // Both dispute and execute attempted at boundary
         // Dispute should succeed since we're still in window
         vm.prank(operator1);
-        tangle.disputeSlash(slashId, "Last second dispute");
+        tangle.disputeSlash{ value: 0.02 ether }(slashId, "Last second dispute");
 
         // Execute should fail since disputed
         vm.warp(block.timestamp + 1);

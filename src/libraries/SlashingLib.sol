@@ -135,7 +135,12 @@ library SlashingLib {
             instantSlashEnabled: false,
             maxSlashBps: BPS_DENOMINATOR, // 100%
             disputeResolutionDeadline: 14 days,
-            disputeBond: 0, // Defaults to disabled; admin enables via setSlashConfig.
+            // F2: ship a non-zero default so an unconfigured deployment is never free to
+            // self-dispute. A free dispute lets an operator freeze their own delegators'
+            // withdrawals for the whole resolution window at zero cost. Matches the documented
+            // production value (deploy/config/*.json `slashing.disputeBond`); governance can
+            // still tune it via `setSlashConfig`.
+            disputeBond: 0.02 ether,
             // One pending slash already freezes the operator + its delegators, so a small
             // cap suffices; lower default bounds admin cleanup cost on a griefing attempt.
             maxPendingSlashesPerOperator: 8

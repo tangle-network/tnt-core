@@ -84,15 +84,27 @@ contract TokenizedExtAuditTest is Test {
         bp.withdraw(100 ether);
     }
 
-    function test_Finding1_DefaultIsNoLockForBackwardCompat() public {
-        // With the default (0) the historical immediate-withdraw behavior holds,
-        // so the base does not silently break existing unguarded blueprints/tests.
-        assertEq(bp.stakeLockDuration(), 0, "lock disabled by default");
+    function test_Finding1_SecureDefaultLockBlocksJIT() public {
+        // F4: the base now ships a NON-ZERO default stake-lock so a blueprint that forgets to
+        // configure one is not silently exposed to the JIT instant-mode reward-capture vector.
+        // (Previously the default was 0 and immediate withdraw succeeded — the hole.)
+        assertEq(bp.stakeLockDuration(), bp.DEFAULT_STAKE_LOCK_DURATION(), "default == failsafe window");
+        assertGt(bp.stakeLockDuration(), 0, "default lock must be non-zero (fail safe)");
+
         bp.mintToken(honest, 10 ether);
         vm.prank(honest);
         bp.stake(10 ether);
+        uint256 unlock = bp.stakeUnlockTime(honest);
+
+        // Immediate withdrawal is now blocked by default.
         vm.prank(honest);
-        bp.withdraw(10 ether); // must not revert
+        vm.expectRevert(abi.encodeWithSelector(TokenizedBlueprintBase.StakeLocked.selector, unlock));
+        bp.withdraw(10 ether);
+
+        // Once the default window elapses, withdrawal succeeds (lock is a delay, not a freeze).
+        vm.warp(block.timestamp + bp.DEFAULT_STAKE_LOCK_DURATION());
+        vm.prank(honest);
+        bp.withdraw(10 ether);
         assertEq(bp.stakedBalance(honest), 0);
     }
 

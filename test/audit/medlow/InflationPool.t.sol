@@ -17,8 +17,12 @@ import { TangleToken } from "../../../src/governance/TangleToken.sol";
 ///  - MEDIUM: epoch budget recounts unclaimed pending rewards -> over-accrual.
 ///            Root fix: pendingRewardsLiability is incremented on accrual / decremented on claim
 ///            so calculateEpochBudget() (via freeBalance()) excludes earmarked tokens.
-///  - LOW: permissionless distributeEpoch() consumes the epoch's stakersTarget without paying it.
-///         Root fix: stakersTarget folded into the `undistributed` reallocation.
+///  - LOW (F7): permissionless distributeEpoch() (empty serviceIds) must NOT reallocate the
+///         epoch's stakersTarget into the other streams — an attacker who is an operator/customer/
+///         developer could front-run the keeper to redirect staker inflation to themselves. Root
+///         fix: the staker shortfall is reallocated ONLY when staker distribution was attempted
+///         (serviceIds provided); otherwise the staker slice is retained in the pool and rolls
+///         into a later epoch.
 ///  - LOW (x3, same root): _distributeStakingRewards split cross-vault by raw deposits (ignoring
 ///         lock-multiplier score) AND transferred TNT before the swallowed notify try/catch,
 ///         stranding tokens on revert. Root fix: weight by totalScore; transfer only after the
@@ -130,11 +134,7 @@ contract InflationPoolAuditMedLowTest is Test {
         uint256 pendingOp = pool.pendingOperatorRewards(operator1);
         assertGt(pendingOp, 0, "operator accrued rewards");
         assertEq(pool.pendingRewardsLiability(), pendingOp, "liability == accrued pending");
-        assertEq(
-            pool.freeBalance(),
-            pool.poolBalance() - pendingOp,
-            "freeBalance excludes earmarked rewards"
-        );
+        assertEq(pool.freeBalance(), pool.poolBalance() - pendingOp, "freeBalance excludes earmarked rewards");
         // The budget is computed off the FREE balance, so it is bounded by it.
         assertLe(pool.calculateEpochBudget(), pool.freeBalance(), "budget bounded by free balance");
     }
@@ -221,7 +221,7 @@ contract InflationPoolAuditMedLowTest is Test {
     ///         epoch's total distribution still consumes the full per-category budget that the
     ///         active streams can absorb, with stakersDistributed == 0 but the staker slice
     ///         folded into staking/operator/customer/developer actuals.
-    function test_PermissionlessDistributeReallocatesStakerSlice() public {
+    function test_PermissionlessDistributeRetainsStakerSlice() public {
         // 50% stakers weight, the rest spread so every other stream is active.
         vm.startPrank(admin);
         pool.setWeights(2000, 1000, 1000, 1000, 5000);
@@ -261,14 +261,17 @@ contract InflationPoolAuditMedLowTest is Test {
         // Stakers got nothing (no config + empty serviceIds)...
         assertEq(e.stakersDistributed, 0, "no staker exposure distribution");
 
-        // ...but the staker slice was REALLOCATED, not dropped: the epoch's total distribution
-        // must materially exceed the non-staker base targets (which sum to only 50% of budget).
+        // F7: ...and the staker slice is NOT reallocated into the other streams. With every
+        // non-staker stream active, those distribute their own targets (the non-staker 50% base)
+        // and nothing more — the staker 50% is retained in the pool and rolls into a later epoch,
+        // so a permissionless front-runner cannot redirect staker inflation to themselves.
         uint256 totalDist = e.stakingDistributed + e.operatorsDistributed + e.customersDistributed
             + e.developersDistributed + e.stakersDistributed;
         uint256 nonStakerBase = budget - stakersTarget; // 50% of budget
-        assertGt(totalDist, nonStakerBase, "staker slice reallocated into other streams");
-        // The reallocation captured most of the staker slice (allow rounding/uncovered dust).
-        assertGe(totalDist, nonStakerBase + (stakersTarget * 9) / 10, "most of staker slice paid out");
+        // Total paid out is bounded by the non-staker base (allow tiny rounding dust); the staker
+        // slice was NOT redirected.
+        assertLe(totalDist, nonStakerBase + 1e9, "staker slice retained, not reallocated");
+        assertLt(totalDist, nonStakerBase + (stakersTarget / 10), "staker slice not redirected to other streams");
     }
 
     // ────────────────────────────────────────────────────────────────────────────
@@ -295,14 +298,14 @@ contract InflationPoolAuditMedLowTest is Test {
 
         uint256 vault0Before = tnt.balanceOf(address(vaults));
         // Track per-vault accounting via rewardsDistributed (third field).
-        (, , uint256 rd0Before) = vaults.vaultStates(address(0));
-        (, , uint256 rd2Before) = vaults.vaultStates(asset2);
+        (,, uint256 rd0Before) = vaults.vaultStates(address(0));
+        (,, uint256 rd2Before) = vaults.vaultStates(asset2);
 
         _warpToEpochEnd();
         pool.distributeEpoch();
 
-        (, , uint256 rd0After) = vaults.vaultStates(address(0));
-        (, , uint256 rd2After) = vaults.vaultStates(asset2);
+        (,, uint256 rd0After) = vaults.vaultStates(address(0));
+        (,, uint256 rd2After) = vaults.vaultStates(asset2);
 
         uint256 reward0 = rd0After - rd0Before;
         uint256 reward2 = rd2After - rd2Before;
@@ -318,9 +321,7 @@ contract InflationPoolAuditMedLowTest is Test {
         assertApproxEqRel(reward2 * score0, reward0 * score2, 0.01e18, "split tracks score ratio");
 
         // TNT actually moved into the vault for the accounted rewards.
-        assertEq(
-            tnt.balanceOf(address(vaults)) - vault0Before, reward0 + reward2, "transferred == accounted"
-        );
+        assertEq(tnt.balanceOf(address(vaults)) - vault0Before, reward0 + reward2, "transferred == accounted");
     }
 
     // ────────────────────────────────────────────────────────────────────────────

@@ -354,6 +354,23 @@ contract BeaconL2ReceiverAuditTest is Test {
         assertEq(receiver.deferredSlashBps(operator), 3000, "overflow remains booked for next flush");
     }
 
+    /// @notice F10: a cross-chain message carrying bps above 100% (BPS_DENOMINATOR) is rejected at
+    ///         receipt (defense-in-depth) and is NEVER banked into the deferred accumulator, so the
+    ///         booked debt cannot be inflated beyond what any flush could realise.
+    function test_receiver_slashBpsAboveDenominator_revertsAndBanksNothing() public {
+        slasher.setSlashable(false); // would otherwise bank into the deferred accumulator
+        uint16 overBps = uint16(receiver.BPS_DENOMINATOR() + 1);
+        bytes memory payload = _slashPayload(operator, overBps, 0.3e18, 1, makeAddr("pod"));
+
+        vm.prank(messenger);
+        vm.expectRevert(L2SlashingReceiver.InvalidPayload.selector);
+        receiver.receiveMessage(SRC_CHAIN, connector, payload);
+
+        // Fully rejected: nothing banked, nonce not consumed (the message can never take effect).
+        assertEq(receiver.deferredSlashBps(operator), 0, "over-100% bps must not be banked");
+        assertFalse(receiver.isNonceProcessed(SRC_CHAIN, connector, 1), "rejected message consumes no nonce");
+    }
+
     /// @notice The deferred path is keyed on `canSlash`: flushing while the operator still has no
     ///         slashable stake reverts (no phantom slash), but the debt is preserved.
     function test_receiver_flushWhileNotSlashable_revertsAndKeepsDebt() public {

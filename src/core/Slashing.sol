@@ -100,9 +100,25 @@ abstract contract Slashing is Base {
             cappedSlashBps,
             effectiveExposureBps,
             evidence,
+            // F11: `instant` is hardcoded false on purpose. Instant slashing skips the dispute
+            // window, so the `instantSlashEnabled` config flag (read+enforced in SlashingLib) is
+            // left intentionally unreachable via the public API — there is no entrypoint that
+            // passes `instant=true`. Wiring one is a deliberate governance decision that must
+            // come with a dispute-window-bypass review; it is NOT dead code to silently remove.
             false,
             _resolveDisputeWindow(serviceId, bp.manager)
         );
+
+        // F1: snapshot the operator's per-asset commitments AS OF propose time. `executeSlash`
+        // slashes against this snapshot, not live storage, so an operator cannot self-dispute,
+        // leave, and rejoin with a diluted (1-bps) commitment to evade the slash. The legacy
+        // no-commitment path snapshots an empty array and falls back to blueprint-wide slashing.
+        Types.AssetSecurityCommitment[] storage liveCommit = _serviceSecurityCommitments[serviceId][operator];
+        Types.AssetSecurityCommitment[] storage snap = _slashCommitmentSnapshots[slashId];
+        uint256 commitLen = liveCommit.length;
+        for (uint256 i = 0; i < commitLen; i++) {
+            snap.push(liveCommit[i]);
+        }
 
         // Increment pending slash count to block delegator withdrawals
         _staking.incrementPendingSlash(operator);
@@ -293,7 +309,10 @@ abstract contract Slashing is Base {
 
         Types.Service storage svc = _services[proposal.serviceId];
 
-        actualSlashed = _executeSlashOnStaking(proposal, svc.blueprintId);
+        actualSlashed = _executeSlashOnStaking(slashId, proposal, svc.blueprintId);
+
+        // F1: snapshot consumed; reclaim its storage.
+        delete _slashCommitmentSnapshots[slashId];
 
         SlashingLib.markExecuted(_slashProposals, slashId, actualSlashed);
         _staking.decrementPendingSlash(proposal.operator);
@@ -345,7 +364,10 @@ abstract contract Slashing is Base {
 
             Types.Service storage svc = _services[proposal.serviceId];
 
-            uint256 actualSlashed = _executeSlashOnStaking(proposal, svc.blueprintId);
+            uint256 actualSlashed = _executeSlashOnStaking(slashIds[i], proposal, svc.blueprintId);
+
+            // F1: snapshot consumed; reclaim its storage.
+            delete _slashCommitmentSnapshots[slashIds[i]];
 
             SlashingLib.markExecuted(_slashProposals, slashIds[i], actualSlashed);
             _staking.decrementPendingSlash(proposal.operator);
@@ -479,14 +501,16 @@ abstract contract Slashing is Base {
     /// @dev Internal helper that picks the right slashing API based on whether the
     ///      operator made explicit per-asset commitments to the offending service.
     function _executeSlashOnStaking(
+        uint64 slashId,
         SlashingLib.SlashProposal storage proposal,
         uint64 blueprintId
     )
         internal
         returns (uint256 actualSlashed)
     {
-        Types.AssetSecurityCommitment[] memory commitments =
-            _loadServiceCommitments(proposal.serviceId, proposal.operator);
+        // F1: slash against the commitments snapshotted at propose time, not live storage,
+        // so a mid-window leave/rejoin with a diluted commitment cannot shrink the slash.
+        Types.AssetSecurityCommitment[] memory commitments = _loadSnapshotCommitments(slashId);
 
         if (commitments.length == 0) {
             return _staking.slashForBlueprint(
@@ -503,15 +527,13 @@ abstract contract Slashing is Base {
         );
     }
 
-    function _loadServiceCommitments(
-        uint64 serviceId,
-        address operator
-    )
+    /// @dev Copy the propose-time commitment snapshot for `slashId` into memory (F1).
+    function _loadSnapshotCommitments(uint64 slashId)
         internal
         view
         returns (Types.AssetSecurityCommitment[] memory copy)
     {
-        Types.AssetSecurityCommitment[] storage stored = _serviceSecurityCommitments[serviceId][operator];
+        Types.AssetSecurityCommitment[] storage stored = _slashCommitmentSnapshots[slashId];
         uint256 len = stored.length;
         copy = new Types.AssetSecurityCommitment[](len);
         for (uint256 i = 0; i < len; i++) {

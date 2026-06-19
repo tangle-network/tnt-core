@@ -139,7 +139,7 @@ contract SlashingTest is BaseTest {
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         vm.prank(operator1);
-        tangle.disputeSlash(slashId, "Invalid evidence");
+        tangle.disputeSlash{ value: 0.02 ether }(slashId, "Invalid evidence");
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(uint8(proposal.status), uint8(SlashingLib.SlashStatus.Disputed));
@@ -177,7 +177,7 @@ contract SlashingTest is BaseTest {
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.DisputeWindowPassed.selector, slashId));
-        tangle.disputeSlash(slashId, "Too late");
+        tangle.disputeSlash{ value: 0.02 ether }(slashId, "Too late");
     }
 
     function test_DisputeSlash_RevertIfAlreadyExecuted() public {
@@ -190,7 +190,7 @@ contract SlashingTest is BaseTest {
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.SlashNotPending.selector, slashId));
-        tangle.disputeSlash(slashId, "reason");
+        tangle.disputeSlash{ value: 0.02 ether }(slashId, "reason");
     }
 
     function test_DisputeSlash_AtExactWindowBoundary() public {
@@ -201,7 +201,7 @@ contract SlashingTest is BaseTest {
         vm.warp(block.timestamp + 7 days - 1);
 
         vm.prank(operator1);
-        tangle.disputeSlash(slashId, "At boundary");
+        tangle.disputeSlash{ value: 0.02 ether }(slashId, "At boundary");
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(uint8(proposal.status), uint8(SlashingLib.SlashStatus.Disputed));
@@ -281,7 +281,7 @@ contract SlashingTest is BaseTest {
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         vm.prank(operator1);
-        tangle.disputeSlash(slashId, "disputed");
+        tangle.disputeSlash{ value: 0.02 ether }(slashId, "disputed");
 
         // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
@@ -351,7 +351,7 @@ contract SlashingTest is BaseTest {
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         vm.prank(operator1);
-        tangle.disputeSlash(slashId, "disputed");
+        tangle.disputeSlash{ value: 0.02 ether }(slashId, "disputed");
 
         vm.prank(admin);
         tangle.cancelSlash(slashId, "Dispute upheld");

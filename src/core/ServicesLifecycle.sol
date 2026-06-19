@@ -218,6 +218,22 @@ abstract contract ServicesLifecycle is Base {
         }
         (Types.Service storage svc, Types.Blueprint storage bp) = _loadJoinContext(serviceId);
 
+        // F9: reject duplicate (kind, token) commitments UNCONDITIONALLY. The stored
+        // commitment array is iterated by both slashing (SlashingManager._slashForService) and
+        // billing (PaymentsBilling._accrueOperatorWeights), so a duplicate asset is applied
+        // twice — an over-slash / weight inflation. Previously dedup ran only when the service
+        // had requirements; a service with no requirements accepted duplicates.
+        for (uint256 i = 0; i < commitments.length; i++) {
+            for (uint256 j = i + 1; j < commitments.length; j++) {
+                if (
+                    commitments[i].asset.token == commitments[j].asset.token
+                        && commitments[i].asset.kind == commitments[j].asset.kind
+                ) {
+                    revert Errors.DuplicateAssetCommitment(uint8(commitments[i].asset.kind), commitments[i].asset.token);
+                }
+            }
+        }
+
         Types.AssetSecurityRequirement[] storage requirements = _serviceSecurityRequirements[serviceId];
         if (requirements.length > 0) {
             _validateSecurityCommitments(requirements, commitments);

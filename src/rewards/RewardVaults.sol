@@ -486,6 +486,12 @@ contract RewardVaults is
         if (pool.totalStaked < score) revert InsufficientStake();
         pool.totalStaked -= score;
 
+        // F8: prune the operator from the epoch-distribution fan-out list once its pool is
+        // fully unwound, so the loop in `distributeEpochReward` cannot grow without bound.
+        if (pool.totalStaked == 0) {
+            _untrackOperator(asset, operator);
+        }
+
         emit UnstakeRecorded(asset, delegator, operator, amount);
     }
 
@@ -694,6 +700,12 @@ contract RewardVaults is
         if (pool.totalStaked < score) revert InsufficientStake();
         pool.totalStaked -= score;
 
+        // F8: prune the operator from the epoch-distribution fan-out list once its pool is
+        // fully unwound, so the loop in `distributeEpochReward` cannot grow without bound.
+        if (pool.totalStaked == 0) {
+            _untrackOperator(asset, operator);
+        }
+
         // Update delegator debt
         debt.stakedAmount -= amount;
         if (debt.boostedScore >= score) {
@@ -817,6 +829,30 @@ contract RewardVaults is
         if (isAssetOperator[asset][operator]) return;
         isAssetOperator[asset][operator] = true;
         assetOperators[asset].push(operator);
+        assetOperatorIndex[asset][operator] = assetOperators[asset].length; // index + 1
+    }
+
+    /// @notice Remove an operator from `assetOperators[asset]` once its stake fully unwinds (F8).
+    /// @dev Swap-and-pop, mirroring `_untrackDelegatorOperator`. The operator's accumulator state
+    ///      in `operatorPools` is left intact, so a later re-stake re-tracks it safely and any
+    ///      `pendingCommission` remains claimable independently of this membership list.
+    function _untrackOperator(address asset, address operator) internal {
+        uint256 indexPlusOne = assetOperatorIndex[asset][operator];
+        if (indexPlusOne == 0) return;
+
+        address[] storage operators = assetOperators[asset];
+        uint256 index = indexPlusOne - 1;
+        uint256 lastIndex = operators.length - 1;
+
+        if (index != lastIndex) {
+            address lastOperator = operators[lastIndex];
+            operators[index] = lastOperator;
+            assetOperatorIndex[asset][lastOperator] = index + 1;
+        }
+
+        operators.pop();
+        assetOperatorIndex[asset][operator] = 0;
+        isAssetOperator[asset][operator] = false;
     }
 
     function _trackDelegatorOperator(address asset, address delegator, address operator) internal {
@@ -1188,6 +1224,14 @@ contract RewardVaults is
 
     function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) { }
 
-    /// @dev Reserved storage slots for future upgrades (Round 2 storage F-3).
-    uint256[50] private __gap;
+    /// @notice Index (+1) of an operator inside `assetOperators[asset]` for O(1) removal (F8).
+    /// @dev Appended at the end of storage (gap shrunk 50 -> 49) to stay upgrade-safe. Lets
+    ///      `_untrackOperator` swap-and-pop an operator whose stake fully unwound, so the
+    ///      epoch-distribution loop over `assetOperators` cannot grow unbounded with dead
+    ///      entries and eventually exceed the block gas limit.
+    mapping(address => mapping(address => uint256)) private assetOperatorIndex;
+
+    /// @dev Reserved storage slots for future upgrades (Round 2 storage F-3). Shrunk 50 -> 49
+    ///      when `assetOperatorIndex` was appended (F8).
+    uint256[49] private __gap;
 }
