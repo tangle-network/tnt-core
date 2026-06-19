@@ -92,6 +92,16 @@ contract ValidatorPod is ReentrancyGuard {
     /// @notice Authorized proof submitter (optional, for third-party proof submission)
     address public proofSubmitter;
 
+    /// @notice Beacon principal (in wei) burned by an L2/service slash that remains
+    ///         physically in this pod.
+    /// @dev A service slash reduces the manager's beacon-pool `totalAssets` bookkeeping (the
+    ///      escrow burn in `ValidatorPodManager.completeUndelegation`) but moves no ETH out of
+    ///      the pod, so the slashed principal is stranded here and is economically destroyed.
+    ///      `withdrawNonBeaconChainEth` floors withdrawals at `totalAssetsOf + this`, so the
+    ///      stranded principal can never be re-extracted as "non-beacon surplus" once
+    ///      `totalAssets` drops. Monotonically increasing; the manager is the only writer.
+    uint256 public slashedPrincipalRetainedWei;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -124,6 +134,7 @@ contract ValidatorPod is ReentrancyGuard {
     error NotOwnerOrProofSubmitter();
     error ValidatorNotSlashed();
     error CurrentlyInCheckpoint();
+    error ZeroAddress();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // MODIFIERS
@@ -512,7 +523,10 @@ contract ValidatorPod is ReentrancyGuard {
             revert InsufficientBalance();
         }
 
-        uint256 reservedPrincipal = podManager.totalAssetsOf(podOwner);
+        // Floor includes principal burned by a service slash that is still physically here:
+        // `totalAssetsOf` drops on the manager's escrow burn but the ETH never left the pod,
+        // so without this term the owner could drain the slashed principal as fake surplus.
+        uint256 reservedPrincipal = podManager.totalAssetsOf(podOwner) + slashedPrincipalRetainedWei;
         uint256 surplus = balance > reservedPrincipal ? balance - reservedPrincipal : 0;
         if (amount > surplus) {
             revert InsufficientBalance();
@@ -524,11 +538,29 @@ contract ValidatorPod is ReentrancyGuard {
         emit NonBeaconChainETHWithdrawn(recipient, amount);
     }
 
+    /// @notice Record beacon principal burned by a service slash that stays in this pod.
+    /// @dev Called by the manager from `completeUndelegation` when it burns the slashed
+    ///      portion of a delegator's escrow shares. The corresponding ETH is not moved out
+    ///      of the pod, so it is added to the `withdrawNonBeaconChainEth` floor to keep it
+    ///      un-extractable (closes the drain-slashed-principal finding). Only the manager
+    ///      can call this; it is the sole writer of `slashedPrincipalRetainedWei`.
+    function recordSlashedPrincipalRetained(uint256 amount) external onlyPodManager {
+        if (amount > 0) {
+            slashedPrincipalRetainedWei += amount;
+        }
+    }
+
     /// @notice Recover ERC20 tokens accidentally sent to this pod
     /// @param token Token to recover
     /// @param recipient Address to send tokens to
     /// @param amount Amount to recover
-    function recoverTokens(IERC20 token, address recipient, uint256 amount) external onlyPodOwner {
+    /// @dev BCN-003: pods are designed to custody ETH only — any ERC20 here is an accidental
+    ///      transfer. `nonReentrant` + a non-zero recipient guard harden the recovery path.
+    ///      If the protocol ever routes accounted ERC20s (LSTs, reward/slash-proceeds tokens)
+    ///      into pods, this function MUST gain a reservation against that accounting before
+    ///      those flows ship, exactly as `withdrawNonBeaconChainEth` reserves beacon principal.
+    function recoverTokens(IERC20 token, address recipient, uint256 amount) external onlyPodOwner nonReentrant {
+        if (recipient == address(0)) revert ZeroAddress();
         token.safeTransfer(recipient, amount);
     }
 

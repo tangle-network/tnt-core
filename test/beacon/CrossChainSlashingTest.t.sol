@@ -249,6 +249,7 @@ contract MockStaking is IStaking {
 
 contract MockSlashPod {
     uint64 public beaconChainSlashingFactor;
+    uint64 public withdrawableRestakedExecutionLayerGwei;
 
     constructor(uint64 factor) {
         beaconChainSlashingFactor = factor;
@@ -256,6 +257,10 @@ contract MockSlashPod {
 
     function setBeaconChainSlashingFactor(uint64 factor) external {
         beaconChainSlashingFactor = factor;
+    }
+
+    function setParkedGwei(uint64 gwei_) external {
+        withdrawableRestakedExecutionLayerGwei = gwei_;
     }
 }
 
@@ -296,13 +301,21 @@ contract CrossChainSlashingTest is Test {
     ///      makes the shipped `slashBps == 0` — a no-op the receiver now (correctly)
     ///      rejects with `InvalidPayload()`. Seed the pod principal + operator stake so
     ///      the legitimate slash path produces a nonzero, pod-bounded `slashBps`.
+    /// @dev `registerPodOperator` now validates both legs against the PodManager (BCN-004):
+    ///      the pod must have a non-zero owner and the operator must be registered. The mock
+    ///      `MockSlashPod`s here are never created through `podManager.createPod()`, so mock
+    ///      `podToOwner(pod)` (using the pod address as its own owner key, matching
+    ///      `_mockPodPrincipal`) and `isOperator(operator)` before each registration.
+    function _mockPodRegistration(address pod, address operator) internal {
+        vm.mockCall(address(podManager), abi.encodeWithSelector(podManager.podToOwner.selector, pod), abi.encode(pod));
+        vm.mockCall(
+            address(podManager), abi.encodeWithSelector(podManager.isOperator.selector, operator), abi.encode(true)
+        );
+    }
+
     function _mockPodPrincipal(address pod, address operator, uint256 podPrincipal, uint256 operatorStake) internal {
         // podToOwner(pod) -> use the pod address itself as the stand-in owner key.
-        vm.mockCall(
-            address(podManager),
-            abi.encodeWithSelector(podManager.podToOwner.selector, pod),
-            abi.encode(pod)
-        );
+        vm.mockCall(address(podManager), abi.encodeWithSelector(podManager.podToOwner.selector, pod), abi.encode(pod));
         // totalAssetsOf(owner) -> pod's beacon principal.
         vm.mockCall(
             address(podManager),
@@ -346,6 +359,7 @@ contract CrossChainSlashingTest is Test {
         connector.setMessenger(address(messenger));
         connector.setChainConfig(TANGLE_CHAIN_ID, makeAddr("l2Receiver"), 200_000, true);
         connector.setDefaultDestinationChain(TANGLE_CHAIN_ID);
+        _mockPodRegistration(pod1, operator1);
         connector.registerPodOperator(pod1, operator1);
         vm.stopPrank();
 
@@ -431,6 +445,7 @@ contract CrossChainSlashingTest is Test {
         address operator2 = makeAddr("operator2");
         _setPodFactor(pod1, 0.9e18);
 
+        _mockPodRegistration(pod2, operator2);
         vm.prank(admin);
         connector.registerPodOperator(pod2, operator2);
 
@@ -513,6 +528,7 @@ contract CrossChainSlashingTest is Test {
         // First set up initial factor: 100% -> 90%
         MockSlashPod slashPod = new MockSlashPod(0.9e18);
 
+        _mockPodRegistration(address(slashPod), operator1);
         vm.prank(admin);
         connector.registerPodOperator(address(slashPod), operator1);
         _mockPodPrincipal(address(slashPod), operator1, 50 ether, 50 ether); // pod-bounded slash needs principal
@@ -530,6 +546,7 @@ contract CrossChainSlashingTest is Test {
     function test_propagateBeaconSlashing_RevertMismatchedPodFactor() public {
         MockSlashPod slashPod = new MockSlashPod(0.95e18);
 
+        _mockPodRegistration(address(slashPod), operator1);
         vm.prank(admin);
         connector.registerPodOperator(address(slashPod), operator1);
 
@@ -592,6 +609,7 @@ contract CrossChainSlashingTest is Test {
         address operator2 = makeAddr("operator2");
         _setPodFactor(pod1, 0.95e18);
 
+        _mockPodRegistration(pod2, operator2);
         vm.prank(admin);
         connector.registerPodOperator(pod2, operator2);
         _mockPodPrincipal(pod1, operator1, 50 ether, 50 ether); // pod-bounded slash needs principal
@@ -903,6 +921,10 @@ contract CrossChainSlashingTest is Test {
         operators[0] = makeAddr("batchOp1");
         operators[1] = makeAddr("batchOp2");
 
+        // BCN-004: both legs must validate against the PodManager.
+        _mockPodRegistration(pods[0], operators[0]);
+        _mockPodRegistration(pods[1], operators[1]);
+
         vm.prank(admin);
         connector.batchRegisterPodOperators(pods, operators);
 
@@ -915,6 +937,34 @@ contract CrossChainSlashingTest is Test {
         vm.prank(admin);
         connector.setSlashingOracle(newOracle);
         assertEq(connector.slashingOracle(), newOracle);
+    }
+
+    /// @notice BCN-002: the oracle setter must reject the zero address so the role cannot be
+    ///         silently bricked.
+    function test_connector_setSlashingOracle_RevertZeroAddress() public {
+        vm.prank(admin);
+        vm.expectRevert(L2SlashingConnector.ZeroAddress.selector);
+        connector.setSlashingOracle(address(0));
+    }
+
+    /// @notice BCN-004: registering a pod the PodManager does not know must revert.
+    function test_connector_registerPodOperator_RevertUnknownPod() public {
+        address ghostPod = makeAddr("ghostPod");
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(L2SlashingConnector.UnknownPod.selector, ghostPod));
+        connector.registerPodOperator(ghostPod, operator1);
+    }
+
+    /// @notice BCN-004: registering a known pod against an unregistered operator must revert.
+    function test_connector_registerPodOperator_RevertNotOperator() public {
+        address ghostPod = makeAddr("ghostPod2");
+        address ghostOp = makeAddr("ghostOp");
+        vm.mockCall(
+            address(podManager), abi.encodeWithSelector(podManager.podToOwner.selector, ghostPod), abi.encode(ghostPod)
+        );
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(L2SlashingConnector.NotOperator.selector, ghostOp));
+        connector.registerPodOperator(ghostPod, ghostOp);
     }
 
     function test_connector_setMessenger() public {

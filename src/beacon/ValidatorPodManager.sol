@@ -742,6 +742,16 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
                 bp.totalAssets = burnAssets >= bp.totalAssets ? 0 : bp.totalAssets - burnAssets;
                 // forge-lint: disable-next-line(unsafe-typecast)
                 emit BeaconRebase(msg.sender, -int256(burnAssets), bp.totalAssets, bp.totalShares);
+
+                // The burn lowered `totalAssets`, but the slashed ETH (if it has physically
+                // arrived) is still in the pod. Tell the pod to floor `withdrawNonBeaconChainEth`
+                // at the burned amount so the owner cannot drain the slashed principal as fake
+                // "non-beacon surplus" once the floor drops. Without this the service slash is
+                // non-punitive: the owner re-extracts 100% of principal despite the slash.
+                address podAddr = ownerToPod[msg.sender];
+                if (podAddr != address(0) && burnAssets > 0) {
+                    ValidatorPod(payable(podAddr)).recordSlashedPrincipalRetained(burnAssets);
+                }
             }
         }
 

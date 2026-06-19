@@ -6,6 +6,10 @@ import { ICrossChainMessenger } from "./interfaces/ICrossChainMessenger.sol";
 
 interface IBeaconSlashPod {
     function beaconChainSlashingFactor() external view returns (uint64);
+    /// @notice Parked execution-layer ETH (in gwei) the pod has accounted via checkpoints.
+    /// @dev Tips, partial withdrawals and exited principal already in pod custody. This ETH
+    ///      cannot be slashed on the beacon chain, so it must be excluded from the slash base.
+    function withdrawableRestakedExecutionLayerGwei() external view returns (uint64);
 }
 
 /// @title L2SlashingConnector
@@ -34,6 +38,10 @@ contract L2SlashingConnector {
     error UnsupportedDestinationChain();
     error MessengerNotConfigured();
     error UnknownPod(address pod);
+    /// @dev `registerPodOperator` / `batchRegisterPodOperators` reject an operator the
+    ///      PodManager does not recognise, closing the BCN-004 vector where the owner could
+    ///      map an arbitrary pod to an arbitrary address and ship slashing against it.
+    error NotOperator(address operator);
     error SlashingFactorMismatch(address pod, uint64 expected, uint64 provided);
     /// @dev The factor delta resolves to a zero-bps L2 slash (operator has no L2 stake,
     ///      or the loss is sub-bps and truncates to 0). The L2 receiver hard-reverts on a
@@ -190,6 +198,15 @@ contract L2SlashingConnector {
     /// @notice Batch propagate multiple beacon slashings
     /// @param pods Array of pods to process
     /// @param newSlashingFactors Corresponding slashing factors
+    /// @dev Each self-call is funded with the full call-attributable balance so the bridge
+    ///      fee is actually paid. Previously the self-calls forwarded `{value: 0}`, so with a
+    ///      non-zero relay fee (the production case for OP-Stack/Arbitrum L1→L2 bridges) every
+    ///      `_propagateBeaconSlashing` reverted `InsufficientFee`, the `try/catch` swallowed
+    ///      it, and the batch silently advanced ZERO slashing factors. `_propagateBeaconSlashing`
+    ///      refunds its own excess to `msg.sender` — which for these self-calls is this contract
+    ///      — so unspent value returns here and is forwarded to the next pod; any final
+    ///      remainder is swept back to the caller. Pre-existing contract funds (`baseline`) are
+    ///      never touched.
     function batchPropagateBeaconSlashing(
         address[] calldata pods,
         uint64[] calldata newSlashingFactors
@@ -200,12 +217,24 @@ contract L2SlashingConnector {
     {
         require(pods.length == newSlashingFactors.length, "Length mismatch");
 
+        uint256 baseline = address(this).balance - msg.value;
+
         for (uint256 i = 0; i < pods.length; i++) {
-            // Try to propagate, continue on failure
-            try this.propagateBeaconSlashingInternal{ value: 0 }(
+            // Forward the whole call-attributable balance; the self-call refunds its unused
+            // portion back here (refund target is this contract), so the next iteration can
+            // reuse it. A caught revert rolls back its value transfer, leaving the balance intact.
+            uint256 forwardValue = address(this).balance - baseline;
+            try this.propagateBeaconSlashingInternal{ value: forwardValue }(
                 pods[i], newSlashingFactors[i], defaultDestinationChainId
             ) { }
                 catch { }
+        }
+
+        // Sweep any unspent fee budget back to the caller, leaving pre-existing funds in place.
+        uint256 leftover = address(this).balance - baseline;
+        if (leftover > 0) {
+            (bool success,) = msg.sender.call{ value: leftover }("");
+            require(success, "Refund failed");
         }
     }
 
@@ -270,7 +299,7 @@ contract L2SlashingConnector {
         // it to. This bounds the on-L2 slash to the pod's contribution, eliminating the
         // base mismatch (whole-stake over-slash) and the multi-pod amplification where
         // each pod independently slashed a share of the shared total stake.
-        uint256 podPrincipal = podManager.totalAssetsOf(podManager.podToOwner(pod));
+        uint256 podPrincipal = _podBeaconPrincipal(pod);
         uint256 podSlashAmount = (podPrincipal * slashPercentage) / 1e18;
 
         // Operator's TOTAL L2 stake (self + delegated) — the exact base that L2's
@@ -363,7 +392,7 @@ contract L2SlashingConnector {
 
         // Mirror propagation: scale the slash to the pod's own contribution, then
         // re-express against the operator's total L2 stake (see `_propagateBeaconSlashing`).
-        uint256 podPrincipal = podManager.totalAssetsOf(podManager.podToOwner(pod));
+        uint256 podPrincipal = _podBeaconPrincipal(pod);
         uint256 podSlashAmount = (podPrincipal * slashPercentage) / 1e18;
         uint256 operatorStake = podManager.getOperatorStake(operator);
         if (operatorStake == 0) return 0;
@@ -412,7 +441,7 @@ contract L2SlashingConnector {
         // (slashBps is a fixed-width uint16, so its magnitude does not change payload
         //  size; this keeps the estimate consistent with the value actually shipped.)
         uint256 slashPercentage = (uint256(lastFactor - newSlashingFactor) * 1e18) / lastFactor;
-        uint256 podPrincipal = podManager.totalAssetsOf(podManager.podToOwner(pod));
+        uint256 podPrincipal = _podBeaconPrincipal(pod);
         uint256 podSlashAmount = (podPrincipal * slashPercentage) / 1e18;
         uint256 operatorStake = operator == address(0) ? 0 : podManager.getOperatorStake(operator);
         uint16 slashBps = 0;
@@ -454,7 +483,10 @@ contract L2SlashingConnector {
     }
 
     /// @notice Register pod to operator mapping
+    /// @dev BCN-004: validate both legs against the PodManager so the owner cannot map an
+    ///      unknown/arbitrary pod to an arbitrary address and then ship a slash against it.
     function registerPodOperator(address pod, address operator) external onlyOwner {
+        _validatePodOperator(pod, operator);
         podOperator[pod] = operator;
     }
 
@@ -462,12 +494,25 @@ contract L2SlashingConnector {
     function batchRegisterPodOperators(address[] calldata pods, address[] calldata operators) external onlyOwner {
         require(pods.length == operators.length, "Length mismatch");
         for (uint256 i = 0; i < pods.length; i++) {
+            _validatePodOperator(pods[i], operators[i]);
             podOperator[pods[i]] = operators[i];
         }
     }
 
+    /// @notice Reject registrations the PodManager does not back: a real pod (non-zero
+    ///         owner) mapped to a registered operator. Closes the BCN-004 amplification
+    ///         where the owner could fabricate pod→operator pairs to target victims.
+    function _validatePodOperator(address pod, address operator) internal view {
+        if (pod == address(0) || operator == address(0)) revert ZeroAddress();
+        if (podManager.podToOwner(pod) == address(0)) revert UnknownPod(pod);
+        if (!podManager.isOperator(operator)) revert NotOperator(operator);
+    }
+
     /// @notice Update the slashing oracle address
+    /// @dev BCN-002: reject the zero address so the oracle role cannot be silently bricked
+    ///      (mirrors the `transferOwnership` guard below).
     function setSlashingOracle(address newOracle) external onlyOwner {
+        if (newOracle == address(0)) revert ZeroAddress();
         address oldOracle = slashingOracle;
         slashingOracle = newOracle;
         emit SlashingOracleUpdated(oldOracle, newOracle);
@@ -482,6 +527,20 @@ contract L2SlashingConnector {
     // ═══════════════════════════════════════════════════════════════════════════
     // INTERNAL FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Beacon principal (in wei) still exposed to beacon-chain slashing for `pod`.
+    /// @dev BCN-001: `totalAssetsOf` aggregates beacon principal PLUS parked execution-layer
+    ///      ETH (tips, partial withdrawals and exited principal already in pod custody,
+    ///      credited via `recordBeaconChainRebase`). That parked ETH can never be slashed on
+    ///      the beacon chain, so including it in the slash base over-states the loss and lets
+    ///      a modest beacon slash saturate `slashBps` at 100% of the operator's L2 stake.
+    ///      Slash only against on-beacon principal: `totalAssets` minus the parked tally the
+    ///      pod tracks (`withdrawableRestakedExecutionLayerGwei`).
+    function _podBeaconPrincipal(address pod) internal view returns (uint256) {
+        uint256 totalAssets = podManager.totalAssetsOf(podManager.podToOwner(pod));
+        uint256 parkedWei = uint256(IBeaconSlashPod(pod).withdrawableRestakedExecutionLayerGwei()) * 1 gwei;
+        return totalAssets > parkedWei ? totalAssets - parkedWei : 0;
+    }
 
     /// @notice Get the operator address for a pod
     function _getOperatorForPod(address pod) internal view returns (address) {

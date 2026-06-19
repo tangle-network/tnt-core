@@ -267,6 +267,13 @@ contract ValidatorPodTest is BeaconTestBase {
         pod.recoverTokens(IERC20(address(0)), attacker, 1);
     }
 
+    /// @notice BCN-003: token recovery must reject the zero recipient.
+    function test_recoverTokens_RevertZeroRecipient() public {
+        vm.prank(podOwner1);
+        vm.expectRevert(ValidatorPod.ZeroAddress.selector);
+        pod.recoverTokens(IERC20(address(0xBEEF)), address(0), 1);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // VALIDATOR RESTAKING TESTS
     // ═══════════════════════════════════════════════════════════════════════════
