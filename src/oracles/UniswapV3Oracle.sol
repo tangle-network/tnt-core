@@ -59,6 +59,18 @@ interface IERC20Decimals {
     function decimals() external view returns (uint8);
 }
 
+/// @title IChainlinkAggregatorBounds
+/// @notice Circuit-breaker bounds exposed by Chainlink's underlying off-chain aggregator. Mirrors
+///         the same interface in {ChainlinkOracle}: a consumer proxy forwards reads to its current
+///         `aggregator()`, which carries immutable `minAnswer`/`maxAnswer` bounds. During an extreme
+///         dislocation the aggregator clamps its reported answer to a bound, so a price sitting at a
+///         bound is a saturated (untrustworthy) reading rather than a true market price.
+interface IChainlinkAggregatorBounds {
+    function aggregator() external view returns (address);
+    function minAnswer() external view returns (int192);
+    function maxAnswer() external view returns (int192);
+}
+
 /// @title UniswapV3Oracle
 /// @notice Price oracle using Uniswap V3 TWAP
 /// @dev Uses time-weighted average prices from Uniswap V3 pools
@@ -133,6 +145,12 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     /// @notice Required time the sequencer must have been up before prices are accepted.
     uint256 public sequencerGracePeriod;
 
+    /// @notice Tokens with a configured pool, tracked so {setTwapPeriod} can re-grow every pool's
+    ///         observation buffer when the period is raised (F2). Append-only; entries whose feed was
+    ///         later removed are skipped at use (`poolConfigs[token].pool == 0`).
+    address[] private _configuredTokens;
+    mapping(address => bool) private _tokenTracked;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -146,6 +164,10 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     /// @notice Configured pool does not have enough TWAP observation slots for `twapPeriod`,
     ///         so the TWAP would degenerate toward manipulable spot. `have` < `need`.
     error InsufficientObservationCardinality(address pool, uint16 have, uint16 need);
+
+    /// @notice Quote-token Chainlink answer sits at the aggregator's min/maxAnswer circuit-breaker
+    ///         bound, i.e. the feed is saturated and the value is not a trustworthy market price.
+    error AnswerOutOfBounds(address token, int256 answer, int192 minAnswer, int192 maxAnswer);
 
     event SequencerUptimeFeedConfigured(address indexed feed, uint256 gracePeriod);
 
@@ -289,6 +311,12 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
             quoteTokenFeeds[quoteToken] = quoteFeed;
         }
 
+        // F2: remember the token so a later setTwapPeriod can re-validate/grow this pool's buffer.
+        if (!_tokenTracked[token]) {
+            _tokenTracked[token] = true;
+            _configuredTokens.push(token);
+        }
+
         emit PriceFeedConfigured(token, pool);
     }
 
@@ -319,10 +347,23 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     }
 
     /// @notice Set TWAP observation period
+    /// @dev F2: a longer period needs a deeper observation ring buffer. `configurePool` grows the
+    ///      buffer for the period in effect at config time, but raising the period here previously
+    ///      skipped that check — an already-configured pool could then no longer span the window and
+    ///      `observe()` would revert (price unavailable). Re-ensure (and opportunistically grow)
+    ///      every configured pool for the new period; reverts `InsufficientObservationCardinality`
+    ///      if a pool cannot be grown to support `period`, so an unsupportable period is rejected.
     /// @param period New TWAP period in seconds
     function setTwapPeriod(uint32 period) external onlyOwner {
         require(period > 0, "Invalid period");
         twapPeriod = period;
+
+        uint256 len = _configuredTokens.length;
+        for (uint256 i = 0; i < len; i++) {
+            address pool = poolConfigs[_configuredTokens[i]].pool;
+            if (pool == address(0)) continue; // feed since removed
+            _ensureObservationCardinality(IUniswapV3Pool(pool));
+        }
     }
 
     /// @notice Configure the L2 sequencer uptime feed. Set to `address(0)` to disable on L1.
@@ -383,6 +424,12 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
             if (answeredInRound < roundId) revert StalePrice(token, updatedAt, maxAge);
             if (block.timestamp - updatedAt > maxAge) revert StalePrice(token, updatedAt, maxAge);
 
+            // F1: circuit breaker — reject a quote answer clamped to the aggregator's min/maxAnswer
+            // bound. A saturated quote feed during an extreme dislocation would otherwise propagate a
+            // pinned (floor/ceiling) value through the TWAP→USD conversion, mis-pricing the asset
+            // (under-/over-valuing exposure and slashing). Parity with ChainlinkOracle.
+            _checkAnswerBounds(token, quoteFeed, answer);
+
             uint8 feedDecimals = AggregatorV3Interface(quoteFeed).decimals();
             if (feedDecimals < 18) {
                 // forge-lint: disable-next-line(unsafe-typecast)
@@ -414,6 +461,32 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
         data.updatedAt = quoteUpdatedAt;
         data.decimals = config.tokenDecimals;
         data.isValid = true;
+    }
+
+    /// @dev Revert when `answer` is pinned to the quote feed's underlying circuit-breaker bound.
+    ///      Bounds live on the proxy's current `aggregator()`, not the proxy, so resolve it first.
+    ///      Feeds that do not expose these getters are skipped via try/catch — the sign/staleness
+    ///      checks at the call site still apply. Identical logic to {ChainlinkOracle._checkAnswerBounds}.
+    function _checkAnswerBounds(address token, address feed, int256 answer) internal view {
+        try IChainlinkAggregatorBounds(feed).aggregator() returns (address agg) {
+            if (agg == address(0)) return;
+            try IChainlinkAggregatorBounds(agg).minAnswer() returns (int192 minAnswer) {
+                try IChainlinkAggregatorBounds(agg).maxAnswer() returns (int192 maxAnswer) {
+                    if (minAnswer < maxAnswer && (answer <= minAnswer || answer >= maxAnswer)) {
+                        revert AnswerOutOfBounds(token, answer, minAnswer, maxAnswer);
+                    }
+                } catch { }
+            } catch { }
+        } catch {
+            // Some proxies expose minAnswer()/maxAnswer() directly without aggregator().
+            try IChainlinkAggregatorBounds(feed).minAnswer() returns (int192 minAnswer) {
+                try IChainlinkAggregatorBounds(feed).maxAnswer() returns (int192 maxAnswer) {
+                    if (minAnswer < maxAnswer && (answer <= minAnswer || answer >= maxAnswer)) {
+                        revert AnswerOutOfBounds(token, answer, minAnswer, maxAnswer);
+                    }
+                } catch { }
+            } catch { }
+        }
     }
 
     /// @dev Reverts if the sequencer feed (when configured) reports the L2 sequencer
