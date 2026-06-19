@@ -72,6 +72,39 @@ them (by design):
 5. (Hyperlane/LayerZero only) pin the **ISM** / **DVN+executor** out-of-band before activation.
    Not needed for OP-Stack.
 
+## 3c. Price oracle bring-up (turn ON USD normalization) — optional, deferred at genesis
+The protocol ships with **no price oracle wired** (`incentives.priceOracle` unset). With no oracle,
+`PaymentsDistribution` / `PaymentsBilling` / `PaymentsEffectiveExposure` / `ServiceFeeDistributor`
+all fall back to **raw token amounts** — correct for a single homogeneous asset, but it mis-weights
+payouts/exposure across heterogeneous assets. This is intentional at launch: the exposure-weighted
+rail is dormant (`incentives.weights.stakersBps = 0`). Do this step only when you turn that rail on.
+
+`FullDeploy` never deploys or configures an oracle — it only wires a pre-existing address. Use
+`script/ConfigureOracle.s.sol`, which deploys a `ChainlinkOracle` or `UniswapV3Oracle`, configures
+every feed/pool + staleness + the L2 sequencer gate, optionally wires the two consumers, and hands
+the oracle's `Ownable` ownership to the timelock/multisig. It reads the `oracle` block of the deploy
+config (see `deploy/config/base-mainnet.json`).
+
+```
+PRIVATE_KEY=<pk> FULL_DEPLOY_CONFIG=deploy/config/base-mainnet.json \
+  forge script script/ConfigureOracle.s.sol:ConfigureOracle --rpc-url "$L2_RPC" --broadcast --slow
+```
+
+Wiring (`Tangle.setPriceOracle` + `ServiceFeeDistributor.setPriceOracle`) needs ADMIN_ROLE:
+- During the bootstrap window (before role handoff) set `oracle.wire=true` and the deployer wires it.
+- After handoff, leave `oracle.wire=false` and execute the two `setPriceOracle` calls the script
+  prints **through governance** (the timelock).
+
+Required for a production run (the script's `_requireProductionConfig` enforces these, bypass on
+anvil with `TANGLE_DEPLOY_LOCAL=1`):
+- `oracle.owner` = timelock/multisig (the oracle must not stay EOA-owned),
+- `oracle.maxAgeSeconds` > 0, and at least one feed (chainlink) / pool (uniswap),
+- on Base/OP/Arbitrum, `oracle.sequencerUptimeFeed` set (Base: `0xBCF85224fc0756B9Fa45aA7892530B47e10b6433`)
+  so the oracle cannot serve frozen prices during a sequencer outage.
+
+Then flip `incentives.weights.stakersBps` to a non-zero value via a governance migration (pre-commit
+to e.g. staking 3500 / stakers 1500, per the `incentives._note_weights` in the config).
+
 ## 4. Verification after launch
 - `forge test` (or CI `Foundry CI` workflow) green; facet sizes within EIP-170 (the `size` CI job).
 - `_assertGovernanceConfiguration` runs inside `FullDeploy` (roles handed to timelock/multisig,
