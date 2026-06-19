@@ -70,7 +70,10 @@ interface IServiceFeeDistributor {
         uint64[] calldata blueprintIds,
         // Per-blueprint amount deltas (must align with blueprintIds for Fixed mode).
         uint256[] calldata blueprintAmounts,
-        uint16 lockMultiplierBps
+        uint16 lockMultiplierBps,
+        // F5: latest active lock expiry for (delegator, asset); 0 if no active lock. The boost
+        // baked into the position score is decayed to base once this timestamp passes.
+        uint64 lockExpiry
     )
         external;
 

@@ -98,7 +98,9 @@ abstract contract RewardsManager is DelegationManagerLib {
         // Notify external rewards manager for TNT incentives (if configured)
         _notifyExternalRewardsManager(delegator, operator, asset, amount, isIncrease, lockMultiplierBps);
 
-        // Notify external service-fee distributor for multi-token fee accrual (if configured)
+        // Notify external service-fee distributor for multi-token fee accrual (if configured).
+        // F5: also pass the latest active lock expiry so the distributor can decay the
+        // lock-multiplier boost once every lock elapses (it has no lock data of its own).
         _notifyServiceFeeDistributor(
             delegator,
             operator,
@@ -108,7 +110,8 @@ abstract contract RewardsManager is DelegationManagerLib {
             selectionMode,
             blueprintIds,
             blueprintAmounts,
-            lockMultiplierBps
+            lockMultiplierBps,
+            _getLatestActiveLockExpiry(delegator, assetHash)
         );
     }
 
@@ -224,7 +227,8 @@ abstract contract RewardsManager is DelegationManagerLib {
         Types.BlueprintSelectionMode selectionMode,
         uint64[] memory blueprintIds,
         uint256[] memory blueprintAmounts,
-        uint16 lockMultiplierBps
+        uint16 lockMultiplierBps,
+        uint64 lockExpiry
     )
         internal
     {
@@ -239,7 +243,8 @@ abstract contract RewardsManager is DelegationManagerLib {
                 selectionMode,
                 blueprintIds,
                 blueprintAmounts,
-                lockMultiplierBps
+                lockMultiplierBps,
+                lockExpiry
             ) { }
             catch { }
     }

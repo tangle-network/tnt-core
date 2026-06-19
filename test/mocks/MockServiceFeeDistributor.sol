@@ -104,7 +104,8 @@ contract MockServiceFeeDistributor is IServiceFeeDistributor {
         Types.BlueprintSelectionMode,
         uint64[] calldata,
         uint256[] calldata,
-        uint16
+        uint16,
+        uint64
     )
         external
         override
