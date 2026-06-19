@@ -35,9 +35,19 @@ contract MockPodManager {
     mapping(address => address) public podToOwner;
     mapping(address => uint256) internal _totalAssetsOf;
     mapping(address => uint256) internal _operatorStake;
+    mapping(address => bool) internal _isOperator;
 
     function setPodOwner(address pod, address owner) external {
         podToOwner[pod] = owner;
+    }
+
+    function setOperator(address operator, bool registered) external {
+        _isOperator[operator] = registered;
+    }
+
+    /// @notice Used by the connector's BCN-004 registration validation.
+    function isOperator(address operator) external view returns (bool) {
+        return _isOperator[operator];
     }
 
     function setTotalAssetsOf(address owner, uint256 amount) external {
@@ -60,13 +70,23 @@ contract MockPodManager {
 /// @notice Pod that reports a controllable `beaconChainSlashingFactor`.
 contract MockSlashPod {
     uint64 public factor;
+    uint64 public parkedGwei;
 
     function setFactor(uint64 f) external {
         factor = f;
     }
 
+    function setParkedGwei(uint64 g) external {
+        parkedGwei = g;
+    }
+
     function beaconChainSlashingFactor() external view returns (uint64) {
         return factor;
+    }
+
+    /// @notice Parked execution-layer tally the connector subtracts from the slash base.
+    function withdrawableRestakedExecutionLayerGwei() external view returns (uint64) {
+        return parkedGwei;
     }
 }
 
@@ -79,16 +99,7 @@ contract MockMessenger {
         return 0;
     }
 
-    function sendMessage(
-        uint256,
-        address,
-        bytes calldata payload,
-        uint256
-    )
-        external
-        payable
-        returns (bytes32)
-    {
+    function sendMessage(uint256, address, bytes calldata payload, uint256) external payable returns (bytes32) {
         lastPayload = payload;
         sendCount += 1;
         return keccak256(payload);
@@ -150,9 +161,12 @@ contract BeaconL2ConnectorAuditTest is Test {
         connector.setMessenger(address(messenger));
         connector.setChainConfig(DEST_CHAIN, makeAddr("receiver"), 200_000, true);
         connector.setDefaultDestinationChain(DEST_CHAIN);
-        connector.registerPodOperator(address(pod), operator);
 
+        // BCN-004: registration now validates the pod has a known owner and the operator is
+        // registered, so seed both on the mock manager BEFORE registering the pod→operator.
         podManager.setPodOwner(address(pod), podOwner);
+        podManager.setOperator(operator, true);
+        connector.registerPodOperator(address(pod), operator);
     }
 
     /// @notice A factor decrease that resolves to 0 bps (operator has zero L2 stake) MUST revert
@@ -170,9 +184,7 @@ contract BeaconL2ConnectorAuditTest is Test {
         assertEq(connector.lastProcessedSlashingFactorByChain(address(pod), DEST_CHAIN), 0, "baseline starts unset");
 
         vm.prank(oracle);
-        vm.expectRevert(
-            abi.encodeWithSelector(L2SlashingConnector.NothingToSlash.selector, address(pod), DEST_CHAIN)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L2SlashingConnector.NothingToSlash.selector, address(pod), DEST_CHAIN));
         connector.propagateBeaconSlashing(address(pod), newFactor);
 
         // SECURE INVARIANT 1: no message was shipped (no wasted bridge fee on a guaranteed-reject).
@@ -200,9 +212,7 @@ contract BeaconL2ConnectorAuditTest is Test {
         pod.setFactor(newFactor);
 
         vm.prank(oracle);
-        vm.expectRevert(
-            abi.encodeWithSelector(L2SlashingConnector.NothingToSlash.selector, address(pod), DEST_CHAIN)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L2SlashingConnector.NothingToSlash.selector, address(pod), DEST_CHAIN));
         connector.propagateBeaconSlashing(address(pod), newFactor);
 
         // Operator re-acquires L2 stake; the identical factor delta must now be propagable.
@@ -236,9 +246,7 @@ contract BeaconL2ConnectorAuditTest is Test {
         connector.propagateBeaconSlashing(address(pod), newFactor);
 
         assertEq(messenger.sendCount(), 1, "real slash ships exactly one message");
-        assertEq(
-            connector.lastProcessedSlashingFactorByChain(address(pod), DEST_CHAIN), newFactor, "baseline advanced"
-        );
+        assertEq(connector.lastProcessedSlashingFactorByChain(address(pod), DEST_CHAIN), newFactor, "baseline advanced");
     }
 }
 
