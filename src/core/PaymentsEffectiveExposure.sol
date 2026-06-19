@@ -4,6 +4,12 @@ pragma solidity ^0.8.26;
 import { Types } from "../libraries/Types.sol";
 import { IStaking } from "../interfaces/IStaking.sol";
 import { IPriceOracle } from "../oracles/interfaces/IPriceOracle.sol";
+import { IAssetAdapter } from "../staking/adapters/IAssetAdapter.sol";
+
+/// @notice Minimal view of the staking diamond's adapter registry (see `DepositManager`).
+interface IAdapterLookup {
+    function getAssetAdapter(address token) external view returns (address);
+}
 
 /// @title PaymentsEffectiveExposure
 /// @notice Mixin for computing effective exposure (delegation × exposureBps) for payment distribution
@@ -82,7 +88,9 @@ abstract contract PaymentsEffectiveExposure {
                 uint256 delegation = staking.getOperatorStakeForAsset(operator, commitment.asset);
 
                 if (delegation > 0) {
-                    // Calculate exposed amount: delegation × exposureBps / _BPS_DENOM
+                    // `delegation` is in staking DEPOSIT-UNITS (adapter shares for adapter-backed
+                    // assets, raw tokens otherwise). Calculate exposed amount in those units:
+                    // delegation × exposureBps / _BPS_DENOM.
                     uint256 exposedAmount = (delegation * commitment.exposureBps) / _BPS_DENOM;
 
                     if (useOracle && exposedAmount > 0) {
@@ -91,7 +99,11 @@ abstract contract PaymentsEffectiveExposure {
                         // payout weights across heterogeneous assets.
                         address token =
                             commitment.asset.kind == Types.AssetKind.Native ? address(0) : commitment.asset.token;
-                        operatorEffectiveExposure += oracle.toUSD(token, exposedAmount);
+                        // `oracle.toUSD` expects TOKEN units. Convert deposit-units -> tokens via the
+                        // adapter for non-1:1 (rebasing) assets, otherwise the USD exposure (and thus
+                        // the payout weight) is mis-priced. 1:1 for native / non-adapter assets.
+                        uint256 exposedTokens = _depositUnitsToTokenAmount(staking, token, exposedAmount);
+                        operatorEffectiveExposure += oracle.toUSD(token, exposedTokens);
                     } else {
                         // No oracle: use raw amount
                         operatorEffectiveExposure += exposedAmount;
@@ -110,6 +122,23 @@ abstract contract PaymentsEffectiveExposure {
                 ++i;
             }
         }
+    }
+
+    /// @notice Convert a staking deposit-unit amount to raw token units for an asset.
+    /// @dev For adapter-backed assets, deposit-units are adapter shares; `sharesToAssets` maps them
+    ///      to the rebasing token amount that `IPriceOracle.toUSD` expects. Native (token == 0) and
+    ///      non-adapter assets are 1:1. Fails open to the input on a missing adapter so a
+    ///      misconfiguration degrades to the prior (deposit-unit) behavior rather than reverting the
+    ///      whole payment distribution.
+    function _depositUnitsToTokenAmount(IStaking staking, address token, uint256 units)
+        internal
+        view
+        returns (uint256)
+    {
+        if (token == address(0) || units == 0) return units;
+        address adapter = IAdapterLookup(address(staking)).getAssetAdapter(token);
+        if (adapter == address(0)) return units;
+        return IAssetAdapter(adapter).sharesToAssets(units);
     }
 
     /// @notice Calculate effective exposures using simple exposureBps fallback

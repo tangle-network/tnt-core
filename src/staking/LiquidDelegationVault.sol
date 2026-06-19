@@ -257,13 +257,21 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         // here would hand the depositor an inflated share of existing holders' stake.
         if (!_rateDefinedForMint()) revert RateUndefined();
 
-        shares = convertToShares(assets);
-        if (shares == 0) revert ZeroShares();
+        // Snapshot the pre-deposit rate; the delegation pool grows by the CREDITED deposit-units
+        // computed below, not by the raw `assets`.
+        uint256 supplyBefore = totalSupply();
+        uint256 assetsBefore = totalAssets();
 
         // Transfer assets from sender, push into staking, and delegate the exact
         // deposit-units the staking layer credited (adapter shares for adapter-backed
         // assets, raw assets otherwise).
-        _depositAndDelegate(assets);
+        uint256 credited = _depositAndDelegate(assets);
+
+        // Mint shares against the CREDITED deposit-units, NOT the raw token `assets`. `totalAssets()`
+        // is deposit-unit-denominated; for a non-1:1 (rebasing) adapter `credited != assets`, so
+        // pricing the mint off raw `assets` would over-/under-mint and dilute existing holders.
+        shares = credited.mulDiv(supplyBefore + VIRTUAL_SHARES, assetsBefore + VIRTUAL_ASSETS, Math.Rounding.Floor);
+        if (shares == 0) revert ZeroShares();
 
         // Mint liquid shares to receiver
         _mint(receiver, shares);
@@ -323,18 +331,45 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         // Refuse to mint while the rate is collapsed (slash-during-pending-redeem); see deposit().
         if (!_rateDefinedForMint()) revert RateUndefined();
 
+        // Snapshot the pre-deposit rate (see deposit()).
+        uint256 supplyBefore = totalSupply();
+        uint256 assetsBefore = totalAssets();
+
         // ERC-4626: mint() must round the asset cost UP so the minter pays at least fair value.
-        // Flooring here (as `convertToAssets` does) lets a minter receive shares worth more than
-        // they pay, diluting existing holders by the fractional remainder each call.
-        assets = _convertToAssetsRoundUp(shares);
+        // `_convertToAssetsRoundUp` returns the cost in DEPOSIT-UNITS (totalAssets()'s denomination).
+        uint256 requiredUnits = _convertToAssetsRoundUp(shares);
+        if (requiredUnits == 0) revert ZeroAssets();
+
+        // Convert the required deposit-units to the RAW token amount to pull. For a non-1:1
+        // (rebasing) adapter, deposit-units (adapter shares) are not raw tokens; charging
+        // `requiredUnits` raw tokens would mis-fund the position. 1:1 for non-adapter assets.
+        assets = _depositUnitsToAssets(requiredUnits);
         if (assets == 0) revert ZeroAssets();
 
         // Use the shared deposit/delegate path (correct spender + credited-unit delegation).
-        _depositAndDelegate(assets);
+        uint256 credited = _depositAndDelegate(assets);
+
+        // Mint against the CREDITED deposit-units at the pre-deposit rate (unit-consistent, and
+        // never dilutive). For 1:1 assets this equals the requested `shares`; a non-1:1 adapter may
+        // round it by a wei-level amount, which is the correct behavior given an externally-rebasing
+        // deposit unit.
+        shares = credited.mulDiv(supplyBefore + VIRTUAL_SHARES, assetsBefore + VIRTUAL_ASSETS, Math.Rounding.Floor);
+        if (shares == 0) revert ZeroShares();
 
         _mint(receiver, shares);
 
         emit Deposit(msg.sender, receiver, assets, shares);
+    }
+
+    /// @notice Convert staking deposit-units to the raw token amount they represent.
+    /// @dev Inverse of the credited-units the staking layer mints on deposit. For adapter-backed
+    ///      assets, deposit-units are adapter shares, so `sharesToAssets` maps them to raw tokens;
+    ///      1:1 for non-adapter assets. Used by `mint` to size the token pull for a target unit cost.
+    function _depositUnitsToAssets(uint256 units) internal view returns (uint256) {
+        if (isNative || units == 0) return units;
+        address adapter = IAdapterLookup(address(staking)).getAssetAdapter(address(asset));
+        if (adapter == address(0)) return units;
+        return IAssetAdapter(adapter).sharesToAssets(units);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
