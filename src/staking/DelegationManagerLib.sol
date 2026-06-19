@@ -541,9 +541,7 @@ abstract contract DelegationManagerLib is OperatorManager {
                         // `dep.amount` / `currentDeposits`, so slashed principal cannot strand
                         // (audit LOW: "slash strands deposit principal").
                         Types.Deposit storage dep = _deposits[msg.sender][assetHash];
-                        _settleDelegatedCostBasis(
-                            msg.sender, assetHash, dep, req.slashFactorSnapshot, amountToReturn
-                        );
+                        _settleDelegatedCostBasis(msg.sender, assetHash, dep, req.slashFactorSnapshot, amountToReturn);
 
                         // Remove delegation if zero shares
                         if (d.shares == 0) {
@@ -888,6 +886,21 @@ abstract contract DelegationManagerLib is OperatorManager {
                 uint16 lockBps = _getLockMultiplierBps(info.multiplier);
                 lockedAmount += info.amount;
                 weightedBpsSum += Math.mulDiv(info.amount, lockBps, 1);
+            }
+        }
+    }
+
+    /// @notice Latest expiry among the delegator's still-active locks for an asset (0 if none).
+    /// @dev F5: the lock multiplier baked into the external ServiceFeeDistributor score is only
+    ///      valid while a lock is active. Once every lock has expired the blended multiplier
+    ///      collapses to base (MULTIPLIER_NONE), so the distributor must decay the boost after this
+    ///      timestamp. The latest active expiry is the point past which NO lock contributes a boost.
+    function _getLatestActiveLockExpiry(address delegator, bytes32 assetHash) internal view returns (uint64 expiry) {
+        Types.LockInfo[] storage locks = _depositLocks[delegator][assetHash];
+        for (uint256 i = 0; i < locks.length; i++) {
+            uint64 e = locks[i].expiryTimestamp;
+            if (e > block.timestamp && e > expiry) {
+                expiry = e;
             }
         }
     }

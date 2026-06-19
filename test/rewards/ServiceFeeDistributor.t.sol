@@ -690,4 +690,81 @@ contract ServiceFeeDistributorTest is BaseTest {
         assertEq(distributor.tntToken(), address(0), "TNT token should be cleared");
         assertEq(distributor.tntScoreRate(), 0, "TNT score rate should be 0");
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // F5: lock-multiplier boost decays to base once the lock expires
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function _nativeHash() internal pure returns (bytes32) {
+        return keccak256(abi.encode(Types.AssetKind.Native, address(0)));
+    }
+
+    function _nativeAsset() internal pure returns (Types.Asset memory) {
+        return Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
+    }
+
+    /// @dev A 6-month-locked delegation gets a boosted score. Once the lock expires, the boost
+    ///      must decay back to base (== principal) so it stops diluting other delegators. Before
+    ///      the fix the boost persisted forever. Here we exercise the permissionless poke.
+    function test_F5_PermissionlessSettleDecaysExpiredBoost() public {
+        address locker = makeAddr("f5locker");
+        vm.deal(locker, 100 ether);
+        bytes32 ah = _nativeHash();
+
+        vm.startPrank(locker);
+        staking.depositWithLock{ value: 10 ether }(Types.LockMultiplier.SixMonths);
+        staking.delegate(operator1, 10 ether);
+        vm.stopPrank();
+
+        (uint8 mode, uint256 principal, uint256 score) = distributor.getPosition(locker, operator1, ah);
+        assertEq(mode, 1, "all mode");
+        assertEq(principal, 10 ether, "principal is raw amount");
+        assertGt(score, principal, "6mo lock boosts the score above principal");
+
+        uint256 totalBefore = distributor.totalAllScore(operator1, ah);
+        uint256 boost = score - principal;
+
+        // Past the 6-month lock window.
+        vm.warp(block.timestamp + 181 days);
+
+        // Anyone can poke the decay (here: a keeper / co-delegator, not the locker).
+        vm.prank(makeAddr("keeper"));
+        distributor.settleExpiredLock(locker, operator1, _nativeAsset());
+
+        (, uint256 principalAfter, uint256 scoreAfter) = distributor.getPosition(locker, operator1, ah);
+        assertEq(scoreAfter, principalAfter, "boost decayed to base");
+        assertEq(scoreAfter, 10 ether, "score collapses to principal");
+        assertEq(distributor.totalAllScore(operator1, ah), totalBefore - boost, "operator total reduced by the boost");
+
+        // Idempotent: a second poke is a no-op.
+        vm.prank(makeAddr("keeper2"));
+        distributor.settleExpiredLock(locker, operator1, _nativeAsset());
+        (,, uint256 scoreAgain) = distributor.getPosition(locker, operator1, ah);
+        assertEq(scoreAgain, 10 ether, "second settle is a no-op");
+    }
+
+    /// @dev The boost also decays on the locker's own next interaction (claim path), so a rational
+    ///      claimer self-heals the dilution without needing an external poke.
+    function test_F5_BoostDecaysOnClaim() public {
+        address locker = makeAddr("f5locker2");
+        vm.deal(locker, 100 ether);
+        bytes32 ah = _nativeHash();
+
+        vm.startPrank(locker);
+        staking.depositWithLock{ value: 10 ether }(Types.LockMultiplier.SixMonths);
+        staking.delegate(operator1, 10 ether);
+        vm.stopPrank();
+
+        (, uint256 principal, uint256 score) = distributor.getPosition(locker, operator1, ah);
+        assertGt(score, principal, "boosted while locked");
+
+        vm.warp(block.timestamp + 181 days);
+
+        // Claiming (even with nothing to claim) settles the expired boost.
+        vm.prank(locker);
+        distributor.claimAll(address(payTokenA));
+
+        (,, uint256 scoreAfter) = distributor.getPosition(locker, operator1, ah);
+        assertEq(scoreAfter, principal, "boost decayed to base on claim");
+    }
 }

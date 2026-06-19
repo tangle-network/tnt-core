@@ -224,7 +224,8 @@ contract ServiceFeeDistributor is
         Types.BlueprintSelectionMode selectionMode,
         uint64[] calldata blueprintIds,
         uint256[] calldata blueprintAmounts,
-        uint16 lockMultiplierBps
+        uint16 lockMultiplierBps,
+        uint64 lockExpiry
     )
         external
         override
@@ -237,6 +238,10 @@ contract ServiceFeeDistributor is
         _dripOperatorStreams(operator);
 
         bytes32 assetHash = _assetHash(asset);
+
+        // F5: collapse any PRIOR expired lock boost to base before applying this change, so a
+        // stale boost is never carried into the new score (and stops diluting others).
+        _settleExpiredLock(delegator, operator, assetHash);
         if (!_assetKnown[assetHash]) {
             _assetKnown[assetHash] = true;
             _assetByHash[assetHash] = Types.Asset({ kind: asset.kind, token: asset.token });
@@ -253,14 +258,11 @@ contract ServiceFeeDistributor is
         uint256 principalBefore = _positionPrincipal[delegator][operator][assetHash];
         uint256 scoreBefore = _positionScore[delegator][operator][assetHash];
 
-        // KNOWN LIMITATION (F5, tracked for a focused follow-up): `lockMultiplierBps` is baked
-        // into the position score here but this contract receives no lock-expiry, so the boost
-        // does not decay when the lock elapses — a locker keeps an inflated reward share until
-        // they next interact (diluting others). A correct fix requires threading the lock expiry
-        // through `onDelegationChanged` (interface + staking-layer change) and adding lazy
-        // decay-on-expiry to the reward-accumulator math (mirroring `RewardVaults._decayExpiredLock`).
-        // That is deliberately NOT done inline: a rushed change to this O(1) accumulator/debt
-        // accounting risks misallocating live rewards. See the audit batch-2 PR description.
+        // F5: `lockMultiplierBps` boosts the score here, and `lockExpiry` (threaded from the
+        // staking layer) records when that boost ends. `_settleExpiredLock` (called above and on
+        // every reward path) collapses the boost back to base once the lock elapses, so it can no
+        // longer dilute other delegators. Any prior expired boost was already settled at the top
+        // of this function, so `scoreBefore` here is the live (base-or-still-locked) score.
         uint256 scoreDelta;
         uint256 principalAfter;
         uint256 scoreAfter;
@@ -282,6 +284,10 @@ contract ServiceFeeDistributor is
         }
 
         _positionMode[delegator][operator][assetHash] = newMode;
+
+        // F5: record the lock expiry that backs this (possibly boosted) score so the boost can
+        // be decayed to base once every lock elapses.
+        _positionLockExpiry[delegator][operator][assetHash] = lockExpiry;
 
         // Track delegator position for claimAll iteration (only on first interaction)
         if (existingMode == 0) {
@@ -373,6 +379,9 @@ contract ServiceFeeDistributor is
         if (_positionMode[delegator][operator][assetHash] != 2) {
             revert InvalidModeChange();
         }
+
+        // F5: collapse any expired lock boost before rebalancing redistributes the score.
+        _settleExpiredLock(delegator, operator, assetHash);
 
         if (blueprintIds.length != blueprintAmounts.length) {
             revert InvalidBlueprintAmounts();
@@ -821,6 +830,8 @@ contract ServiceFeeDistributor is
         if (mode != 0) {
             // Drip any pending streaming payments to get up-to-date rewards
             _dripOperatorStreams(operator);
+            // F5: decay an expired lock boost before harvesting so future accrual is at base.
+            _settleExpiredLock(msg.sender, operator, assetHash);
             _harvestToken(msg.sender, operator, assetHash, token, mode);
         }
 
@@ -876,6 +887,8 @@ contract ServiceFeeDistributor is
                 uint8 mode = _positionMode[account][operator][assetHash];
                 if (mode == 0) continue;
 
+                // F5: decay an expired lock boost before harvesting so future accrual is at base.
+                _settleExpiredLock(account, operator, assetHash);
                 _harvestToken(account, operator, assetHash, token, mode);
             }
         }
@@ -1052,6 +1065,69 @@ contract ServiceFeeDistributor is
     // INTERNAL
     // ═══════════════════════════════════════════════════════════════════════════
 
+    /// @notice F5: decay an expired lock-multiplier boost on a position back to base (principal).
+    /// @dev Lazy decay, mirroring `RewardVaults._decayExpiredLock`. The boost is only valid while a
+    ///      lock is active; once `_positionLockExpiry` passes, the position must stop earning at the
+    ///      boosted score (which otherwise dilutes everyone else forever). Already-accrued rewards
+    ///      are harvested at the boosted score first (they were genuinely earned while the boost was
+    ///      live, lazily), THEN the score is collapsed to principal and the per-token debt re-synced
+    ///      so future accrual is at base. Callers MUST drip operator streams before calling.
+    ///      No-op when there is no active lock record, the lock has not expired, or there is no
+    ///      boost left to remove. Idempotent.
+    function _settleExpiredLock(address delegator, address operator, bytes32 assetHash) internal {
+        uint64 expiry = _positionLockExpiry[delegator][operator][assetHash];
+        if (expiry == 0 || block.timestamp < expiry) return;
+
+        uint8 mode = _positionMode[delegator][operator][assetHash];
+        uint256 score = _positionScore[delegator][operator][assetHash];
+        uint256 principal = _positionPrincipal[delegator][operator][assetHash];
+
+        // Clear the marker regardless; the boost (if any) is being removed now.
+        _positionLockExpiry[delegator][operator][assetHash] = 0;
+        if (mode == 0 || score <= principal) return;
+
+        // Settle accrued rewards at the boosted score before collapsing it.
+        _harvestAllTokens(delegator, operator, assetHash, mode);
+
+        uint256 boost = score - principal;
+        if (mode == 1) {
+            uint256 cur = totalAllScore[operator][assetHash];
+            totalAllScore[operator][assetHash] = boost > cur ? 0 : cur - boost;
+            _positionScore[delegator][operator][assetHash] = principal;
+        } else {
+            // Fixed mode: scale every per-blueprint score down by principal/score and reduce the
+            // operator/blueprint totals by the removed amount.
+            uint64[] storage bps = _fixedBlueprints[delegator][operator][assetHash];
+            uint256 newAggregate = 0;
+            for (uint256 i = 0; i < bps.length; i++) {
+                uint64 bpId = bps[i];
+                uint256 bScore = _positionFixedScore[delegator][operator][assetHash][bpId];
+                if (bScore == 0) continue;
+                uint256 bNew = (bScore * principal) / score; // rounds down toward base
+                uint256 bDelta = bScore - bNew;
+                _positionFixedScore[delegator][operator][assetHash][bpId] = bNew;
+
+                uint256 cf = totalFixedScore[operator][bpId][assetHash];
+                totalFixedScore[operator][bpId][assetHash] = bDelta > cf ? 0 : cf - bDelta;
+                uint256 cfa = _totalFixedScoreByAsset[operator][assetHash];
+                _totalFixedScoreByAsset[operator][assetHash] = bDelta > cfa ? 0 : cfa - bDelta;
+                newAggregate += bNew;
+            }
+            _positionScore[delegator][operator][assetHash] = newAggregate;
+        }
+
+        // Re-sync per-token debt to the collapsed score so future accrual is at base.
+        _syncDebtsToCurrentAcc(delegator, operator, assetHash, mode);
+    }
+
+    /// @notice Permissionlessly decay a position's expired lock-multiplier boost (F5).
+    /// @dev Lets anyone (e.g. a diluted co-delegator or a keeper) collapse a stale boost even if
+    ///      the locker never interacts again, instead of relying on the locker's next claim/change.
+    function settleExpiredLock(address delegator, address operator, Types.Asset calldata asset) external nonReentrant {
+        _dripOperatorStreams(operator);
+        _settleExpiredLock(delegator, operator, _assetHash(asset));
+    }
+
     function _harvestAllTokens(address delegator, address operator, bytes32 assetHash, uint8 mode) internal {
         // Use per-asset token set for efficiency - only iterates tokens actually distributed for this asset
         EnumerableSet.AddressSet storage set = _operatorAssetRewardTokens[operator][assetHash];
@@ -1071,6 +1147,7 @@ contract ServiceFeeDistributor is
         _positionMode[delegator][operator][assetHash] = 0;
         _positionPrincipal[delegator][operator][assetHash] = 0;
         _positionScore[delegator][operator][assetHash] = 0;
+        _positionLockExpiry[delegator][operator][assetHash] = 0;
 
         uint64[] storage existing = _fixedBlueprints[delegator][operator][assetHash];
         for (uint256 i = existing.length; i > 0; i--) {
@@ -1388,6 +1465,13 @@ contract ServiceFeeDistributor is
     /// @notice Receive ETH for native token distributions from StreamingPaymentManager
     receive() external payable { }
 
-    /// @dev Reserved storage slots for future upgrades (Round 2 storage F-3).
-    uint256[50] private __gap;
+    /// @notice F5: latest active lock expiry per position (delegator => operator => assetHash).
+    /// @dev The lock-multiplier boost baked into the position score is only valid until this
+    ///      timestamp; past it `_settleExpiredLock` collapses the score back to base (principal).
+    ///      0 = no active lock / already settled. Appended at end of storage (gap shrunk 50 -> 49).
+    mapping(address => mapping(address => mapping(bytes32 => uint64))) private _positionLockExpiry;
+
+    /// @dev Reserved storage slots for future upgrades (Round 2 storage F-3). Shrunk 50 -> 49
+    ///      when `_positionLockExpiry` was appended (F5).
+    uint256[49] private __gap;
 }
