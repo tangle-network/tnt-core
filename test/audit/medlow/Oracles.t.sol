@@ -195,7 +195,11 @@ contract ChainlinkOracleBoundsTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                ChainlinkOracle.AnswerOutOfBounds.selector, address(token), int256(1000e8), int192(1000e8), int192(9000e8)
+                ChainlinkOracle.AnswerOutOfBounds.selector,
+                address(token),
+                int256(1000e8),
+                int192(1000e8),
+                int192(9000e8)
             )
         );
         oracle.getPrice(address(token));
@@ -208,7 +212,11 @@ contract ChainlinkOracleBoundsTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                ChainlinkOracle.AnswerOutOfBounds.selector, address(token), int256(9000e8), int192(1000e8), int192(9000e8)
+                ChainlinkOracle.AnswerOutOfBounds.selector,
+                address(token),
+                int256(9000e8),
+                int192(1000e8),
+                int192(9000e8)
             )
         );
         oracle.getPrice(address(token));
@@ -459,5 +467,124 @@ contract UniswapV3OracleZeroPriceTest is Test {
         // getPriceData uses the same internal path and must also revert (never returns isValid).
         vm.expectRevert(abi.encodeWithSelector(IPriceOracle.PriceNotAvailable.selector, address(token)));
         oracle.getPriceData(address(token));
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UniswapV3Oracle: quote-feed min/maxAnswer circuit breaker (F1, medium)
+// ─────────────────────────────────────────────────────────────────────────────
+
+contract UniswapV3OracleQuoteBoundsTest is Test {
+    UniswapV3Oracle internal oracle;
+    MockCardinalityPool internal pool;
+    MockToken internal token; // token0, 6 dec
+    MockToken internal quote; // token1, 18 dec
+    MockBoundedAggregator internal quoteFeed;
+
+    function setUp() public {
+        vm.warp(1_000_000);
+        token = new MockToken(6);
+        quote = new MockToken(18);
+        pool = new MockCardinalityPool(address(token), address(quote), 200, true);
+        pool.setTick(0);
+        quoteFeed = new MockBoundedAggregator(8);
+        quoteFeed.setRound(1, 1);
+        quoteFeed.setData(1800e8, block.timestamp);
+        oracle = new UniswapV3Oracle(address(quote));
+        oracle.configurePool(address(token), address(pool), address(quoteFeed), false);
+    }
+
+    /// F1: a quote answer pinned to the aggregator's minAnswer floor is rejected (parity with
+    /// ChainlinkOracle). Pre-fix the Uniswap quote-feed path had no bounds check, so a saturated
+    /// quote feed would propagate a pinned floor/ceiling through the TWAP→USD conversion.
+    function test_F1_RevertWhenQuoteAnswerAtMinBound() public {
+        quoteFeed.setBounds(int192(1000e8), int192(9000e8));
+        quoteFeed.setData(1000e8, block.timestamp);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                UniswapV3Oracle.AnswerOutOfBounds.selector,
+                address(token),
+                int256(1000e8),
+                int192(1000e8),
+                int192(9000e8)
+            )
+        );
+        oracle.getPrice(address(token));
+    }
+
+    function test_F1_RevertWhenQuoteAnswerAtMaxBound() public {
+        quoteFeed.setBounds(int192(1000e8), int192(9000e8));
+        quoteFeed.setData(9000e8, block.timestamp);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                UniswapV3Oracle.AnswerOutOfBounds.selector,
+                address(token),
+                int256(9000e8),
+                int192(1000e8),
+                int192(9000e8)
+            )
+        );
+        oracle.getPrice(address(token));
+    }
+
+    /// A quote answer strictly inside [min, max] still prices normally.
+    function test_F1_QuoteAnswerWithinBoundsAccepted() public {
+        quoteFeed.setBounds(int192(1000e8), int192(9000e8));
+        quoteFeed.setData(1800e8, block.timestamp);
+        assertGt(oracle.getPrice(address(token)), 0);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UniswapV3Oracle: setTwapPeriod re-validates observation cardinality (F2, medium)
+// ─────────────────────────────────────────────────────────────────────────────
+
+contract UniswapV3OracleSetTwapCardinalityTest is Test {
+    UniswapV3Oracle internal oracle;
+    MockToken internal token; // 6 dec
+    MockToken internal quote; // 18 dec
+    MockBoundedAggregator internal quoteFeed;
+
+    function setUp() public {
+        vm.warp(1_000_000);
+        token = new MockToken(6);
+        quote = new MockToken(18);
+        quoteFeed = new MockBoundedAggregator(8);
+        quoteFeed.setRound(1, 1);
+        quoteFeed.setData(1800e8, block.timestamp);
+        oracle = new UniswapV3Oracle(address(quote));
+    }
+
+    /// F2: raising the TWAP period re-grows an already-configured (growable) pool's observation
+    /// buffer to span the new window. Pre-fix setTwapPeriod skipped the cardinality check entirely.
+    function test_F2_SetTwapPeriodGrowsConfiguredPool() public {
+        MockCardinalityPool growable = new MockCardinalityPool(address(token), address(quote), 200, true);
+        growable.setTick(0);
+        // Configures fine at the default 1800s period (needs ceil(1800/12)=150 <= 200).
+        oracle.configurePool(address(token), address(growable), address(quoteFeed), false);
+
+        // Raise to 36000s -> needs ceil(36000/12) = 3000 slots.
+        oracle.setTwapPeriod(36_000);
+
+        (,,, uint16 card, uint16 cardNext,,) = growable.slot0();
+        assertGe(uint256(card >= cardNext ? card : cardNext), 3000, "pool grown to cover the raised period");
+    }
+
+    /// F2: raising the period beyond a non-growable pool's buffer is rejected, instead of silently
+    /// leaving a pool whose `observe()` over the new window would revert (price unavailable).
+    function test_F2_SetTwapPeriodRevertsWhenPoolCannotGrow() public {
+        MockCardinalityPool fixedPool = new MockCardinalityPool(address(token), address(quote), 200, false);
+        fixedPool.setTick(0);
+        oracle.configurePool(address(token), address(fixedPool), address(quoteFeed), false);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                UniswapV3Oracle.InsufficientObservationCardinality.selector,
+                address(fixedPool),
+                uint16(200),
+                uint16(3000)
+            )
+        );
+        oracle.setTwapPeriod(36_000);
     }
 }
