@@ -248,6 +248,25 @@
     "_note": "Deploys LiquidDelegationFactory once (staking from core manifest); vaults are created on demand. Owner handed to timelock.",
     "owner": "0x0000000000000000000000000000000000000000"
   },
+  "oracle": {
+    "deploy": false,
+    "_note": "Price-oracle bring-up for USD normalization, consumed by script/ConfigureOracle.s.sol (NOT by FullDeploy). deploy=false at genesis: with no oracle the payment/exposure rails use raw token amounts and the exposure-weighted rail is dormant (incentives.weights.stakersBps=0). Set deploy=true ONLY when turning that rail on, then flip stakersBps via governance. See deploy/RUNBOOK-launch.md section 3c.",
+    "kind": "chainlink",
+    "_todo_nativeFeed": "TODO: Base ETH/USD Chainlink feed",
+    "nativeFeed": "0x0000000000000000000000000000000000000000",
+    "maxAgeSeconds": 3600,
+    "_note_sequencer": "Base canonical L2 sequencer-uptime feed. REQUIRED on Base (the prod guard enforces it) so the oracle cannot serve frozen prices during a sequencer outage.",
+    "sequencerUptimeFeed": "0xBCF85224fc0756B9Fa45aA7892530B47e10b6433",
+    "sequencerGracePeriodSeconds": 3600,
+    "_todo_owner": "TODO: set to roles.timelock (oracle Ownable ownership is handed off as the final step).",
+    "owner": "0x0000000000000000000000000000000000000000",
+    "_note_wire": "wire=true only during the bootstrap window (deployer still holds ADMIN_ROLE). After role handoff, leave false and run the printed setPriceOracle calls through governance.",
+    "wire": false,
+    "tangle": "0x0000000000000000000000000000000000000000",
+    "serviceFeeDistributor": "0x0000000000000000000000000000000000000000",
+    "_note_feeds": "chainlink: one entry per priced ERC20 (token -> token/USD Chainlink feed). For kind=uniswap use a `pools` array of { token, pool, quoteFeed, quoteIsUsd } instead.",
+    "feeds": []
+  },
   "beacon": {
     "deploy": false,
     "_note": "Native-ETH restaking slash bridge. L1 (Ethereum) leg: ValidatorPodManager + EIP4788 oracle + L2SlashingConnector + BaseCrossChainMessenger. bridge=opstack uses Base's canonical L1CrossDomainMessenger — NATIVE, no third-party ISM/DVN to pin. Set deploy=true only when admin/oracle are real. Never enable USE_MOCK_BEACON_ORACLE on mainnet.",
