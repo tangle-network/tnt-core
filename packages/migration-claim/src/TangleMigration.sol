@@ -111,6 +111,7 @@ contract TangleMigration is Ownable, ReentrancyGuard {
     error AdminClaimWindowClosed();
     error InvalidAdminClaimDeadline();
     error EmergencyWithdrawNotAllowed();
+    error EmergencyWithdrawTokenForbidden();
     error ClaimDeadlineNotPassed();
     error NoClaimDeadlineSet();
     error MerkleRootLocked();
@@ -340,10 +341,15 @@ contract TangleMigration is Ownable, ReentrancyGuard {
         emit Paused(_paused);
     }
 
-    /// @notice Emergency withdraw tokens (only after deadline or if paused)
-    /// @param _token Token to withdraw (use address(0) for native)
+    /// @notice Emergency withdraw mis-sent tokens (only after deadline or if paused)
+    /// @dev The migration token itself is intentionally NOT withdrawable here: unclaimed
+    ///      migration funds may only ever exit via the permissionless `sweepUnclaimedToTreasury`
+    ///      to the immutable `treasury`. Allowing the owner to pull `token` would defeat that
+    ///      guarantee and reintroduce owner discretion over user-claimable funds.
+    /// @param _token Token to withdraw (use address(0) for native); must not be the migration token
     /// @param _amount Amount to withdraw
     function emergencyWithdraw(address _token, uint256 _amount) external onlyOwner {
+        if (_token == address(token)) revert EmergencyWithdrawTokenForbidden();
         bool deadlinePassed = claimDeadline != 0 && block.timestamp > claimDeadline;
         if (!paused && !deadlinePassed) revert EmergencyWithdrawNotAllowed();
 
