@@ -1644,7 +1644,7 @@ contract FullDeploy is DeployV2 {
             // Create vesting contract for 100% of treasury allocation
             TNTVestingFactory treasuryVestingFactory = new TNTVestingFactory(180 days, 912 days);
             address treasuryVesting = treasuryVestingFactory.getOrCreateVesting(
-                address(tnt), treasuryRecipient, uint64(block.timestamp), treasuryRecipient
+                address(tnt), treasuryRecipient, uint64(block.timestamp)
             );
             tnt.safeTransfer(treasuryVesting, migration.treasuryAmount);
             migration.treasuryRecipient = treasuryRecipient;
@@ -1665,7 +1665,7 @@ contract FullDeploy is DeployV2 {
             // 70% to vesting contract
             TNTVestingFactory foundationVestingFactory = new TNTVestingFactory(180 days, 912 days);
             address foundationVesting = foundationVestingFactory.getOrCreateVesting(
-                address(tnt), foundationRecipient, uint64(block.timestamp), foundationRecipient
+                address(tnt), foundationRecipient, uint64(block.timestamp)
             );
             tnt.safeTransfer(foundationVesting, foundationVested);
         }
