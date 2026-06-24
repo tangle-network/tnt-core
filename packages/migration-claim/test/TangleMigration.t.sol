@@ -736,22 +736,39 @@ contract TangleMigrationTest is Test {
     // EMERGENCY WITHDRAW TEST
     // ═══════════════════════════════════════════════════════════════════════
 
-    function test_EmergencyWithdraw() public {
+    function test_EmergencyWithdraw_RevertsForMigrationToken() public {
+        // Unclaimed migration funds must only ever exit via sweepUnclaimedToTreasury();
+        // the owner cannot pull the migration token here even when paused.
         migration.setPaused(true);
 
         uint256 balance = tnt.balanceOf(address(migration));
-        uint256 ownerBalanceBefore = tnt.balanceOf(owner);
-
+        vm.expectRevert(TangleMigration.EmergencyWithdrawTokenForbidden.selector);
         migration.emergencyWithdraw(address(tnt), balance);
+    }
 
-        assertEq(tnt.balanceOf(address(migration)), 0);
-        assertEq(tnt.balanceOf(owner), ownerBalanceBefore + balance);
+    function test_EmergencyWithdraw_RescuesForeignToken() public {
+        // A foreign token accidentally sent to the contract can still be rescued to owner.
+        TNT foreign = new TNT(owner);
+        foreign.mintInitialSupply(owner, 1000 ether);
+        foreign.transfer(address(migration), 500 ether);
+
+        migration.setPaused(true);
+        uint256 ownerBalanceBefore = foreign.balanceOf(owner);
+
+        migration.emergencyWithdraw(address(foreign), 500 ether);
+
+        assertEq(foreign.balanceOf(address(migration)), 0);
+        assertEq(foreign.balanceOf(owner), ownerBalanceBefore + 500 ether);
     }
 
     function test_EmergencyWithdraw_RevertIfNotPausedOrDeadlinePassed() public {
-        uint256 balance = tnt.balanceOf(address(migration));
+        // Use a foreign token so execution reaches the paused/deadline gate.
+        TNT foreign = new TNT(owner);
+        foreign.mintInitialSupply(owner, 1000 ether);
+        foreign.transfer(address(migration), 500 ether);
+
         vm.expectRevert(TangleMigration.EmergencyWithdrawNotAllowed.selector);
-        migration.emergencyWithdraw(address(tnt), balance);
+        migration.emergencyWithdraw(address(foreign), 500 ether);
     }
 
     function test_EmergencyWithdraw_OnlyOwner() public {
