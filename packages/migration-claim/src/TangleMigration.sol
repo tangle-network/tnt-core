@@ -409,12 +409,13 @@ contract TangleMigration is Ownable, ReentrancyGuard {
             // forge-lint: disable-next-line(unsafe-typecast)
             uint64 startTimestamp = uint64(block.timestamp);
 
-            // Create vesting contract with recipient as beneficiary and delegatee
+            // Create vesting contract with recipient as beneficiary. The factory forces the voting
+            // delegatee to the beneficiary (recipient), so a front-run pre-creation cannot redirect
+            // the vested voting power.
             vestingContract = vestingFactory.getOrCreateVesting(
                 address(token),
                 recipient,
-                startTimestamp,
-                recipient // delegatee - voting power goes to recipient
+                startTimestamp
             );
 
             token.safeTransfer(vestingContract, vestedAmount);

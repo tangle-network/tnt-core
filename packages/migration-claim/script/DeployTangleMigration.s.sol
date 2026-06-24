@@ -194,8 +194,7 @@ contract DeployTangleMigration is Script {
             address treasuryVesting = treasuryVestingFactory.getOrCreateVesting(
                 configuredTnt,
                 treasuryRecipient,
-                uint64(block.timestamp),
-                treasuryRecipient // delegatee
+                uint64(block.timestamp)
             );
             require(tntToken.transfer(treasuryVesting, treasuryAmount), "Treasury vesting transfer failed");
 
@@ -223,8 +222,7 @@ contract DeployTangleMigration is Script {
             address foundationVesting = foundationVestingFactory.getOrCreateVesting(
                 configuredTnt,
                 foundationRecipient,
-                uint64(block.timestamp),
-                foundationRecipient // delegatee
+                uint64(block.timestamp)
             );
             require(tntToken.transfer(foundationVesting, foundationVested), "Foundation vesting transfer failed");
 
