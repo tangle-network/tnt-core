@@ -262,6 +262,10 @@ library Errors {
     ///         Indicates a service-creation path that skipped `initSubscriptionBaseline`.
     error SubscriptionBaselineNotInitialized(uint64 serviceId);
 
+    /// @notice Termination blocked: a fully-elapsed subscription period is still unbilled and owed to
+    ///         operators. Call the permissionless `billSubscription(serviceId)` first, then terminate.
+    error SubscriptionPeriodUnbilled(uint64 serviceId);
+
     /// @notice EventDriven services are funded per-job via `msg.value`; upfront paymentAmount
     ///         at request is rejected so funds aren't collected only to be locked.
     error UpfrontPaymentNotAllowedForEventDriven();
