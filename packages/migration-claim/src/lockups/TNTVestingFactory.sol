@@ -51,13 +51,18 @@ contract TNTVestingFactory {
     /// @param token The ERC20 token to vest
     /// @param beneficiary The address that can withdraw vested tokens
     /// @param startTimestamp When the vesting schedule begins
-    /// @param delegatee Initial voting power delegatee (typically beneficiary)
     /// @return vesting The address of the vesting contract
+    /// @dev The clone's voting-power delegatee is forced to `beneficiary`. The delegatee is NOT part
+    ///      of the CREATE2 salt, so accepting a caller-supplied delegatee let a front-runner pre-create
+    ///      the victim's clone at the predicted address with an attacker delegatee; the get-or-create
+    ///      path then skips initialization and merely funds the hijacked clone, redirecting the
+    ///      beneficiary's vested voting power. Binding the delegatee to `beneficiary` removes that
+    ///      degree of freedom: any pre-created clone is byte-identical to the one this call would
+    ///      create, so front-running is a harmless no-op. The beneficiary may re-delegate afterward.
     function getOrCreateVesting(
         address token,
         address beneficiary,
-        uint64 startTimestamp,
-        address delegatee
+        uint64 startTimestamp
     ) external returns (address vesting) {
         bytes32 salt = _computeSalt(token, beneficiary, startTimestamp);
         vesting = implementation.predictDeterministicAddress(salt, address(this));
@@ -70,7 +75,7 @@ contract TNTVestingFactory {
                 startTimestamp,
                 cliffDuration,
                 vestingDuration,
-                delegatee
+                beneficiary
             );
             emit VestingCreated(vesting, token, beneficiary, startTimestamp, cliffDuration, vestingDuration);
         }
