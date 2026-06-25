@@ -58,10 +58,32 @@ abstract contract ServicesLifecycle is Base {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Terminate a service
+    /// @dev Owner path only. Blocks while a fully-elapsed subscription period is still unbilled and
+    ///      owed to operators, so the owner cannot terminate inside the keeper's billing-latency
+    ///      window and reclaim (via withdrawRemainingEscrow) escrow operators already earned — the
+    ///      period becomes permanently unbillable once status != Active. `billSubscription` is
+    ///      permissionless, so anyone can clear this in one call, then terminate. The gate lives here
+    ///      (not in `_terminateService`) so the non-payment remedy `terminateServiceForNonPayment` —
+    ///      which fires precisely when escrow cannot cover a period and so can never be billed — is
+    ///      not deadlocked. Conditions mirror the eligibility gates in
+    ///      `PaymentsBilling._billSubscriptionImpl` (subscription, within TTL, full interval elapsed)
+    ///      and MUST be kept in lockstep; settlement itself cannot run here because billing lives in a
+    ///      separate facet unreachable by internal call. A non-empty operator set is a conservative
+    ///      "fees are owed" proxy — an all-inactive set just costs one harmless cursor-advancing bill.
     function terminateService(uint64 serviceId) external nonReentrant {
         Types.Service storage svc = _getService(serviceId);
         if (svc.owner != msg.sender) {
             revert Errors.NotServiceOwner(serviceId, msg.sender);
+        }
+
+        if (svc.status == Types.ServiceStatus.Active && svc.pricing == Types.PricingModel.Subscription) {
+            uint64 interval = _blueprintConfigs[svc.blueprintId].subscriptionInterval;
+            bool withinTtl = svc.ttl == 0 || block.timestamp <= svc.createdAt + svc.ttl;
+            bool periodElapsed = interval != 0 && block.timestamp >= svc.lastPaymentAt + interval;
+            bool hasOperators = _serviceOperatorSet[serviceId].length() != 0;
+            if (withinTtl && periodElapsed && hasOperators) {
+                revert Errors.SubscriptionPeriodUnbilled(serviceId);
+            }
         }
 
         _terminateService(serviceId);
