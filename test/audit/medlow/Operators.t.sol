@@ -181,7 +181,7 @@ contract OperatorsAuditTest is BaseTest {
         bytes memory otherKey = _uncompressedPubkey(0xC0FFEE);
         vm.prank(victim);
         vm.expectRevert(abi.encodeWithSelector(Operators.KeyOwnershipProofRequired.selector, blueprintId));
-        tangle.updateOperatorPreferences(blueprintId, otherKey, "");
+        tangle.updateOperatorPreferences(blueprintId, otherKey, "https://op.example:9000");
     }
 
     /// @notice A swap WITH a valid proof for the new key succeeds and stores the new bare key.
@@ -195,11 +195,43 @@ contract OperatorsAuditTest is BaseTest {
         bytes memory envelope = _proofEnvelope(newKey, newPk, blueprintId, victim);
 
         vm.prank(victim);
-        tangle.updateOperatorPreferences(blueprintId, envelope, "");
+        tangle.updateOperatorPreferences(blueprintId, envelope, "https://op.example:9000");
 
         bytes memory stored = tangle.getOperatorPublicKey(blueprintId, victim);
         assertEq(stored.length, 65);
         assertEq(keccak256(stored), keccak256(newKey), "swapped key must be persisted as the bare 65-byte key");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EVENT-SOURCED RPC ADDRESS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice rpcAddress is event-only (never persisted), so updateOperatorPreferences
+    ///         must reject an empty one — a key-only update that omitted it would broadcast
+    ///         an empty endpoint and break off-chain operator discovery.
+    function test_updatePreferences_emptyRpcAddress_reverts() public {
+        vm.prank(victim);
+        tangle.registerOperator(blueprintId, victimPubkey, "rpc", "");
+
+        vm.prank(victim);
+        vm.expectRevert(Errors.OperatorRpcAddressRequired.selector);
+        tangle.updateOperatorPreferences(blueprintId, "", "");
+    }
+
+    /// @notice The supplied rpcAddress rides the OperatorPreferencesUpdated event in full
+    ///         while storage keeps an empty string — the event is the sole endpoint channel.
+    function test_updatePreferences_rpcAddressEventSourced_storageStaysEmpty() public {
+        vm.prank(victim);
+        tangle.registerOperator(blueprintId, victimPubkey, "rpc", "");
+
+        vm.expectEmit(true, true, true, true, address(tangleProxy));
+        emit Operators.OperatorPreferencesUpdated(blueprintId, victim, victimPubkey, "https://op.example:9443");
+        vm.prank(victim);
+        tangle.updateOperatorPreferences(blueprintId, "", "https://op.example:9443");
+
+        Types.OperatorPreferences memory prefs = tangle.getOperatorPreferences(blueprintId, victim);
+        assertEq(bytes(prefs.rpcAddress).length, 0, "rpcAddress must never be persisted");
+        assertEq(keccak256(prefs.ecdsaPublicKey), keccak256(victimPubkey), "key-only no-op must keep the stored key");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

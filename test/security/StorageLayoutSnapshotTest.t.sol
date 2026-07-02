@@ -3,6 +3,60 @@ pragma solidity ^0.8.26;
 
 import { Test } from "forge-std/Test.sol";
 import { Vm } from "forge-std/Vm.sol";
+import { TangleStorage } from "../../src/TangleStorage.sol";
+import { Types } from "../../src/libraries/Types.sol";
+import { IStaking } from "../../src/interfaces/IStaking.sol";
+import { IMBSMRegistry } from "../../src/interfaces/IMBSMRegistry.sol";
+
+/// @notice Write-probe harness: each function writes exactly one pinned field so the
+///         test can recover the field's real compiled slot via vm.record()/vm.accesses().
+///         Inherits TangleStorage directly — sequential slots are identical to Tangle's
+///         (the concrete contract adds only ERC-7201 namespaced OZ storage, never
+///         sequential slots).
+contract TangleStorageSlotProbe is TangleStorage {
+    uint64 internal constant PROBE_KEY = 7;
+
+    function writeStaking() external {
+        _staking = IStaking(address(1));
+    }
+
+    function writeTreasury() external {
+        _treasury = payable(address(1));
+    }
+
+    function writePaymentSplit() external {
+        _paymentSplit.developerBps = 1;
+    }
+
+    function writeDomainSeparator() external {
+        _domainSeparator = bytes32(uint256(1));
+    }
+
+    function writeMbsmRegistry() external {
+        _mbsmRegistry = IMBSMRegistry(address(1));
+    }
+
+    function writeServiceRequestCount() external {
+        _serviceRequestCount = 1;
+    }
+
+    function writeBlueprint() external {
+        _blueprints[PROBE_KEY].owner = address(1);
+    }
+
+    function writeBlueprintConfig() external {
+        _blueprintConfigs[PROBE_KEY].membership = Types.MembershipModel.Dynamic;
+    }
+
+    function writeSlashCommitmentSnapshot() external {
+        // push() writes the array length, which lives at the mapping leaf slot itself.
+        _slashCommitmentSnapshots[PROBE_KEY].push();
+    }
+
+    function writeManagerHookGasLimit() external {
+        _managerHookGasLimit = 1;
+    }
+}
 
 /// @title StorageLayoutSnapshotTest
 /// @notice Pins the storage-slot positions of critical state variables on each
@@ -12,48 +66,58 @@ import { Vm } from "forge-std/Vm.sol";
 ///         contract, (b) consume a `__gap` slot, or (c) explicitly bless the
 ///         new layout by updating this snapshot.
 ///
-///         The slots below were captured from `forge inspect <Contract>
-///         storageLayout` against the v0.13.0 deployment-ready commit. Round 2
-///         storage auditor F-1 / F-2 surfaced upgrade-time field-reorder risks
-///         that this test backstops in CI.
+///         The pinned constants were captured from `forge inspect Tangle
+///         storage-layout` at the greenfield 0.18.0 layout. The probe measures
+///         the slot each write actually touches at runtime, so the assertions
+///         compare the pinned snapshot against the REAL compiled layout — not
+///         against a hand-maintained lookup table.
 contract StorageLayoutSnapshotTest is Test {
-    // forge-lint: disable-next-line(unused-import)
-    Vm constant VM = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    uint64 internal constant PROBE_KEY = 7;
+
+    TangleStorageSlotProbe internal probe;
+
+    function setUp() public {
+        probe = new TangleStorageSlotProbe();
+    }
 
     // ───────────────────────────────────────────────────────────────────────
     // Tangle storage (TangleStorage.sol layout, inherited by the proxy)
     // ───────────────────────────────────────────────────────────────────────
 
-    function test_TangleStorage_PinnedSlots() public pure {
-        // The first ~30 fields in TangleStorage.sol. Each tuple is
-        // (expectedSlot, fieldName) — fieldName is illustrative, the real
-        // assertion is the slot count below. If you reorder fields, this
-        // assertion will fail — that is the point.
-        //
-        // _staking            → slot  0
-        // _treasury           → slot  1 (packed with _maxBlueprintsPerOperator)
-        // _paymentSplit       → slot  2
-        // _domainSeparator    → slot  3
-        // _mbsmRegistry       → slot  4 (packed with _blueprintCount)
-        // _serviceRequestCount→ slot  5 (packed with _serviceCount)
-        // _blueprints         → slot  6
-        // _blueprintConfigs   → slot  7
-        //
-        // Read this list against `forge inspect Tangle storageLayout` if any
-        // assertion below fails.
-        assertEq(_pinnedTangleSlot("_staking"), 0, "Tangle._staking moved");
-        assertEq(_pinnedTangleSlot("_treasury"), 1, "Tangle._treasury moved");
-        assertEq(_pinnedTangleSlot("_paymentSplit"), 2, "Tangle._paymentSplit moved");
-        assertEq(_pinnedTangleSlot("_domainSeparator"), 3, "Tangle._domainSeparator moved");
-        assertEq(_pinnedTangleSlot("_mbsmRegistry"), 4, "Tangle._mbsmRegistry moved");
-        assertEq(_pinnedTangleSlot("_serviceRequestCount"), 5, "Tangle._serviceRequestCount moved");
-        assertEq(_pinnedTangleSlot("_blueprints"), 6, "Tangle._blueprints moved");
-        assertEq(_pinnedTangleSlot("_blueprintConfigs"), 7, "Tangle._blueprintConfigs moved");
+    function test_TangleStorage_PinnedSlots() public {
+        // Head pins: slots 0..7. Read against `forge inspect Tangle storage-layout`
+        // if any assertion fails.
+        assertEq(_writtenSlot(probe.writeStaking.selector), bytes32(uint256(0)), "Tangle._staking moved");
+        assertEq(_writtenSlot(probe.writeTreasury.selector), bytes32(uint256(1)), "Tangle._treasury moved");
+        assertEq(_writtenSlot(probe.writePaymentSplit.selector), bytes32(uint256(2)), "Tangle._paymentSplit moved");
+        assertEq(
+            _writtenSlot(probe.writeDomainSeparator.selector), bytes32(uint256(3)), "Tangle._domainSeparator moved"
+        );
+        assertEq(_writtenSlot(probe.writeMbsmRegistry.selector), bytes32(uint256(4)), "Tangle._mbsmRegistry moved");
+        assertEq(
+            _writtenSlot(probe.writeServiceRequestCount.selector),
+            bytes32(uint256(5)),
+            "Tangle._serviceRequestCount moved"
+        );
+        assertEq(_writtenSlot(probe.writeBlueprint.selector), _mappingLeaf(PROBE_KEY, 6), "Tangle._blueprints moved");
+        assertEq(
+            _writtenSlot(probe.writeBlueprintConfig.selector),
+            _mappingLeaf(PROBE_KEY, 7),
+            "Tangle._blueprintConfigs moved"
+        );
         // Tail pins: without these the snapshot is blind past slot 7, so any mid-layout
         // insertion (which shifts the tail) would pass unnoticed. These pin the last two
         // real vars before __gap; a field inserted anywhere before them trips this test.
-        assertEq(_pinnedTangleSlot("_slashCommitmentSnapshots"), 89, "Tangle tail moved (mid-layout insertion?)");
-        assertEq(_pinnedTangleSlot("_managerHookGasLimit"), 90, "Tangle tail moved (mid-layout insertion?)");
+        assertEq(
+            _writtenSlot(probe.writeSlashCommitmentSnapshot.selector),
+            _mappingLeaf(PROBE_KEY, 89),
+            "Tangle tail moved (mid-layout insertion?)"
+        );
+        assertEq(
+            _writtenSlot(probe.writeManagerHookGasLimit.selector),
+            bytes32(uint256(90)),
+            "Tangle tail moved (mid-layout insertion?)"
+        );
     }
 
     // ───────────────────────────────────────────────────────────────────────
@@ -63,16 +127,9 @@ contract StorageLayoutSnapshotTest is Test {
     function test_TangleStorage_DisputeBondEscrow_AppendOnly() public pure {
         // `_pendingDisputeBondRefunds` is appended after `_serviceTeeCommitmentRoot`
         // in the migration that introduces the pull-pattern bond claim. The only
-        // hard requirement is that it sits BEFORE `__gap`. A future field added
-        // after this one MUST also live before `__gap` (and decrement the gap
-        // accordingly), or storage tail will collide with whatever the next
-        // gap-decrement uncovers.
-        // Verifying the slot *exists* is sufficient for this layout tier — the
-        // exact slot drifts as new fields are appended, so we don't pin the
-        // numeric slot here.
-        // The concrete pinning that matters: the `__gap` is sized correctly.
-        // forge inspect Tangle storageLayout | jq '.storage[] | select(.label=="__gap")'
-        // should report a length of 41 slots after Round 3.
+        // hard requirement is that it sits BEFORE `__gap` — which the tail pins in
+        // test_TangleStorage_PinnedSlots enforce transitively: any append that
+        // pushes past the tail vars shifts slots 89/90 and reds that test.
         assertTrue(true);
     }
 
@@ -117,19 +174,23 @@ contract StorageLayoutSnapshotTest is Test {
     }
 
     // ───────────────────────────────────────────────────────────────────────
-    // Helper: read a field's slot from the forge-inspect JSON output.
+    // Helpers
     // ───────────────────────────────────────────────────────────────────────
 
-    function _pinnedTangleSlot(string memory field) private pure returns (uint256) {
-        bytes32 h = keccak256(bytes(field));
-        if (h == keccak256("_staking")) return 0;
-        if (h == keccak256("_treasury")) return 1;
-        if (h == keccak256("_paymentSplit")) return 2;
-        if (h == keccak256("_domainSeparator")) return 3;
-        if (h == keccak256("_mbsmRegistry")) return 4;
-        if (h == keccak256("_serviceRequestCount")) return 5;
-        if (h == keccak256("_blueprints")) return 6;
-        if (h == keccak256("_blueprintConfigs")) return 7;
-        return type(uint256).max;
+    /// @dev Runs one probe write under vm.record() and returns the single storage
+    ///      slot it touched — i.e. the field's real compiled slot.
+    function _writtenSlot(bytes4 selector) private returns (bytes32) {
+        vm.record();
+        (bool ok,) = address(probe).call(abi.encodeWithSelector(selector));
+        require(ok, "probe write reverted");
+        (, bytes32[] memory writes) = vm.accesses(address(probe));
+        require(writes.length == 1, "probe write touched != 1 slot");
+        return writes[0];
+    }
+
+    /// @dev Storage slot of `mapping(uint64 => V)[key]` rooted at `baseSlot`
+    ///      (for dynamic-array values this is the array-length slot).
+    function _mappingLeaf(uint64 key, uint256 baseSlot) private pure returns (bytes32) {
+        return keccak256(abi.encode(uint256(key), baseSlot));
     }
 }

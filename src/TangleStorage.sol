@@ -546,9 +546,10 @@ abstract contract TangleStorage {
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @dev Reserved storage slots for future appends. __gap size 28.
-    ///      Consumed from the standard 50: initial(10) + binary-versions(5) +
-    ///      supply-chain-hardening(5) + slash-commitment-snapshot(1) + manager-hook-gas-limit(1);
-    ///      the greenfield blueprint reshuffle above is net-zero on total slot count.
+    /// @dev Reserved storage slots for future appends. __gap size 27, occupying slots
+    ///      91..117 (the sequential layout ends at _managerHookGasLimit in slot 90 —
+    ///      verify with `forge inspect Tangle storage-layout`; the tail slots are pinned
+    ///      by StorageLayoutSnapshotTest). Appending a field consumes gap slots
+    ///      one-for-one: shrink this array by the field's slot count in the same change.
     uint256[27] private __gap;
 }

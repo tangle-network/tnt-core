@@ -90,6 +90,11 @@ library Errors {
     /// @notice Operator not registered for this blueprint
     error OperatorNotRegistered(uint64 blueprintId, address operator);
 
+    /// @notice updateOperatorPreferences requires a non-empty rpcAddress: the endpoint is
+    ///         event-sourced (never persisted), so an empty update would broadcast an
+    ///         empty endpoint and break off-chain operator discovery.
+    error OperatorRpcAddressRequired();
+
     /// @notice Operator already registered for this blueprint
     error OperatorAlreadyRegistered(uint64 blueprintId, address operator);
 
