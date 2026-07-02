@@ -5,9 +5,30 @@ import { BaseTest } from "../BaseTest.sol";
 import { Types } from "../../src/libraries/Types.sol";
 import { Errors } from "../../src/libraries/Errors.sol";
 import { MasterBlueprintServiceManager } from "../../src/MasterBlueprintServiceManager.sol";
+import { TangleMetrics } from "../../src/rewards/TangleMetrics.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { Vm } from "forge-std/Vm.sol";
 
 contract BlueprintDefinitionStorageTest is BaseTest {
     event BlueprintSourcesUpdated(uint64 indexed blueprintId, uint256 sourceCount);
+
+    /// @dev Decode the full blueprint definition from the BlueprintDefinitionRecorded
+    ///      event payload — the canonical off-chain copy of the display data that is no
+    ///      longer stored on-chain.
+    function _decodeRecordedDefinition(Vm.Log[] memory logs)
+        internal
+        pure
+        returns (Types.BlueprintDefinition memory def)
+    {
+        bytes32 topic = keccak256("BlueprintDefinitionRecorded(uint64,address,bytes)");
+        for (uint256 i = 0; i < logs.length; ++i) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == topic) {
+                bytes memory payload = abi.decode(logs[i].data, (bytes));
+                return abi.decode(payload, (Types.BlueprintDefinition));
+            }
+        }
+        revert("BlueprintDefinitionRecorded not emitted");
+    }
 
     /// @dev A real, fetchable, multi-arch (x86_64 + aarch64) native source — the
     ///      shape an owner repoints a blueprint to so manager cold-starts resolve
@@ -258,6 +279,7 @@ contract BlueprintDefinitionStorageTest is BaseTest {
         def.metadata.author = "Integration Team";
         def.metadata.category = "Test Suite";
         def.metadata.license = "Apache-2.0";
+        def.metadata.profilingData = "gpu:h100";
 
         def.sources = new Types.BlueprintSource[](2);
         def.sources[0] = _defaultBlueprintSource();
@@ -277,6 +299,7 @@ contract BlueprintDefinitionStorageTest is BaseTest {
         def.supportedMemberships = new Types.MembershipModel[](1);
         def.supportedMemberships[0] = Types.MembershipModel.Dynamic;
 
+        vm.recordLogs();
         vm.prank(developer);
         uint64 blueprintId = tangle.createBlueprint(def);
 
@@ -284,10 +307,23 @@ contract BlueprintDefinitionStorageTest is BaseTest {
             tangle.blueprintMetadata(blueprintId);
         assertEq(metadataUri, def.metadataUri, "metadata URI mismatch");
         assertEq(metadataHash, def.metadataHash, "metadata hash mismatch");
-        assertEq(storedMetadata.name, def.metadata.name);
-        assertEq(storedMetadata.description, def.metadata.description);
-        assertEq(storedMetadata.author, def.metadata.author);
-        assertEq(storedMetadata.license, def.metadata.license);
+        // name + profilingData stay on-chain (operator manager reads them);
+        // the other display fields are now empty on-chain and carried by the event.
+        assertEq(storedMetadata.name, def.metadata.name, "name persisted on-chain");
+        assertEq(storedMetadata.profilingData, def.metadata.profilingData, "profilingData persisted on-chain");
+        assertEq(storedMetadata.description, "", "description dropped on-chain");
+        assertEq(storedMetadata.author, "", "author dropped on-chain");
+        assertEq(storedMetadata.category, "", "category dropped on-chain");
+        assertEq(storedMetadata.codeRepository, "", "codeRepository dropped on-chain");
+        assertEq(storedMetadata.license, "", "license dropped on-chain");
+
+        // The full display metadata round-trips through the BlueprintDefinitionRecorded event.
+        Types.BlueprintDefinition memory recorded = _decodeRecordedDefinition(vm.getRecordedLogs());
+        assertEq(recorded.metadata.name, def.metadata.name, "event metadata name");
+        assertEq(recorded.metadata.description, def.metadata.description, "event metadata description");
+        assertEq(recorded.metadata.author, def.metadata.author, "event metadata author");
+        assertEq(recorded.metadata.category, def.metadata.category, "event metadata category");
+        assertEq(recorded.metadata.license, def.metadata.license, "event metadata license");
 
         Types.BlueprintSource[] memory storedSources = tangle.blueprintSources(blueprintId);
         assertEq(storedSources.length, def.sources.length, "source length mismatch");
@@ -316,7 +352,7 @@ contract BlueprintDefinitionStorageTest is BaseTest {
         MasterBlueprintServiceManager.BlueprintRecord memory record = masterManager.getBlueprintRecord(blueprintId);
         assertEq(record.owner, developer, "record owner mismatch");
         assertGt(record.recordedAt, 0, "record timestamp missing");
-        assertEq(record.encodedDefinition, encodedDefinition, "definition payload mismatch");
+        assertEq(record.definitionHash, keccak256(encodedDefinition), "definition digest mismatch");
     }
 
     function test_SetMBSMRegistryAccessAndZeroChecks() public {
@@ -374,5 +410,118 @@ contract BlueprintDefinitionStorageTest is BaseTest {
         vm.prank(developer);
         vm.expectRevert(Errors.BlueprintBinaryHashRequired.selector);
         tangle.createBlueprint(def);
+    }
+
+    /// @notice Job COUNT, index ORDER, and schemas survive the
+    ///         create -> getBlueprintDefinition round-trip; the display strings
+    ///         (name/description/metadataUri) are now dropped on-chain and carried by the
+    ///         BlueprintDefinitionRecorded event. The cargo-tangle CLI reads the display
+    ///         strings from the event; schema-driven submission still reads on-chain.
+    function test_JobsRoundTripExactlyThroughDefinitionView() public {
+        Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://job-roundtrip", address(0));
+        def.jobs = new Types.JobDefinition[](2);
+        def.jobs[0] = Types.JobDefinition({
+            name: "sandbox_create",
+            description: "Create a new AI sandbox",
+            metadataUri: "ipfs://job-0-meta",
+            paramsSchema: _boolSchema(),
+            resultSchema: _boolUintSchema()
+        });
+        def.jobs[1] = Types.JobDefinition({
+            name: "sandbox_delete",
+            description: "",
+            metadataUri: "",
+            paramsSchema: _emptySchema(),
+            resultSchema: _emptySchema()
+        });
+
+        vm.recordLogs();
+        vm.prank(developer);
+        uint64 id = tangle.createBlueprint(def);
+
+        // On-chain: count + order + schemas exact; display strings emptied.
+        Types.BlueprintDefinition memory got = tangle.getBlueprintDefinition(id);
+        assertEq(got.jobs.length, 2, "job count");
+        assertEq(got.jobs[0].paramsSchema, def.jobs[0].paramsSchema, "job0 paramsSchema");
+        assertEq(got.jobs[0].resultSchema, def.jobs[0].resultSchema, "job0 resultSchema");
+        assertEq(got.jobs[1].paramsSchema, def.jobs[1].paramsSchema, "job1 paramsSchema");
+        assertEq(got.jobs[1].resultSchema, def.jobs[1].resultSchema, "job1 resultSchema");
+        assertEq(got.jobs[0].name, "", "job0 name dropped on-chain");
+        assertEq(got.jobs[0].description, "", "job0 description dropped on-chain");
+        assertEq(got.jobs[0].metadataUri, "", "job0 metadataUri dropped on-chain");
+        assertEq(got.jobs[1].name, "", "job1 name dropped on-chain");
+
+        // The event carries the full display strings for every job, in order.
+        Types.BlueprintDefinition memory recorded = _decodeRecordedDefinition(vm.getRecordedLogs());
+        assertEq(recorded.jobs.length, 2, "event job count");
+        assertEq(recorded.jobs[0].name, def.jobs[0].name, "event job0 name");
+        assertEq(recorded.jobs[0].description, def.jobs[0].description, "event job0 description");
+        assertEq(recorded.jobs[0].metadataUri, def.jobs[0].metadataUri, "event job0 metadataUri");
+        assertEq(recorded.jobs[0].paramsSchema, def.jobs[0].paramsSchema, "event job0 paramsSchema");
+        assertEq(recorded.jobs[1].name, def.jobs[1].name, "event job1 name");
+    }
+
+    /// @notice The stored 32-byte digest anchors the creation-time encoding: it must
+    ///         match keccak256(abi.encode(def)), the master manager record, AND the
+    ///         payload of the BlueprintDefinitionRecorded event — which abi-decodes
+    ///         back to the original definition. This is the event-sourcing contract
+    ///         that replaced storing the multi-KB blob on-chain.
+    function test_DefinitionHashAnchorsEventSourcedCopy() public {
+        Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://hash-anchor", address(0));
+        bytes32 expected = keccak256(abi.encode(def));
+
+        vm.recordLogs();
+        vm.prank(developer);
+        uint64 id = tangle.createBlueprint(def);
+
+        assertEq(tangle.blueprintDefinitionHash(id), expected, "on-chain digest");
+        assertEq(masterManager.getBlueprintRecord(id).definitionHash, expected, "MBSM digest");
+
+        // The event payload is the canonical off-chain copy: hash-match + decode round-trip.
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 topic = keccak256("BlueprintDefinitionRecorded(uint64,address,bytes)");
+        bool found;
+        for (uint256 i = 0; i < logs.length; ++i) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == topic) {
+                bytes memory payload = abi.decode(logs[i].data, (bytes));
+                assertEq(keccak256(payload), expected, "event payload digest");
+                Types.BlueprintDefinition memory decoded = abi.decode(payload, (Types.BlueprintDefinition));
+                assertEq(decoded.metadataUri, def.metadataUri, "decoded metadataUri");
+                assertEq(decoded.jobs.length, def.jobs.length, "decoded job count");
+                assertEq(decoded.metadata.name, def.metadata.name, "decoded metadata name");
+                found = true;
+            }
+        }
+        assertTrue(found, "BlueprintDefinitionRecorded not emitted");
+    }
+
+    /// @notice Wiring the metrics recorder requires BOTH the pointer and RECORDER_ROLE
+    ///         (the FullDeploy script grants both). With the grant, createBlueprint
+    ///         records developer attribution; without it, creation still succeeds and
+    ///         metrics are silently skipped (the hook is best-effort by design).
+    function test_MetricsRecordDeveloperAttributionWhenRoleGranted() public {
+        TangleMetrics impl = new TangleMetrics();
+        TangleMetrics metrics =
+            TangleMetrics(address(new ERC1967Proxy(address(impl), abi.encodeCall(TangleMetrics.initialize, (admin)))));
+
+        vm.startPrank(admin);
+        tangle.setMetricsRecorder(address(metrics));
+        metrics.grantRecorderRole(address(tangle));
+        vm.stopPrank();
+
+        Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://metrics-wired", address(0));
+        vm.prank(developer);
+        uint64 id = tangle.createBlueprint(def);
+        assertEq(metrics.blueprintDeveloper(id), developer, "developer attribution recorded");
+        assertEq(metrics.developerBlueprintCount(developer), 1, "developer count");
+
+        // Revoking the role degrades gracefully: creation succeeds, metrics skipped.
+        bytes32 recorderRole = metrics.RECORDER_ROLE();
+        vm.prank(admin);
+        metrics.revokeRole(recorderRole, address(tangle));
+        Types.BlueprintDefinition memory def2 = _blueprintDefinition("ipfs://metrics-unwired", address(0));
+        vm.prank(developer);
+        uint64 id2 = tangle.createBlueprint(def2);
+        assertEq(metrics.blueprintDeveloper(id2), address(0), "no attribution without role");
     }
 }

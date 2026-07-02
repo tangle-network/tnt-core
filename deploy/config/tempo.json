@@ -1,0 +1,97 @@
+{
+  "network": "tempo",
+  "_chainId": 42431,
+  "_note": "Tempo Testnet (Moderato). Additive to base-sepolia; mirrors that config with only the native TNT stake asset, all roles + TNT recipients set to the 0x2420 deployer, and a mock migration verifier for the testnet.",
+  "roles": {
+    "admin": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "treasury": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "timelock": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "multisig": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "revokeBootstrap": true
+  },
+  "core": {
+    "deploy": true,
+    "tangle": "0x0000000000000000000000000000000000000000",
+    "staking": "0x0000000000000000000000000000000000000000",
+    "statusRegistry": "0x0000000000000000000000000000000000000000",
+    "minOperatorStake": 1000000000000000000,
+    "minDelegation": 100000000000000000,
+    "operatorCommissionBps": 1000,
+    "maxBlueprintsPerOperator": 0
+  },
+  "stakeAssets": [
+    {
+      "symbol": "TNT",
+      "token": "0x0000000000000000000000000000000000000001",
+      "adapter": "0x0000000000000000000000000000000000000000",
+      "minOperatorStake": 1000000000000000000,
+      "minDelegation": 100000000000000000,
+      "depositCap": 250000000000000000000000,
+      "rewardMultiplierBps": 10000
+    }
+  ],
+  "incentives": {
+    "deployMetrics": true,
+    "metrics": "0x0000000000000000000000000000000000000000",
+    "deployRewardVaults": true,
+    "rewardVaults": "0x0000000000000000000000000000000000000000",
+    "deployInflationPool": true,
+    "inflationPool": "0x0000000000000000000000000000000000000000",
+    "tntToken": "0x0000000000000000000000000000000000000000",
+    "vaultOperatorCommissionBps": 1500,
+    "epochLength": 604800,
+    "weights": {
+      "stakingBps": 5500,
+      "operatorsBps": 2500,
+      "customersBps": 1000,
+      "developersBps": 1000,
+      "stakersBps": 0
+    },
+    "vaults": [
+      {
+        "asset": "0x0000000000000000000000000000000000000001",
+        "depositCap": 250000000000000000000000,
+        "active": true
+      }
+    ]
+  },
+  "guards": {
+    "pauseStaking": false,
+    "pauseTangle": false,
+    "requireAdapters": false,
+    "delegatorDelay": 0,
+    "operatorDelay": 0,
+    "bondLessDelay": 0,
+    "maxBlueprintsPerOperator": 0
+  },
+  "manifest": {
+    "path": "deployments/tempo/latest.json",
+    "logSummary": true
+  },
+  "migration": {
+    "deploy": true,
+    "emitArtifacts": true,
+    "useMockVerifier": false,
+    "artifactsPath": "deployments/tempo/migration.json",
+    "merklePath": "packages/migration-claim/merkle-tree.json",
+    "evmClaimsPath": "packages/migration-claim/evm-claims.json",
+    "treasuryCarveoutPath": "packages/migration-claim/treasury-carveout.json",
+    "foundationCarveoutPath": "packages/migration-claim/foundation-carveout.json",
+    "migrationOwner": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "sp1VerifierGateway": "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B",
+    "programVKey": "0x000d74444f16d75f72527687a36c1bd4c49e6799816dac4989be3bc175e86fd7",
+    "merkleRoot": "0x54ec5497e0a2f43ec721c1ec5392cb224cf710b1210b579dcaefea002bb51adb",
+    "substrateAllocation": "51244581812207794935986305",
+    "evmAllocation": "1125776519168932451653760",
+    "treasuryAmount": "32588831841878446700145909",
+    "foundationAmount": "15040809826744825912214026",
+    "treasuryRecipient": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "foundationRecipient": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "notes": "tempo testnet additive deployment"
+  },
+  "credits": {
+    "deploy": true,
+    "owner": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "credits": "0x0000000000000000000000000000000000000000"
+  }
+}

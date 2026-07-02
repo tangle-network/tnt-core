@@ -73,12 +73,6 @@ library Types {
         bytes resultSchema;
     }
 
-    /// @notice Serialized schema bytes for job params/result pairs
-    struct StoredJobSchema {
-        bytes params;
-        bytes result;
-    }
-
     /// @notice Blueprint definition emitted by off-chain tooling and persisted on-chain
     struct BlueprintDefinition {
         string metadataUri; // IPFS/HTTPS pointer to raw blueprint JSON
@@ -657,7 +651,6 @@ library Types {
     enum QuoteOperation {
         Create, // Quote may only be redeemed via createServiceFromQuotes
         Extend // Quote may only be redeemed via extendServiceFromQuotes for `serviceId`
-
     }
 
     /// @notice Quote details from an operator

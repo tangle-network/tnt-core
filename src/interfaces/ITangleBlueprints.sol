@@ -91,6 +91,11 @@ interface ITangleBlueprints {
         view
         returns (Types.BlueprintDefinition memory definition);
 
+    /// @notice keccak256 of the ABI-encoded definition captured at creation.
+    /// @dev Verifies an event-sourced copy of the definition (the master manager's
+    ///      BlueprintDefinitionRecorded event carries the full bytes).
+    function blueprintDefinitionHash(uint64 blueprintId) external view returns (bytes32);
+
     /// @notice Get blueprint metadata and URI
     function blueprintMetadata(uint64 blueprintId)
         external

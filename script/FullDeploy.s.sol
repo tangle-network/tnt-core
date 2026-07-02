@@ -1048,6 +1048,10 @@ contract FullDeploy is DeployV2 {
         }
         if (metrics != address(0)) {
             tangleContract.setMetricsRecorder(metrics);
+            // The Tangle records blueprint/service metrics through this contract, so it
+            // needs RECORDER_ROLE; setting the pointer alone leaves recordBlueprintCreated
+            // reverting (caught, but wasteful). Deployer holds DEFAULT_ADMIN_ROLE here.
+            TangleMetrics(metrics).grantRecorderRole(tangleAddr);
         }
         if (tntToken != address(0)) {
             tangleContract.setTntToken(tntToken);
@@ -1643,9 +1647,8 @@ contract FullDeploy is DeployV2 {
 
             // Create vesting contract for 100% of treasury allocation
             TNTVestingFactory treasuryVestingFactory = new TNTVestingFactory(180 days, 912 days);
-            address treasuryVesting = treasuryVestingFactory.getOrCreateVesting(
-                address(tnt), treasuryRecipient, uint64(block.timestamp)
-            );
+            address treasuryVesting =
+                treasuryVestingFactory.getOrCreateVesting(address(tnt), treasuryRecipient, uint64(block.timestamp));
             tnt.safeTransfer(treasuryVesting, migration.treasuryAmount);
             migration.treasuryRecipient = treasuryRecipient;
         }

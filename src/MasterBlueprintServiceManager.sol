@@ -20,7 +20,10 @@ contract MasterBlueprintServiceManager is IMasterBlueprintServiceManager, Access
     struct BlueprintRecord {
         address owner;
         uint64 recordedAt;
-        bytes encodedDefinition;
+        // Digest of the ABI-encoded definition. The full bytes are emitted in
+        // BlueprintDefinitionRecorded (the authoritative indexer event) rather
+        // than SSTORE'd; this contract only ever emits — never reads the blob.
+        bytes32 definitionHash;
     }
 
     /// @notice blueprintId => record
@@ -63,7 +66,7 @@ contract MasterBlueprintServiceManager is IMasterBlueprintServiceManager, Access
         onlyRole(TANGLE_ROLE)
     {
         _records[blueprintId] = BlueprintRecord({
-            owner: owner, recordedAt: uint64(block.timestamp), encodedDefinition: encodedDefinition
+            owner: owner, recordedAt: uint64(block.timestamp), definitionHash: keccak256(encodedDefinition)
         });
         emit BlueprintDefinitionRecorded(blueprintId, owner, encodedDefinition);
     }

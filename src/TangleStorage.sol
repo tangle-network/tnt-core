@@ -111,8 +111,12 @@ abstract contract TangleStorage {
     /// @notice Blueprint ID => Resolved master blueprint service manager revision
     mapping(uint64 => uint32) internal _blueprintMasterRevisions;
 
-    /// @notice Blueprint ID => encoded blueprint definition blob
-    mapping(uint64 => bytes) internal _blueprintDefinitionBlobs;
+    /// @notice Blueprint ID => keccak256 of the ABI-encoded definition at creation.
+    /// @dev The full definition is emitted (master manager's BlueprintDefinitionRecorded
+    ///      event) instead of SSTORE'd — logs are ~8x cheaper than storage and the
+    ///      protocol reads only the decomposed fields on-chain. This digest lets any
+    ///      consumer verify an event-sourced copy of the definition.
+    mapping(uint64 => bytes32) internal _blueprintDefinitionHash;
 
     /// @notice Operator => Count of registered blueprints (enforces limits)
     mapping(address => uint32) internal _operatorBlueprintCounts;
@@ -135,8 +139,11 @@ abstract contract TangleStorage {
     /// @notice Blueprint ID => Service request schema
     mapping(uint64 => bytes) internal _requestSchemas;
 
-    /// @notice Blueprint ID => Job schemas (params/result per job index)
-    mapping(uint64 => Types.StoredJobSchema[]) internal _blueprintJobSchemas;
+    /// @notice Blueprint ID => Job definitions (job index is positional and load-bearing:
+    ///         drivers submit jobs by index). Params/result schemas are validated on the
+    ///         submit paths; name/description/metadataUri serve the SDK's job listing and
+    ///         schema-driven prompts through getBlueprintDefinition.
+    mapping(uint64 => Types.JobDefinition[]) internal _blueprintJobs;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE REQUEST STORAGE (Slot 26-35)
@@ -219,12 +226,8 @@ abstract contract TangleStorage {
     // REWARDS STORAGE (Slot 61-70)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Account => Token => Pending rewards (multi-token support)
+    /// @notice Account => Token => Pending rewards (native = address(0))
     mapping(address => mapping(address => uint256)) internal _pendingRewards;
-
-    /// @notice For backward compatibility: Account => Pending native rewards
-    /// @dev Deprecated: use _pendingRewards[account][address(0)] instead
-    mapping(address => uint256) internal _pendingNativeRewards;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SLASHING STORAGE (Slot 71-80)
@@ -293,9 +296,6 @@ abstract contract TangleStorage {
 
     /// @notice Default minimum TNT exposure for all service requests (bps)
     uint16 internal _defaultTntMinExposureBps;
-
-    /// @notice Deprecated (reserved storage): was "TNT staker fee bps"
-    uint16 internal _deprecatedTntStakerFeeBps;
 
     /// @notice Discount applied to service payments made in TNT (bps of the payment amount; capped to protocol share)
     uint16 internal _tntPaymentDiscountBps;
@@ -528,9 +528,6 @@ abstract contract TangleStorage {
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @dev Reserved storage slots for future upgrades. Standard gap size is 50.
-    ///      Slots already consumed: 10 (initial) + 5 (binary versions block) + 5
-    ///      (supply-chain hardening block above) + 1 (slash commitment snapshot).
-    ///      Shrunk 34 -> 29 -> 28 as those blocks were appended.
+    /// @dev Reserved storage slots for future appends.
     uint256[28] private __gap;
 }

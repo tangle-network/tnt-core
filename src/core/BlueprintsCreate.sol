@@ -54,7 +54,11 @@ abstract contract BlueprintsCreate is Base {
         _storeSupportedMemberships(blueprintId, def.supportedMemberships);
         _blueprintMasterRevisions[blueprintId] = resolvedRevision;
         bytes memory encodedDefinition = abi.encode(def);
-        _blueprintDefinitionBlobs[blueprintId] = encodedDefinition;
+        // Store only the digest; the full definition is emitted (via the master
+        // manager's BlueprintDefinitionRecorded event) rather than SSTORE'd — the
+        // blob was redundant with the decomposed fields and the event, and cost
+        // ~one storage slot per 32 bytes of a multi-KB definition.
+        _blueprintDefinitionHash[blueprintId] = keccak256(encodedDefinition);
 
         emit BlueprintCreated(blueprintId, msg.sender, def.manager, def.metadataUri, def.metadataHash);
         _recordBlueprintCreated(blueprintId, msg.sender);
@@ -73,10 +77,22 @@ abstract contract BlueprintsCreate is Base {
         _registrationSchemas[blueprintId] = def.registrationSchema;
         _requestSchemas[blueprintId] = def.requestSchema;
 
-        delete _blueprintJobSchemas[blueprintId];
-        Types.StoredJobSchema[] storage schemas = _blueprintJobSchemas[blueprintId];
+        delete _blueprintJobs[blueprintId];
+        Types.JobDefinition[] storage jobs = _blueprintJobs[blueprintId];
         for (uint256 i = 0; i < def.jobs.length; ++i) {
-            schemas.push(Types.StoredJobSchema({ params: def.jobs[i].paramsSchema, result: def.jobs[i].resultSchema }));
+            // Job COUNT and index ORDER are load-bearing (job index keys submissions),
+            // so every job is pushed. Only the schemas are stored on-chain; the
+            // display strings (name/description/metadataUri) live in the
+            // BlueprintDefinitionRecorded event, not on-chain.
+            jobs.push(
+                Types.JobDefinition({
+                    name: "",
+                    description: "",
+                    metadataUri: "",
+                    paramsSchema: def.jobs[i].paramsSchema,
+                    resultSchema: def.jobs[i].resultSchema
+                })
+            );
         }
     }
 
@@ -90,7 +106,20 @@ abstract contract BlueprintsCreate is Base {
     {
         _blueprintMetadataUri[blueprintId] = metadataUri;
         _blueprintMetadataHash[blueprintId] = metadataHash;
-        _blueprintMetadata[blueprintId] = metadata;
+        // Only name + profilingData are read on-chain by the operator manager
+        // (data-dir label + GPU/confidentiality profile), so those stay. The other
+        // display fields live in the BlueprintDefinitionRecorded event, not on-chain.
+        _blueprintMetadata[blueprintId] = Types.BlueprintMetadata({
+            name: metadata.name,
+            description: "",
+            author: "",
+            category: "",
+            codeRepository: "",
+            logo: "",
+            website: "",
+            license: "",
+            profilingData: metadata.profilingData
+        });
     }
 
     function _storeBlueprintSources(uint64 blueprintId, Types.BlueprintSource[] calldata sources) private {
