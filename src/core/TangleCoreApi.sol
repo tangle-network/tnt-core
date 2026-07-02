@@ -430,10 +430,12 @@ abstract contract TangleCoreApi is Base {
         return _operatorRegistrations[blueprintId][op].registeredAt != 0;
     }
 
-    /// @notice Get operator preferences for a blueprint (includes ECDSA public key)
+    /// @notice Get operator preferences for a blueprint (ECDSA public key)
+    /// @dev The returned rpcAddress is always empty: it is not persisted on-chain. Read the
+    ///      operator's RPC endpoint from OperatorRegistered / OperatorPreferencesUpdated events.
     /// @param blueprintId The blueprint ID
     /// @param op The operator address
-    /// @return The operator's preferences including BLS and ECDSA keys
+    /// @return The operator's preferences (ecdsaPublicKey populated; rpcAddress empty)
     function getOperatorPreferences(
         uint64 blueprintId,
         address op

@@ -45,7 +45,7 @@ contract TangleTest is BaseTest {
         assertEq(bp.owner, developer);
         assertEq(bp.manager, address(0));
         assertTrue(bp.active);
-        assertEq(bp.operatorCount, 0);
+        assertEq(tangle.blueprintOperatorCount(blueprintId), 0);
     }
 
     function test_CreateMultipleBlueprints() public {

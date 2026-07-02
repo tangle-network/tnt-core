@@ -1601,7 +1601,7 @@ library Types {
     struct Asset { AssetKind kind; address token; }
     struct AssetSecurityCommitment { Asset asset; uint16 exposureBps; }
     struct AssetSecurityRequirement { Asset asset; uint16 minExposureBps; uint16 maxExposureBps; }
-    struct Blueprint { address owner; address manager; uint64 createdAt; uint32 operatorCount; MembershipModel membership; PricingModel pricing; bool active; }
+    struct Blueprint { address owner; address manager; uint64 createdAt; MembershipModel membership; PricingModel pricing; bool active; }
     struct BlueprintBinary { BlueprintArchitecture arch; BlueprintOperatingSystem os; string name; bytes32 sha256; }
     struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint32 minOperators; uint32 maxOperators; uint256 subscriptionRate; uint64 subscriptionInterval; uint256 eventRate; }
     struct BlueprintDefinition { string metadataUri; bytes32 metadataHash; address manager; uint32 masterManagerRevision; bool hasConfig; BlueprintConfig config; BlueprintMetadata metadata; JobDefinition[] jobs; bytes registrationSchema; bytes requestSchema; BlueprintSource[] sources; MembershipModel[] supportedMemberships; }
@@ -4450,7 +4450,7 @@ struct AssetSecurityRequirement { Asset asset; uint16 minExposureBps; uint16 max
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct Blueprint { address owner; address manager; uint64 createdAt; uint32 operatorCount; MembershipModel membership; PricingModel pricing; bool active; }
+struct Blueprint { address owner; address manager; uint64 createdAt; MembershipModel membership; PricingModel pricing; bool active; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -4461,8 +4461,6 @@ struct Blueprint { address owner; address manager; uint64 createdAt; uint32 oper
         pub manager: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub createdAt: u64,
-        #[allow(missing_docs)]
-        pub operatorCount: u32,
         #[allow(missing_docs)]
         pub membership: <MembershipModel as alloy::sol_types::SolType>::RustType,
         #[allow(missing_docs)]
@@ -4484,7 +4482,6 @@ struct Blueprint { address owner; address manager; uint64 createdAt; uint32 oper
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Uint<64>,
-            alloy::sol_types::sol_data::Uint<32>,
             MembershipModel,
             PricingModel,
             alloy::sol_types::sol_data::Bool,
@@ -4494,7 +4491,6 @@ struct Blueprint { address owner; address manager; uint64 createdAt; uint32 oper
             alloy::sol_types::private::Address,
             alloy::sol_types::private::Address,
             u64,
-            u32,
             <MembershipModel as alloy::sol_types::SolType>::RustType,
             <PricingModel as alloy::sol_types::SolType>::RustType,
             bool,
@@ -4518,7 +4514,6 @@ struct Blueprint { address owner; address manager; uint64 createdAt; uint32 oper
                     value.owner,
                     value.manager,
                     value.createdAt,
-                    value.operatorCount,
                     value.membership,
                     value.pricing,
                     value.active,
@@ -4533,10 +4528,9 @@ struct Blueprint { address owner; address manager; uint64 createdAt; uint32 oper
                     owner: tuple.0,
                     manager: tuple.1,
                     createdAt: tuple.2,
-                    operatorCount: tuple.3,
-                    membership: tuple.4,
-                    pricing: tuple.5,
-                    active: tuple.6,
+                    membership: tuple.3,
+                    pricing: tuple.4,
+                    active: tuple.5,
                 }
             }
         }
@@ -4558,9 +4552,6 @@ struct Blueprint { address owner; address manager; uint64 createdAt; uint32 oper
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::tokenize(&self.createdAt),
-                    <alloy::sol_types::sol_data::Uint<
-                        32,
-                    > as alloy_sol_types::SolType>::tokenize(&self.operatorCount),
                     <MembershipModel as alloy_sol_types::SolType>::tokenize(
                         &self.membership,
                     ),
@@ -4642,7 +4633,7 @@ struct Blueprint { address owner; address manager; uint64 createdAt; uint32 oper
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "Blueprint(address owner,address manager,uint64 createdAt,uint32 operatorCount,uint8 membership,uint8 pricing,bool active)",
+                    "Blueprint(address owner,address manager,uint64 createdAt,uint8 membership,uint8 pricing,bool active)",
                 )
             }
             #[inline]
@@ -4669,10 +4660,6 @@ struct Blueprint { address owner; address manager; uint64 createdAt; uint32 oper
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::eip712_data_word(&self.createdAt)
-                        .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        32,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.operatorCount)
                         .0,
                     <MembershipModel as alloy_sol_types::SolType>::eip712_data_word(
                             &self.membership,
@@ -4706,11 +4693,6 @@ struct Blueprint { address owner; address manager; uint64 createdAt; uint32 oper
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.createdAt,
                     )
-                    + <alloy::sol_types::sol_data::Uint<
-                        32,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.operatorCount,
-                    )
                     + <MembershipModel as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.membership,
                     )
@@ -4741,12 +4723,6 @@ struct Blueprint { address owner; address manager; uint64 createdAt; uint32 oper
                     64,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.createdAt,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    32,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.operatorCount,
                     out,
                 );
                 <MembershipModel as alloy_sol_types::EventTopic>::encode_topic_preimage(
@@ -12728,7 +12704,6 @@ library Types {
         address owner;
         address manager;
         uint64 createdAt;
-        uint32 operatorCount;
         MembershipModel membership;
         PricingModel pricing;
         bool active;
@@ -14572,11 +14547,6 @@ interface ITangleFull {
             "name": "createdAt",
             "type": "uint64",
             "internalType": "uint64"
-          },
-          {
-            "name": "operatorCount",
-            "type": "uint32",
-            "internalType": "uint32"
           },
           {
             "name": "membership",

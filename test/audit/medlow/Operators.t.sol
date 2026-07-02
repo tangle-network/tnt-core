@@ -181,7 +181,7 @@ contract OperatorsAuditTest is BaseTest {
         bytes memory otherKey = _uncompressedPubkey(0xC0FFEE);
         vm.prank(victim);
         vm.expectRevert(abi.encodeWithSelector(Operators.KeyOwnershipProofRequired.selector, blueprintId));
-        tangle.updateOperatorPreferences(blueprintId, otherKey, "");
+        tangle.updateOperatorPreferences(blueprintId, otherKey, "https://op.example:9000");
     }
 
     /// @notice A swap WITH a valid proof for the new key succeeds and stores the new bare key.
@@ -195,7 +195,7 @@ contract OperatorsAuditTest is BaseTest {
         bytes memory envelope = _proofEnvelope(newKey, newPk, blueprintId, victim);
 
         vm.prank(victim);
-        tangle.updateOperatorPreferences(blueprintId, envelope, "");
+        tangle.updateOperatorPreferences(blueprintId, envelope, "https://op.example:9000");
 
         bytes memory stored = tangle.getOperatorPublicKey(blueprintId, victim);
         assertEq(stored.length, 65);

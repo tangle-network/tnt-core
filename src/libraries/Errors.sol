@@ -64,6 +64,7 @@ library Errors {
 
     /// @notice Blueprint definition missing required metadata
     error BlueprintMetadataRequired();
+    error OperatorRpcAddressRequired();
 
     /// @notice Blueprint definition missing supported membership models
     error BlueprintMembershipRequired();

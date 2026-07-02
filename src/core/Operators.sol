@@ -308,8 +308,15 @@ abstract contract Operators is Base {
         // The hook can revert to reject the registration; if it does, all the state
         // writes are reverted along with it. The hook *cannot* observe partially-
         // written state, so a malicious BSM cannot exploit half-initialized records.
+        //
+        // rpcAddress is a networking discovery string consumed only off-chain (gossip
+        // dial-out), and is carried in full by OperatorRegistered / the BSM hook payload.
+        // No on-chain invariant reads it, so it is never persisted — storing it costs an
+        // SSTORE of an unbounded string on every registration for zero on-chain use. Only
+        // the ecdsaPublicKey is kept on-chain; it is read for gossip-key dedup
+        // (_blueprintOperatorKeys). rpcAddress in storage stays permanently empty.
         _operatorPreferences[blueprintId][msg.sender] =
-            Types.OperatorPreferences({ ecdsaPublicKey: operatorKey, rpcAddress: rpcAddressCopy });
+            Types.OperatorPreferences({ ecdsaPublicKey: operatorKey, rpcAddress: "" });
 
         _operatorRegistrations[blueprintId][msg.sender] = Types.OperatorRegistration({
             registeredAt: uint64(block.timestamp), updatedAt: uint64(block.timestamp), active: true, online: true
@@ -318,10 +325,11 @@ abstract contract Operators is Base {
         _blueprintOperatorKeys[blueprintId][keyHash] = msg.sender;
         _operatorBlueprintCounts[msg.sender] = currentCount + 1;
         _blueprintOperators[blueprintId].add(msg.sender);
-        bp.operatorCount++;
 
-        // Lock metadata on first operator registration
-        if (bp.operatorCount == 1 && !_blueprintMetadataLocked[blueprintId]) {
+        // Lock metadata on first operator registration. The membership set is the single
+        // source of truth for the operator count, so `.length() == 1` is exactly "first join"
+        // (the add above precedes this check).
+        if (_blueprintOperators[blueprintId].length() == 1 && !_blueprintMetadataLocked[blueprintId]) {
             _blueprintMetadataLocked[blueprintId] = true;
             emit BlueprintMetadataLocked(blueprintId);
         }
@@ -367,7 +375,6 @@ abstract contract Operators is Base {
         delete _operatorRegistrations[blueprintId][msg.sender];
         delete _operatorPreferences[blueprintId][msg.sender];
         _blueprintOperators[blueprintId].remove(msg.sender);
-        bp.operatorCount--;
 
         if (keyHash != bytes32(0) && _blueprintOperatorKeys[blueprintId][keyHash] == msg.sender) {
             delete _blueprintOperatorKeys[blueprintId][keyHash];
@@ -389,7 +396,9 @@ abstract contract Operators is Base {
     /// @notice Update operator preferences for a blueprint
     /// @param blueprintId The blueprint to update preferences for
     /// @param ecdsaPublicKey New ECDSA public key (pass empty bytes to keep unchanged)
-    /// @param rpcAddress New RPC endpoint (pass empty string to keep unchanged)
+    /// @param rpcAddress RPC endpoint to advertise on this update (required; not persisted on-chain
+    ///        (off-chain discovery only); it is emitted in OperatorPreferencesUpdated and
+    ///        forwarded to the BSM hook, so pass the current endpoint on every update.
     function updateOperatorPreferences(
         uint64 blueprintId,
         bytes calldata ecdsaPublicKey,
@@ -401,6 +410,11 @@ abstract contract Operators is Base {
         if (reg.registeredAt == 0) {
             revert Errors.OperatorNotRegistered(blueprintId, msg.sender);
         }
+
+        // rpcAddress is event-only now (not persisted), so it is the sole channel for the
+        // operator's endpoint on every update: a key-only update that omitted it would
+        // otherwise broadcast an empty endpoint and break gossip reachability. Require it.
+        if (bytes(rpcAddress).length == 0) revert Errors.OperatorRpcAddressRequired();
 
         reg.updatedAt = uint64(block.timestamp);
 
@@ -426,12 +440,18 @@ abstract contract Operators is Base {
             _blueprintOperatorKeys[blueprintId][newHash] = msg.sender;
             prefs.ecdsaPublicKey = newKey;
         }
-        if (bytes(rpcAddress).length > 0) {
-            prefs.rpcAddress = rpcAddress;
-        }
+        // rpcAddress is never persisted (see _registerOperator): it is an off-chain
+        // discovery string with no on-chain reader, carried in full by the event and the
+        // BSM hook payload below. There is no stored value to "keep unchanged", so the
+        // event / hook reflect exactly the rpcAddress supplied on this call.
 
-        // Encode for BSM hook
-        bytes memory encodedPreferences = abi.encode(prefs);
+        // Encode for BSM hook using the freshly-supplied rpcAddress, not storage (which
+        // is always empty), so the manager still observes the operator's real endpoint.
+        bytes memory encodedPreferences =
+            abi.encode(Types.OperatorPreferences({ ecdsaPublicKey: prefs.ecdsaPublicKey, rpcAddress: rpcAddress }));
+
+        // CEI: emit before the untrusted manager hook (matches _registerOperator).
+        emit OperatorPreferencesUpdated(blueprintId, msg.sender, prefs.ecdsaPublicKey, rpcAddress);
 
         Types.Blueprint storage bp = _blueprints[blueprintId];
         if (bp.manager != address(0)) {
@@ -440,8 +460,6 @@ abstract contract Operators is Base {
                 abi.encodeCall(IBlueprintServiceManager.onUpdatePreferences, (msg.sender, encodedPreferences))
             );
         }
-
-        emit OperatorPreferencesUpdated(blueprintId, msg.sender, prefs.ecdsaPublicKey, prefs.rpcAddress);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
