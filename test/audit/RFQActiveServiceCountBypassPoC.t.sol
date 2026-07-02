@@ -32,9 +32,6 @@ contract RFQActiveServiceCountBypassPoC is BaseTest {
     uint256 internal constant RFQ_OPERATOR_PK = 0xA11CE;
     address internal rfqOperator;
 
-    // Storage slot of `_operatorActiveServiceCount` on the Tangle proxy (forge inspect).
-    uint256 internal constant ACTIVE_SVC_COUNT_SLOT = 65;
-
     bytes32 private constant QUOTE_TYPEHASH = keccak256(
         "QuoteDetails(address requester,uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,uint8 operation,uint64 serviceId,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)Asset(uint8 kind,address token)AssetSecurityCommitment(Asset asset,uint16 exposureBps)ResourceCommitment(uint8 kind,uint64 count)"
     );
@@ -47,12 +44,13 @@ contract RFQActiveServiceCountBypassPoC is BaseTest {
         vm.deal(user1, 100 ether);
     }
 
-    /// @dev Reads _operatorActiveServiceCount[blueprintId][operator] from the proxy.
-    ///      slot = keccak256(operator, keccak256(blueprintId, ACTIVE_SVC_COUNT_SLOT))
-    function _readActiveServiceCount(uint64 blueprintId, address operator) internal view returns (uint256) {
-        bytes32 inner = keccak256(abi.encode(uint256(blueprintId), ACTIVE_SVC_COUNT_SLOT));
-        bytes32 slot = keccak256(abi.encode(operator, inner));
-        return uint256(vm.load(address(tangle), slot));
+    /// @dev The operator's active-service count via the public view (the same
+    ///      source the unregister/startLeaving guards read). The test registers the
+    ///      operator on a single blueprint, so the total equals the per-blueprint
+    ///      counter. Reading through the view instead of raw storage keeps this
+    ///      guard immune to storage-layout shifts.
+    function _readActiveServiceCount(uint64, address operator) internal view returns (uint256) {
+        return tangle.getOperatorTotalActiveServices(operator);
     }
 
     /// @notice FIXED: RFQ activation increments the active-service counter, so the
@@ -90,9 +88,7 @@ contract RFQActiveServiceCountBypassPoC is BaseTest {
         // the operator unable to walk away mid-service.
         svc = tangle.getService(serviceId);
         assertEq(
-            uint8(svc.status),
-            uint8(Types.ServiceStatus.Active),
-            "Service remains Active and its operator stays bound"
+            uint8(svc.status), uint8(Types.ServiceStatus.Active), "Service remains Active and its operator stays bound"
         );
 
         emit log_string("GUARDED: RFQ operator is blocked from unregistering while service is Active");

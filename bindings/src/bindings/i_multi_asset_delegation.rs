@@ -555,7 +555,7 @@ library Types {
     struct BondInfoDelegator { address operator; uint256 shares; Asset asset; BlueprintSelectionMode selectionMode; }
     struct BondLessRequest { address operator; Asset asset; uint256 shares; uint64 requestedRound; BlueprintSelectionMode selectionMode; uint256 slashFactorSnapshot; }
     struct Deposit { uint256 amount; uint256 delegatedAmount; }
-    struct LockInfo { uint256 amount; LockMultiplier multiplier; uint64 expiryBlock; }
+    struct LockInfo { uint256 amount; LockMultiplier multiplier; uint64 expiryTimestamp; }
     struct OperatorMetadata { uint256 stake; uint32 delegationCount; OperatorStatus status; uint64 leavingRound; }
     struct OperatorRewardPool { uint256 totalShares; uint256 totalAssets; }
     struct WithdrawRequest { Asset asset; uint256 amount; uint64 requestedRound; }
@@ -2827,7 +2827,7 @@ struct Deposit { uint256 amount; uint256 delegatedAmount; }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct LockInfo { uint256 amount; LockMultiplier multiplier; uint64 expiryBlock; }
+struct LockInfo { uint256 amount; LockMultiplier multiplier; uint64 expiryTimestamp; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2837,7 +2837,7 @@ struct LockInfo { uint256 amount; LockMultiplier multiplier; uint64 expiryBlock;
         #[allow(missing_docs)]
         pub multiplier: <LockMultiplier as alloy::sol_types::SolType>::RustType,
         #[allow(missing_docs)]
-        pub expiryBlock: u64,
+        pub expiryTimestamp: u64,
     }
     #[allow(
         non_camel_case_types,
@@ -2875,7 +2875,7 @@ struct LockInfo { uint256 amount; LockMultiplier multiplier; uint64 expiryBlock;
         #[doc(hidden)]
         impl ::core::convert::From<LockInfo> for UnderlyingRustTuple<'_> {
             fn from(value: LockInfo) -> Self {
-                (value.amount, value.multiplier, value.expiryBlock)
+                (value.amount, value.multiplier, value.expiryTimestamp)
             }
         }
         #[automatically_derived]
@@ -2885,7 +2885,7 @@ struct LockInfo { uint256 amount; LockMultiplier multiplier; uint64 expiryBlock;
                 Self {
                     amount: tuple.0,
                     multiplier: tuple.1,
-                    expiryBlock: tuple.2,
+                    expiryTimestamp: tuple.2,
                 }
             }
         }
@@ -2906,7 +2906,7 @@ struct LockInfo { uint256 amount; LockMultiplier multiplier; uint64 expiryBlock;
                     ),
                     <alloy::sol_types::sol_data::Uint<
                         64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.expiryBlock),
+                    > as alloy_sol_types::SolType>::tokenize(&self.expiryTimestamp),
                 )
             }
             #[inline]
@@ -2981,7 +2981,7 @@ struct LockInfo { uint256 amount; LockMultiplier multiplier; uint64 expiryBlock;
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "LockInfo(uint256 amount,uint8 multiplier,uint64 expiryBlock)",
+                    "LockInfo(uint256 amount,uint8 multiplier,uint64 expiryTimestamp)",
                 )
             }
             #[inline]
@@ -3007,7 +3007,9 @@ struct LockInfo { uint256 amount; LockMultiplier multiplier; uint64 expiryBlock;
                         .0,
                     <alloy::sol_types::sol_data::Uint<
                         64,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.expiryBlock)
+                    > as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.expiryTimestamp,
+                        )
                         .0,
                 ]
                     .concat()
@@ -3029,7 +3031,7 @@ struct LockInfo { uint256 amount; LockMultiplier multiplier; uint64 expiryBlock;
                     + <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.expiryBlock,
+                        &rust.expiryTimestamp,
                     )
             }
             #[inline]
@@ -3053,7 +3055,7 @@ struct LockInfo { uint256 amount; LockMultiplier multiplier; uint64 expiryBlock;
                 <alloy::sol_types::sol_data::Uint<
                     64,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.expiryBlock,
+                    &rust.expiryTimestamp,
                     out,
                 );
             }
@@ -3995,7 +3997,7 @@ library Types {
     struct LockInfo {
         uint256 amount;
         LockMultiplier multiplier;
-        uint64 expiryBlock;
+        uint64 expiryTimestamp;
     }
     struct OperatorMetadata {
         uint256 stake;
@@ -4988,7 +4990,7 @@ interface IMultiAssetDelegation {
             "internalType": "enum Types.LockMultiplier"
           },
           {
-            "name": "expiryBlock",
+            "name": "expiryTimestamp",
             "type": "uint64",
             "internalType": "uint64"
           }

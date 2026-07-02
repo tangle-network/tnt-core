@@ -57,6 +57,7 @@ contract FullDeploy is DeployV2 {
         uint256 minDelegation;
         uint16 operatorCommissionBps;
         uint32 maxBlueprintsPerOperator;
+        uint256 managerHookGasLimit;
     }
 
     struct StakeAssetConfig {
@@ -300,6 +301,12 @@ contract FullDeploy is DeployV2 {
             inflationPool, cfg.incentives, metrics, rewardVaults, tangle, serviceFeeDistributor, staking
         );
         _wireTangleModules(tangle, statusRegistry, metrics, rewardVaults, tntToken, cfg.incentives, cfg.guards);
+        // High-SSTORE-metering chains (e.g. Tempo ~11x) need a larger BSM hook budget than the
+        // 500k default or createBlueprint's setup hook OOGs; set it while the deployer still
+        // holds ADMIN_ROLE (before bootstrap revoke). Zero/absent keeps the 500k default.
+        if (cfg.core.managerHookGasLimit != 0) {
+            Tangle(payable(tangle)).setManagerHookGasLimit(cfg.core.managerHookGasLimit);
+        }
         _configureOperatorBondToken(staking, tntToken);
         _applyGuards(staking, tangle, cfg.guards);
         // Apply slash/payment params while the deployer still holds ADMIN_ROLE
@@ -439,6 +446,9 @@ contract FullDeploy is DeployV2 {
         }
         if (jsonBlob.keyExists(".core.operatorCommissionBps")) {
             cfg.core.operatorCommissionBps = uint16(jsonBlob.readUint(".core.operatorCommissionBps"));
+        }
+        if (jsonBlob.keyExists(".core.managerHookGasLimit")) {
+            cfg.core.managerHookGasLimit = jsonBlob.readUint(".core.managerHookGasLimit");
         }
         if (jsonBlob.keyExists(".core.maxBlueprintsPerOperator")) {
             cfg.core.maxBlueprintsPerOperator = uint32(jsonBlob.readUint(".core.maxBlueprintsPerOperator"));
@@ -1048,6 +1058,10 @@ contract FullDeploy is DeployV2 {
         }
         if (metrics != address(0)) {
             tangleContract.setMetricsRecorder(metrics);
+            // The Tangle records blueprint/service metrics through this contract, so it
+            // needs RECORDER_ROLE; setting the pointer alone leaves recordBlueprintCreated
+            // reverting (caught, but wasteful). Deployer holds DEFAULT_ADMIN_ROLE here.
+            TangleMetrics(metrics).grantRecorderRole(tangleAddr);
         }
         if (tntToken != address(0)) {
             tangleContract.setTntToken(tntToken);
@@ -1643,9 +1657,8 @@ contract FullDeploy is DeployV2 {
 
             // Create vesting contract for 100% of treasury allocation
             TNTVestingFactory treasuryVestingFactory = new TNTVestingFactory(180 days, 912 days);
-            address treasuryVesting = treasuryVestingFactory.getOrCreateVesting(
-                address(tnt), treasuryRecipient, uint64(block.timestamp)
-            );
+            address treasuryVesting =
+                treasuryVestingFactory.getOrCreateVesting(address(tnt), treasuryRecipient, uint64(block.timestamp));
             tnt.safeTransfer(treasuryVesting, migration.treasuryAmount);
             migration.treasuryRecipient = treasuryRecipient;
         }

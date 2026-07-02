@@ -13,7 +13,7 @@ import { SchemaTestUtils } from "../support/SchemaTestUtils.sol";
 contract SchemaHarness {
     bytes private _registrationSchema;
     bytes private _requestSchema;
-    Types.StoredJobSchema private _jobSchema;
+    Types.JobDefinition private _jobDefinition;
 
     function setRegistrationSchema(bytes memory schema) external {
         _registrationSchema = schema;
@@ -24,8 +24,8 @@ contract SchemaHarness {
     }
 
     function setJobSchema(bytes memory paramsSchema, bytes memory resultSchema) external {
-        _jobSchema.params = paramsSchema;
-        _jobSchema.result = resultSchema;
+        _jobDefinition.paramsSchema = paramsSchema;
+        _jobDefinition.resultSchema = resultSchema;
     }
 
     function validateRegistration(bytes calldata payload, uint64 refId, uint64 auxId) external view {
@@ -37,11 +37,11 @@ contract SchemaHarness {
     }
 
     function validateJobParams(bytes calldata payload, uint64 blueprintId, uint8 jobIndex) external view {
-        SchemaLib.validateJobParams(_jobSchema, payload, blueprintId, jobIndex);
+        SchemaLib.validateJobParams(_jobDefinition, payload, blueprintId, jobIndex);
     }
 
     function validateJobResult(bytes calldata payload, uint64 blueprintId, uint8 jobIndex) external view {
-        SchemaLib.validateJobResult(_jobSchema, payload, blueprintId, jobIndex);
+        SchemaLib.validateJobResult(_jobDefinition, payload, blueprintId, jobIndex);
     }
 }
 

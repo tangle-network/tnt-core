@@ -6,6 +6,20 @@ import { Types } from "../libraries/Types.sol";
 /// @title IMasterBlueprintServiceManager
 /// @notice Interface for the protocol-wide master blueprint service manager
 interface IMasterBlueprintServiceManager {
+    /// @notice Authoritative indexer event carrying the full ABI-encoded blueprint
+    ///         definition. The Tangle stores only keccak256(encodedDefinition); this
+    ///         event is the canonical off-chain copy, verifiable against
+    ///         ITangleBlueprints.blueprintDefinitionHash(blueprintId).
+    event BlueprintDefinitionRecorded(uint64 indexed blueprintId, address indexed owner, bytes encodedDefinition);
+
+    /// @notice Authoritative indexer event for a new binary version publish.
+    event BinaryVersionRecorded(
+        uint64 indexed blueprintId, uint64 indexed versionId, bytes32 sha256Hash, string binaryUri
+    );
+
+    /// @notice Authoritative indexer event for an operator binary acknowledgement.
+    event OperatorBinaryAckRecorded(uint64 indexed serviceId, uint64 indexed versionId, address indexed operator);
+
     /// @notice Called when a new blueprint is created
     /// @param blueprintId The newly assigned blueprint ID
     /// @param owner The blueprint owner

@@ -460,7 +460,7 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
         returns (address)
     {
         if (manager == address(0)) return blueprintOwner;
-        (bool ok, bytes memory ret) = manager.staticcall{ gas: MANAGER_HOOK_GAS_LIMIT }(
+        (bool ok, bytes memory ret) = manager.staticcall{ gas: _hookGasLimit() }(
             abi.encodeWithSelector(IBlueprintServiceManager.queryDeveloperPaymentAddress.selector, serviceId)
         );
         if (!ok || ret.length < 32) return blueprintOwner;

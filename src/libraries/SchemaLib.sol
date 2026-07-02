@@ -193,7 +193,7 @@ library SchemaLib {
 
     /// @notice Validate job inputs against stored schema
     function validateJobParams(
-        Types.StoredJobSchema storage schema,
+        Types.JobDefinition storage job,
         bytes memory payload,
         uint64 blueprintId,
         uint8 jobIndex
@@ -201,12 +201,12 @@ library SchemaLib {
         internal
         view
     {
-        _validate(schema.params, payload, Types.SchemaTarget.JobParams, blueprintId, jobIndex);
+        _validate(job.paramsSchema, payload, Types.SchemaTarget.JobParams, blueprintId, jobIndex);
     }
 
     /// @notice Validate job results against stored schema
     function validateJobResult(
-        Types.StoredJobSchema storage schema,
+        Types.JobDefinition storage job,
         bytes memory payload,
         uint64 blueprintId,
         uint8 jobIndex
@@ -214,7 +214,7 @@ library SchemaLib {
         internal
         view
     {
-        _validate(schema.result, payload, Types.SchemaTarget.JobResult, blueprintId, jobIndex);
+        _validate(job.resultSchema, payload, Types.SchemaTarget.JobResult, blueprintId, jobIndex);
     }
 
     function _validate(

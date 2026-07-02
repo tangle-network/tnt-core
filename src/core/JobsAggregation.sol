@@ -95,8 +95,8 @@ abstract contract JobsAggregation is Base {
             revert Errors.AggregationNotRequired(serviceId, job.jobIndex);
         }
 
-        Types.StoredJobSchema storage schema = _jobSchema(svc.blueprintId, job.jobIndex);
-        SchemaLib.validateJobResult(schema, output, svc.blueprintId, job.jobIndex);
+        Types.JobDefinition storage jobDef = _jobDefinition(svc.blueprintId, job.jobIndex);
+        SchemaLib.validateJobResult(jobDef, output, svc.blueprintId, job.jobIndex);
 
         (uint256 achieved, uint256 required) =
             _validateSignersAndThreshold(serviceId, signerBitmap, thresholdBps, thresholdType);
@@ -393,19 +393,16 @@ abstract contract JobsAggregation is Base {
         return ((numerator - 1) / denominator) + 1;
     }
 
-    function _jobSchema(
-        uint64 blueprintId,
-        uint8 jobIndex
-    )
+    function _jobDefinition(uint64 blueprintId, uint8 jobIndex)
         internal
         view
-        returns (Types.StoredJobSchema storage schema)
+        returns (Types.JobDefinition storage job)
     {
-        Types.StoredJobSchema[] storage schemas = _blueprintJobSchemas[blueprintId];
-        if (jobIndex >= schemas.length) {
+        Types.JobDefinition[] storage jobs = _blueprintJobs[blueprintId];
+        if (jobIndex >= jobs.length) {
             revert Errors.InvalidJobIndex(jobIndex);
         }
-        return schemas[jobIndex];
+        return jobs[jobIndex];
     }
 
     /// @notice Get the list of operators for a service (to be implemented by child contract)

@@ -647,8 +647,11 @@ contract GovernanceUpgradeTest is Test {
     ///         invariant it must be callable only by the deployer-owner. A non-owner caller
     ///         must revert NotOwner before any privileged role is exercised.
     function test_DeployGovernance_RevertsForNonOwner() public {
-        vm.prank(admin);
+        // startPrank: constructor-prank consumption differs across compilation
+        // modes; start/stop is unambiguous for CREATE.
+        vm.startPrank(admin);
         GovernanceDeployer deployer = new GovernanceDeployer(); // owner == admin
+        vm.stopPrank();
 
         GovernanceDeployer.DeployParams memory params = GovernanceDeployer.DeployParams({
             tokenAdmin: admin,

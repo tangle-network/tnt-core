@@ -4,6 +4,7 @@
 pub mod bindings;
 
 pub use bindings::r#i_blueprint_service_manager::IBlueprintServiceManager;
+pub use bindings::r#i_master_blueprint_service_manager::IMasterBlueprintServiceManager;
 pub use bindings::r#operator_status_registry::OperatorStatusRegistry;
 // Backward compat alias
 pub use bindings::r#i_multi_asset_delegation::IMultiAssetDelegation;

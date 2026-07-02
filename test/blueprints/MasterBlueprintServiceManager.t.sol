@@ -44,7 +44,9 @@ contract MasterBlueprintServiceManagerTest is Test {
 
         assertEq(record.owner, address(0xBEEF));
         assertEq(record.recordedAt, nowTs);
-        assertEq(record.encodedDefinition, encodedDefinition);
+        // The full definition is emitted (BlueprintDefinitionRecorded), not stored;
+        // the record keeps only its digest.
+        assertEq(record.definitionHash, keccak256(encodedDefinition));
     }
 
     function test_OnBlueprintCreated_RevertsWithoutRole() public {

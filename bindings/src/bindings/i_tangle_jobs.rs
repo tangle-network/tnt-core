@@ -4,7 +4,7 @@
 ```solidity
 library Types {
     struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 resultCount; uint256 payment; bool completed; bool isRFQ; }
-    struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; uint8 confidentiality; }
+    struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; uint8 confidentiality; bytes32 inputsHash; }
     struct SignedJobQuote { JobQuoteDetails details; bytes signature; address operator; }
 }
 ```*/
@@ -361,7 +361,7 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; uint8 confidentiality; }
+struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; uint8 confidentiality; bytes32 inputsHash; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -380,6 +380,8 @@ struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; ui
         pub expiry: u64,
         #[allow(missing_docs)]
         pub confidentiality: u8,
+        #[allow(missing_docs)]
+        pub inputsHash: alloy::sol_types::private::FixedBytes<32>,
     }
     #[allow(
         non_camel_case_types,
@@ -399,6 +401,7 @@ struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; ui
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Uint<8>,
+            alloy::sol_types::sol_data::FixedBytes<32>,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
@@ -409,6 +412,7 @@ struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; ui
             u64,
             u64,
             u8,
+            alloy::sol_types::private::FixedBytes<32>,
         );
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
@@ -433,6 +437,7 @@ struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; ui
                     value.timestamp,
                     value.expiry,
                     value.confidentiality,
+                    value.inputsHash,
                 )
             }
         }
@@ -448,6 +453,7 @@ struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; ui
                     timestamp: tuple.4,
                     expiry: tuple.5,
                     confidentiality: tuple.6,
+                    inputsHash: tuple.7,
                 }
             }
         }
@@ -481,6 +487,9 @@ struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; ui
                     <alloy::sol_types::sol_data::Uint<
                         8,
                     > as alloy_sol_types::SolType>::tokenize(&self.confidentiality),
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self.inputsHash),
                 )
             }
             #[inline]
@@ -555,7 +564,7 @@ struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; ui
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "JobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)",
+                    "JobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality,bytes32 inputsHash)",
                 )
             }
             #[inline]
@@ -601,6 +610,10 @@ struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; ui
                             &self.confidentiality,
                         )
                         .0,
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.inputsHash)
+                        .0,
                 ]
                     .concat()
             }
@@ -640,6 +653,11 @@ struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; ui
                         8,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.confidentiality,
+                    )
+                    + <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.inputsHash,
                     )
             }
             #[inline]
@@ -688,6 +706,12 @@ struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; ui
                     8,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.confidentiality,
+                    out,
+                );
+                <alloy::sol_types::sol_data::FixedBytes<
+                    32,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.inputsHash,
                     out,
                 );
             }
@@ -1091,6 +1115,7 @@ library Types {
         uint64 timestamp;
         uint64 expiry;
         uint8 confidentiality;
+        bytes32 inputsHash;
     }
     struct SignedJobQuote {
         JobQuoteDetails details;
@@ -1363,6 +1388,11 @@ interface ITangleJobs {
                 "name": "confidentiality",
                 "type": "uint8",
                 "internalType": "uint8"
+              },
+              {
+                "name": "inputsHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
               }
             ]
           },
@@ -3086,7 +3116,7 @@ function submitJob(uint64 serviceId, uint8 jobIndex, bytes memory inputs) extern
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
-    /**Function with signature `submitJobFromQuote(uint64,uint8,bytes,((address,uint64,uint8,uint256,uint64,uint64,uint8),bytes,address)[])` and selector `0x52ada2be`.
+    /**Function with signature `submitJobFromQuote(uint64,uint8,bytes,((address,uint64,uint8,uint256,uint64,uint64,uint8,bytes32),bytes,address)[])` and selector `0x72a1f7be`.
 ```solidity
 function submitJobFromQuote(uint64 serviceId, uint8 jobIndex, bytes memory inputs, Types.SignedJobQuote[] memory quotes) external payable returns (uint64 callId);
 ```*/
@@ -3106,7 +3136,7 @@ function submitJobFromQuote(uint64 serviceId, uint8 jobIndex, bytes memory input
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`submitJobFromQuote(uint64,uint8,bytes,((address,uint64,uint8,uint256,uint64,uint64,uint8),bytes,address)[])`](submitJobFromQuoteCall) function.
+    ///Container type for the return parameters of the [`submitJobFromQuote(uint64,uint8,bytes,((address,uint64,uint8,uint256,uint64,uint64,uint8,bytes32),bytes,address)[])`](submitJobFromQuoteCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct submitJobFromQuoteReturn {
@@ -3222,8 +3252,8 @@ function submitJobFromQuote(uint64 serviceId, uint8 jobIndex, bytes memory input
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "submitJobFromQuote(uint64,uint8,bytes,((address,uint64,uint8,uint256,uint64,uint64,uint8),bytes,address)[])";
-            const SELECTOR: [u8; 4] = [82u8, 173u8, 162u8, 190u8];
+            const SIGNATURE: &'static str = "submitJobFromQuote(uint64,uint8,bytes,((address,uint64,uint8,uint256,uint64,uint64,uint8,bytes32),bytes,address)[])";
+            const SELECTOR: [u8; 4] = [114u8, 161u8, 247u8, 190u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -3648,7 +3678,7 @@ function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory
             [3u8, 141u8, 218u8, 108u8],
             [45u8, 7u8, 230u8, 85u8],
             [52u8, 19u8, 232u8, 238u8],
-            [82u8, 173u8, 162u8, 190u8],
+            [114u8, 161u8, 247u8, 190u8],
             [166u8, 114u8, 188u8, 10u8],
             [170u8, 205u8, 186u8, 159u8],
             [195u8, 37u8, 174u8, 18u8],
