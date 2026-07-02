@@ -17,7 +17,8 @@
     "minOperatorStake": 1000000000000000000,
     "minDelegation": 100000000000000000,
     "operatorCommissionBps": 1000,
-    "maxBlueprintsPerOperator": 0
+    "maxBlueprintsPerOperator": 0,
+    "managerHookGasLimit": 2000000
   },
   "stakeAssets": [
     {

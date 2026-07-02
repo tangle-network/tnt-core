@@ -472,7 +472,9 @@ library Types {
 }
 
 interface IMasterBlueprintServiceManager {
+    event BinaryVersionRecorded(uint64 indexed blueprintId, uint64 indexed versionId, bytes32 sha256Hash, string binaryUri);
     event BlueprintDefinitionRecorded(uint64 indexed blueprintId, address indexed owner, bytes encodedDefinition);
+    event OperatorBinaryAckRecorded(uint64 indexed serviceId, uint64 indexed versionId, address indexed operator);
 
     function onBinaryVersionPublished(uint64 blueprintId, Types.BinaryVersion memory version) external;
     function onBlueprintCreated(uint64 blueprintId, address owner, bytes memory encodedDefinition) external;
@@ -581,6 +583,37 @@ interface IMasterBlueprintServiceManager {
   },
   {
     "type": "event",
+    "name": "BinaryVersionRecorded",
+    "inputs": [
+      {
+        "name": "blueprintId",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "versionId",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "sha256Hash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "binaryUri",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "BlueprintDefinitionRecorded",
     "inputs": [
       {
@@ -600,6 +633,31 @@ interface IMasterBlueprintServiceManager {
         "type": "bytes",
         "indexed": false,
         "internalType": "bytes"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OperatorBinaryAckRecorded",
+    "inputs": [
+      {
+        "name": "serviceId",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "versionId",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -636,6 +694,142 @@ pub mod IMasterBlueprintServiceManager {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"",
     );
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Event with signature `BinaryVersionRecorded(uint64,uint64,bytes32,string)` and selector `0x0a87e5813f5c2c4044fe24868018157ba010f699b8afcd2d56af2a1784a7e4b3`.
+```solidity
+event BinaryVersionRecorded(uint64 indexed blueprintId, uint64 indexed versionId, bytes32 sha256Hash, string binaryUri);
+```*/
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    #[derive(Clone)]
+    pub struct BinaryVersionRecorded {
+        #[allow(missing_docs)]
+        pub blueprintId: u64,
+        #[allow(missing_docs)]
+        pub versionId: u64,
+        #[allow(missing_docs)]
+        pub sha256Hash: alloy::sol_types::private::FixedBytes<32>,
+        #[allow(missing_docs)]
+        pub binaryUri: alloy::sol_types::private::String,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::SolEvent for BinaryVersionRecorded {
+            type DataTuple<'a> = (
+                alloy::sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::String,
+            );
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type TopicList = (
+                alloy_sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<64>,
+            );
+            const SIGNATURE: &'static str = "BinaryVersionRecorded(uint64,uint64,bytes32,string)";
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                10u8, 135u8, 229u8, 129u8, 63u8, 92u8, 44u8, 64u8, 68u8, 254u8, 36u8,
+                134u8, 128u8, 24u8, 21u8, 123u8, 160u8, 16u8, 246u8, 153u8, 184u8, 175u8,
+                205u8, 45u8, 86u8, 175u8, 42u8, 23u8, 132u8, 167u8, 228u8, 179u8,
+            ]);
+            const ANONYMOUS: bool = false;
+            #[allow(unused_variables)]
+            #[inline]
+            fn new(
+                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
+                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                Self {
+                    blueprintId: topics.1,
+                    versionId: topics.2,
+                    sha256Hash: data.0,
+                    binaryUri: data.1,
+                }
+            }
+            #[inline]
+            fn check_signature(
+                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
+            ) -> alloy_sol_types::Result<()> {
+                if topics.0 != Self::SIGNATURE_HASH {
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
+                }
+                Ok(())
+            }
+            #[inline]
+            fn tokenize_body(&self) -> Self::DataToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self.sha256Hash),
+                    <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
+                        &self.binaryUri,
+                    ),
+                )
+            }
+            #[inline]
+            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
+                (
+                    Self::SIGNATURE_HASH.into(),
+                    self.blueprintId.clone(),
+                    self.versionId.clone(),
+                )
+            }
+            #[inline]
+            fn encode_topics_raw(
+                &self,
+                out: &mut [alloy_sol_types::abi::token::WordToken],
+            ) -> alloy_sol_types::Result<()> {
+                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
+                    return Err(alloy_sol_types::Error::Overrun);
+                }
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
+                out[1usize] = <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic(&self.blueprintId);
+                out[2usize] = <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic(&self.versionId);
+                Ok(())
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::IntoLogData for BinaryVersionRecorded {
+            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
+                From::from(self)
+            }
+            fn into_log_data(self) -> alloy_sol_types::private::LogData {
+                From::from(&self)
+            }
+        }
+        #[automatically_derived]
+        impl From<&BinaryVersionRecorded> for alloy_sol_types::private::LogData {
+            #[inline]
+            fn from(this: &BinaryVersionRecorded) -> alloy_sol_types::private::LogData {
+                alloy_sol_types::SolEvent::encode_log_data(this)
+            }
+        }
+    };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `BlueprintDefinitionRecorded(uint64,address,bytes)` and selector `0xe0bc1e42405ffea94dcef03a915081f9674bc9eea38d46bad147b5cce7438e3e`.
@@ -760,6 +954,136 @@ event BlueprintDefinitionRecorded(uint64 indexed blueprintId, address indexed ow
             #[inline]
             fn from(
                 this: &BlueprintDefinitionRecorded,
+            ) -> alloy_sol_types::private::LogData {
+                alloy_sol_types::SolEvent::encode_log_data(this)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Event with signature `OperatorBinaryAckRecorded(uint64,uint64,address)` and selector `0x786309f7749f3eb72759262bab36d09b363064d2fce6b683668a4210bae90fcf`.
+```solidity
+event OperatorBinaryAckRecorded(uint64 indexed serviceId, uint64 indexed versionId, address indexed operator);
+```*/
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    #[derive(Clone)]
+    pub struct OperatorBinaryAckRecorded {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+        #[allow(missing_docs)]
+        pub versionId: u64,
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::SolEvent for OperatorBinaryAckRecorded {
+            type DataTuple<'a> = ();
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type TopicList = (
+                alloy_sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            const SIGNATURE: &'static str = "OperatorBinaryAckRecorded(uint64,uint64,address)";
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                120u8, 99u8, 9u8, 247u8, 116u8, 159u8, 62u8, 183u8, 39u8, 89u8, 38u8,
+                43u8, 171u8, 54u8, 208u8, 155u8, 54u8, 48u8, 100u8, 210u8, 252u8, 230u8,
+                182u8, 131u8, 102u8, 138u8, 66u8, 16u8, 186u8, 233u8, 15u8, 207u8,
+            ]);
+            const ANONYMOUS: bool = false;
+            #[allow(unused_variables)]
+            #[inline]
+            fn new(
+                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
+                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                Self {
+                    serviceId: topics.1,
+                    versionId: topics.2,
+                    operator: topics.3,
+                }
+            }
+            #[inline]
+            fn check_signature(
+                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
+            ) -> alloy_sol_types::Result<()> {
+                if topics.0 != Self::SIGNATURE_HASH {
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
+                }
+                Ok(())
+            }
+            #[inline]
+            fn tokenize_body(&self) -> Self::DataToken<'_> {
+                ()
+            }
+            #[inline]
+            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
+                (
+                    Self::SIGNATURE_HASH.into(),
+                    self.serviceId.clone(),
+                    self.versionId.clone(),
+                    self.operator.clone(),
+                )
+            }
+            #[inline]
+            fn encode_topics_raw(
+                &self,
+                out: &mut [alloy_sol_types::abi::token::WordToken],
+            ) -> alloy_sol_types::Result<()> {
+                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
+                    return Err(alloy_sol_types::Error::Overrun);
+                }
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
+                out[1usize] = <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic(&self.serviceId);
+                out[2usize] = <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic(&self.versionId);
+                out[3usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
+                    &self.operator,
+                );
+                Ok(())
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::IntoLogData for OperatorBinaryAckRecorded {
+            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
+                From::from(self)
+            }
+            fn into_log_data(self) -> alloy_sol_types::private::LogData {
+                From::from(&self)
+            }
+        }
+        #[automatically_derived]
+        impl From<&OperatorBinaryAckRecorded> for alloy_sol_types::private::LogData {
+            #[inline]
+            fn from(
+                this: &OperatorBinaryAckRecorded,
             ) -> alloy_sol_types::private::LogData {
                 alloy_sol_types::SolEvent::encode_log_data(this)
             }
@@ -1530,7 +1854,11 @@ function onOperatorBinaryAcked(uint64 serviceId, uint64 versionId, address opera
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum IMasterBlueprintServiceManagerEvents {
         #[allow(missing_docs)]
+        BinaryVersionRecorded(BinaryVersionRecorded),
+        #[allow(missing_docs)]
         BlueprintDefinitionRecorded(BlueprintDefinitionRecorded),
+        #[allow(missing_docs)]
+        OperatorBinaryAckRecorded(OperatorBinaryAckRecorded),
     }
     impl IMasterBlueprintServiceManagerEvents {
         /// All the selectors of this enum.
@@ -1541,6 +1869,16 @@ function onOperatorBinaryAcked(uint64 serviceId, uint64 versionId, address opera
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 32usize]] = &[
             [
+                10u8, 135u8, 229u8, 129u8, 63u8, 92u8, 44u8, 64u8, 68u8, 254u8, 36u8,
+                134u8, 128u8, 24u8, 21u8, 123u8, 160u8, 16u8, 246u8, 153u8, 184u8, 175u8,
+                205u8, 45u8, 86u8, 175u8, 42u8, 23u8, 132u8, 167u8, 228u8, 179u8,
+            ],
+            [
+                120u8, 99u8, 9u8, 247u8, 116u8, 159u8, 62u8, 183u8, 39u8, 89u8, 38u8,
+                43u8, 171u8, 54u8, 208u8, 155u8, 54u8, 48u8, 100u8, 210u8, 252u8, 230u8,
+                182u8, 131u8, 102u8, 138u8, 66u8, 16u8, 186u8, 233u8, 15u8, 207u8,
+            ],
+            [
                 224u8, 188u8, 30u8, 66u8, 64u8, 95u8, 254u8, 169u8, 77u8, 206u8, 240u8,
                 58u8, 145u8, 80u8, 129u8, 249u8, 103u8, 75u8, 201u8, 238u8, 163u8, 141u8,
                 70u8, 186u8, 209u8, 71u8, 181u8, 204u8, 231u8, 67u8, 142u8, 62u8,
@@ -1548,10 +1886,14 @@ function onOperatorBinaryAcked(uint64 serviceId, uint64 versionId, address opera
         ];
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
+            ::core::stringify!(BinaryVersionRecorded),
+            ::core::stringify!(OperatorBinaryAckRecorded),
             ::core::stringify!(BlueprintDefinitionRecorded),
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
+            <BinaryVersionRecorded as alloy_sol_types::SolEvent>::SIGNATURE,
+            <OperatorBinaryAckRecorded as alloy_sol_types::SolEvent>::SIGNATURE,
             <BlueprintDefinitionRecorded as alloy_sol_types::SolEvent>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
@@ -1578,12 +1920,21 @@ function onOperatorBinaryAcked(uint64 serviceId, uint64 versionId, address opera
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for IMasterBlueprintServiceManagerEvents {
         const NAME: &'static str = "IMasterBlueprintServiceManagerEvents";
-        const COUNT: usize = 1usize;
+        const COUNT: usize = 3usize;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
         ) -> alloy_sol_types::Result<Self> {
             match topics.first().copied() {
+                Some(
+                    <BinaryVersionRecorded as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
+                ) => {
+                    <BinaryVersionRecorded as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
+                        .map(Self::BinaryVersionRecorded)
+                }
                 Some(
                     <BlueprintDefinitionRecorded as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
                 ) => {
@@ -1592,6 +1943,15 @@ function onOperatorBinaryAcked(uint64 serviceId, uint64 versionId, address opera
                             data,
                         )
                         .map(Self::BlueprintDefinitionRecorded)
+                }
+                Some(
+                    <OperatorBinaryAckRecorded as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
+                ) => {
+                    <OperatorBinaryAckRecorded as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
+                        .map(Self::OperatorBinaryAckRecorded)
                 }
                 _ => {
                     alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
@@ -1611,14 +1971,26 @@ function onOperatorBinaryAcked(uint64 serviceId, uint64 versionId, address opera
     impl alloy_sol_types::private::IntoLogData for IMasterBlueprintServiceManagerEvents {
         fn to_log_data(&self) -> alloy_sol_types::private::LogData {
             match self {
+                Self::BinaryVersionRecorded(inner) => {
+                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
+                }
                 Self::BlueprintDefinitionRecorded(inner) => {
+                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
+                }
+                Self::OperatorBinaryAckRecorded(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
             }
         }
         fn into_log_data(self) -> alloy_sol_types::private::LogData {
             match self {
+                Self::BinaryVersionRecorded(inner) => {
+                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
+                }
                 Self::BlueprintDefinitionRecorded(inner) => {
+                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
+                }
+                Self::OperatorBinaryAckRecorded(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
             }
@@ -1846,11 +2218,23 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::Event<&P, E, N> {
             alloy_contract::Event::new_sol(&self.provider, &self.address)
         }
+        ///Creates a new event filter for the [`BinaryVersionRecorded`] event.
+        pub fn BinaryVersionRecorded_filter(
+            &self,
+        ) -> alloy_contract::Event<&P, BinaryVersionRecorded, N> {
+            self.event_filter::<BinaryVersionRecorded>()
+        }
         ///Creates a new event filter for the [`BlueprintDefinitionRecorded`] event.
         pub fn BlueprintDefinitionRecorded_filter(
             &self,
         ) -> alloy_contract::Event<&P, BlueprintDefinitionRecorded, N> {
             self.event_filter::<BlueprintDefinitionRecorded>()
+        }
+        ///Creates a new event filter for the [`OperatorBinaryAckRecorded`] event.
+        pub fn OperatorBinaryAckRecorded_filter(
+            &self,
+        ) -> alloy_contract::Event<&P, OperatorBinaryAckRecorded, N> {
+            self.event_filter::<OperatorBinaryAckRecorded>()
         }
     }
 }

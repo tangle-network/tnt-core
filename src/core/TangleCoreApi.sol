@@ -46,6 +46,22 @@ abstract contract TangleCoreApi is Base {
         return _metricsRecorder;
     }
 
+    /// @notice Set the per-deployment blueprint-manager hook gas budget.
+    /// @dev Zero resets to the 500k default. Raise only on chains that meter SSTORE far
+    ///      above mainnet (e.g. Tempo) so a real BSM setup hook clears; still a hard per-hook
+    ///      DoS bound. Ceiling caps how loose it can be set.
+    /// @param limit New per-hook gas budget (0 = default 500k)
+    function setManagerHookGasLimit(uint256 limit) external onlyRole(ADMIN_ROLE) whenNotPaused {
+        if (limit > 8_000_000) revert Errors.InvalidState();
+        _managerHookGasLimit = limit;
+        emit ManagerHookGasLimitUpdated(limit);
+    }
+
+    /// @notice The effective blueprint-manager hook gas budget (override, or 500k default).
+    function managerHookGasLimit() external view returns (uint256) {
+        return _hookGasLimit();
+    }
+
     /// @notice Set the operator status registry for heartbeat tracking
     /// @param registry The operator status registry address (set to address(0) to disable)
     function setOperatorStatusRegistry(address registry) external onlyRole(ADMIN_ROLE) whenNotPaused {

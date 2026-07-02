@@ -30,13 +30,7 @@ contract MasterBlueprintServiceManager is IMasterBlueprintServiceManager, Access
     mapping(uint64 => BlueprintRecord) private _records;
 
 
-    /// @notice Authoritative indexer event for a new binary version.
-    event BinaryVersionRecorded(
-        uint64 indexed blueprintId, uint64 indexed versionId, bytes32 sha256Hash, string binaryUri
-    );
 
-    /// @notice Authoritative indexer event for an operator binary acknowledgement.
-    event OperatorBinaryAckRecorded(uint64 indexed serviceId, uint64 indexed versionId, address indexed operator);
 
     constructor(address admin, address initialTangle) {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);

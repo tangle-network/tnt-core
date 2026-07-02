@@ -13040,6 +13040,7 @@ interface ITangleFull {
     function joinService(uint64 serviceId, uint16 exposureBps) external;
     function joinServiceWithCommitments(uint64 serviceId, uint16 exposureBps, Types.AssetSecurityCommitment[] memory commitments) external;
     function leaveService(uint64 serviceId) external;
+    function managerHookGasLimit() external view returns (uint256);
     function maxBlueprintsPerOperator() external view returns (uint32);
     function mbsmRegistry() external view returns (address);
     function metricsRecorder() external view returns (address);
@@ -13071,6 +13072,7 @@ interface ITangleFull {
     function setDefaultTntMinExposureBps(uint16 minExposureBps) external;
     function setJobEventRates(uint64 blueprintId, uint8[] memory jobIndexes, uint256[] memory rates) external;
     function setMBSMRegistry(address registry) external;
+    function setManagerHookGasLimit(uint256 limit) external;
     function setMaxBlueprintsPerOperator(uint32 newMax) external;
     function setMetricsRecorder(address recorder) external;
     function setOperatorStatusRegistry(address registry) external;
@@ -16290,6 +16292,19 @@ interface ITangleFull {
   },
   {
     "type": "function",
+    "name": "managerHookGasLimit",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "maxBlueprintsPerOperator",
     "inputs": [],
     "outputs": [
@@ -17118,6 +17133,19 @@ interface ITangleFull {
         "name": "registry",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setManagerHookGasLimit",
+    "inputs": [
+      {
+        "name": "limit",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -35574,6 +35602,157 @@ function leaveService(uint64 serviceId) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `managerHookGasLimit()` and selector `0x35ba86c3`.
+```solidity
+function managerHookGasLimit() external view returns (uint256);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct managerHookGasLimitCall;
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`managerHookGasLimit()`](managerHookGasLimitCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct managerHookGasLimitReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<managerHookGasLimitCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: managerHookGasLimitCall) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for managerHookGasLimitCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<managerHookGasLimitReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: managerHookGasLimitReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for managerHookGasLimitReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for managerHookGasLimitCall {
+            type Parameters<'a> = ();
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "managerHookGasLimit()";
+            const SELECTOR: [u8; 4] = [53u8, 186u8, 134u8, 195u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                ()
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: managerHookGasLimitReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: managerHookGasLimitReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `maxBlueprintsPerOperator()` and selector `0x5ece2405`.
 ```solidity
 function maxBlueprintsPerOperator() external view returns (uint32);
@@ -40753,6 +40932,158 @@ function setMBSMRegistry(address registry) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `setManagerHookGasLimit(uint256)` and selector `0xe45b84d9`.
+```solidity
+function setManagerHookGasLimit(uint256 limit) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setManagerHookGasLimitCall {
+        #[allow(missing_docs)]
+        pub limit: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    ///Container type for the return parameters of the [`setManagerHookGasLimit(uint256)`](setManagerHookGasLimitCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setManagerHookGasLimitReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setManagerHookGasLimitCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: setManagerHookGasLimitCall) -> Self {
+                    (value.limit,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for setManagerHookGasLimitCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { limit: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setManagerHookGasLimitReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: setManagerHookGasLimitReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for setManagerHookGasLimitReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl setManagerHookGasLimitReturn {
+            fn _tokenize(
+                &self,
+            ) -> <setManagerHookGasLimitCall as alloy_sol_types::SolCall>::ReturnToken<
+                '_,
+            > {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for setManagerHookGasLimitCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = setManagerHookGasLimitReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "setManagerHookGasLimit(uint256)";
+            const SELECTOR: [u8; 4] = [228u8, 91u8, 132u8, 217u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.limit),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                setManagerHookGasLimitReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setMaxBlueprintsPerOperator(uint32)` and selector `0x1d77351b`.
 ```solidity
 function setMaxBlueprintsPerOperator(uint32 newMax) external;
@@ -45666,6 +45997,8 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
         #[allow(missing_docs)]
         leaveService(leaveServiceCall),
         #[allow(missing_docs)]
+        managerHookGasLimit(managerHookGasLimitCall),
+        #[allow(missing_docs)]
         maxBlueprintsPerOperator(maxBlueprintsPerOperatorCall),
         #[allow(missing_docs)]
         mbsmRegistry(mbsmRegistryCall),
@@ -45727,6 +46060,8 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
         setJobEventRates(setJobEventRatesCall),
         #[allow(missing_docs)]
         setMBSMRegistry(setMBSMRegistryCall),
+        #[allow(missing_docs)]
+        setManagerHookGasLimit(setManagerHookGasLimitCall),
         #[allow(missing_docs)]
         setMaxBlueprintsPerOperator(setMaxBlueprintsPerOperatorCall),
         #[allow(missing_docs)]
@@ -45830,6 +46165,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             [52u8, 19u8, 232u8, 238u8],
             [52u8, 158u8, 150u8, 26u8],
             [53u8, 37u8, 126u8, 244u8],
+            [53u8, 186u8, 134u8, 195u8],
             [54u8, 94u8, 20u8, 57u8],
             [55u8, 37u8, 0u8, 171u8],
             [56u8, 167u8, 2u8, 213u8],
@@ -45919,6 +46255,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             [223u8, 87u8, 245u8, 39u8],
             [224u8, 122u8, 134u8, 189u8],
             [227u8, 150u8, 150u8, 23u8],
+            [228u8, 91u8, 132u8, 217u8],
             [228u8, 192u8, 183u8, 86u8],
             [229u8, 247u8, 151u8, 242u8],
             [232u8, 48u8, 191u8, 246u8],
@@ -45970,6 +46307,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             ::core::stringify!(submitJob),
             ::core::stringify!(getBlueprintResourceRequirements),
             ::core::stringify!(blueprintDefinitionHash),
+            ::core::stringify!(managerHookGasLimit),
             ::core::stringify!(teeNonceFor),
             ::core::stringify!(claimRewards_0),
             ::core::stringify!(ackBlueprintSources),
@@ -46059,6 +46397,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             ::core::stringify!(blueprintSupportedMemberships),
             ::core::stringify!(expireServiceRequest),
             ::core::stringify!(tntToken),
+            ::core::stringify!(setManagerHookGasLimit),
             ::core::stringify!(getServiceResourceCommitmentHash),
             ::core::stringify!(getServiceRequestSecurityRequirements),
             ::core::stringify!(setBlueprintResourceRequirements),
@@ -46110,6 +46449,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             <submitJobCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getBlueprintResourceRequirementsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintDefinitionHashCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <managerHookGasLimitCall as alloy_sol_types::SolCall>::SIGNATURE,
             <teeNonceForCall as alloy_sol_types::SolCall>::SIGNATURE,
             <claimRewards_0Call as alloy_sol_types::SolCall>::SIGNATURE,
             <ackBlueprintSourcesCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -46199,6 +46539,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             <blueprintSupportedMembershipsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <expireServiceRequestCall as alloy_sol_types::SolCall>::SIGNATURE,
             <tntTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <setManagerHookGasLimitCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getServiceResourceCommitmentHashCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getServiceRequestSecurityRequirementsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setBlueprintResourceRequirementsCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -46239,7 +46580,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
     impl alloy_sol_types::SolInterface for ITangleFullCalls {
         const NAME: &'static str = "ITangleFullCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 137usize;
+        const COUNT: usize = 139usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -46471,6 +46812,9 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 Self::leaveService(_) => {
                     <leaveServiceCall as alloy_sol_types::SolCall>::SELECTOR
                 }
+                Self::managerHookGasLimit(_) => {
+                    <managerHookGasLimitCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::maxBlueprintsPerOperator(_) => {
                     <maxBlueprintsPerOperatorCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -46561,6 +46905,9 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 }
                 Self::setMBSMRegistry(_) => {
                     <setMBSMRegistryCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::setManagerHookGasLimit(_) => {
+                    <setManagerHookGasLimitCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::setMaxBlueprintsPerOperator(_) => {
                     <setMaxBlueprintsPerOperatorCall as alloy_sol_types::SolCall>::SELECTOR
@@ -47036,6 +47383,17 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                             .map(ITangleFullCalls::blueprintDefinitionHash)
                     }
                     blueprintDefinitionHash
+                },
+                {
+                    fn managerHookGasLimit(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <managerHookGasLimitCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::managerHookGasLimit)
+                    }
+                    managerHookGasLimit
                 },
                 {
                     fn teeNonceFor(
@@ -48005,6 +48363,17 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                     tntToken
                 },
                 {
+                    fn setManagerHookGasLimit(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <setManagerHookGasLimitCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::setManagerHookGasLimit)
+                    }
+                    setManagerHookGasLimit
+                },
+                {
                     fn getServiceResourceCommitmentHash(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -48551,6 +48920,17 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                             .map(ITangleFullCalls::blueprintDefinitionHash)
                     }
                     blueprintDefinitionHash
+                },
+                {
+                    fn managerHookGasLimit(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <managerHookGasLimitCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::managerHookGasLimit)
+                    }
+                    managerHookGasLimit
                 },
                 {
                     fn teeNonceFor(
@@ -49530,6 +49910,17 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                     tntToken
                 },
                 {
+                    fn setManagerHookGasLimit(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <setManagerHookGasLimitCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::setManagerHookGasLimit)
+                    }
+                    setManagerHookGasLimit
+                },
+                {
                     fn getServiceResourceCommitmentHash(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -50069,6 +50460,11 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                         inner,
                     )
                 }
+                Self::managerHookGasLimit(inner) => {
+                    <managerHookGasLimitCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::maxBlueprintsPerOperator(inner) => {
                     <maxBlueprintsPerOperatorCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -50219,6 +50615,11 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 }
                 Self::setMBSMRegistry(inner) => {
                     <setMBSMRegistryCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::setManagerHookGasLimit(inner) => {
+                    <setManagerHookGasLimitCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -50823,6 +51224,12 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                         out,
                     )
                 }
+                Self::managerHookGasLimit(inner) => {
+                    <managerHookGasLimitCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::maxBlueprintsPerOperator(inner) => {
                     <maxBlueprintsPerOperatorCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -51002,6 +51409,12 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 }
                 Self::setMBSMRegistry(inner) => {
                     <setMBSMRegistryCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::setManagerHookGasLimit(inner) => {
+                    <setManagerHookGasLimitCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -53046,6 +53459,12 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, leaveServiceCall, N> {
             self.call_builder(&leaveServiceCall { serviceId })
         }
+        ///Creates a new call builder for the [`managerHookGasLimit`] function.
+        pub fn managerHookGasLimit(
+            &self,
+        ) -> alloy_contract::SolCallBuilder<&P, managerHookGasLimitCall, N> {
+            self.call_builder(&managerHookGasLimitCall)
+        }
         ///Creates a new call builder for the [`maxBlueprintsPerOperator`] function.
         pub fn maxBlueprintsPerOperator(
             &self,
@@ -53410,6 +53829,17 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             registry: alloy::sol_types::private::Address,
         ) -> alloy_contract::SolCallBuilder<&P, setMBSMRegistryCall, N> {
             self.call_builder(&setMBSMRegistryCall { registry })
+        }
+        ///Creates a new call builder for the [`setManagerHookGasLimit`] function.
+        pub fn setManagerHookGasLimit(
+            &self,
+            limit: alloy::sol_types::private::primitives::aliases::U256,
+        ) -> alloy_contract::SolCallBuilder<&P, setManagerHookGasLimitCall, N> {
+            self.call_builder(
+                &setManagerHookGasLimitCall {
+                    limit,
+                },
+            )
         }
         ///Creates a new call builder for the [`setMaxBlueprintsPerOperator`] function.
         pub fn setMaxBlueprintsPerOperator(

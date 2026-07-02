@@ -62,6 +62,12 @@ interface ITangleAdmin {
     /// @notice Get the metrics recorder address
     function metricsRecorder() external view returns (address);
 
+    /// @notice Set the per-deployment blueprint-manager hook gas budget (0 = default 500k)
+    function setManagerHookGasLimit(uint256 limit) external;
+
+    /// @notice The effective blueprint-manager hook gas budget
+    function managerHookGasLimit() external view returns (uint256);
+
     /// @notice Set operator status registry
     function setOperatorStatusRegistry(address registry) external;
 

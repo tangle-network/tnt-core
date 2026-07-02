@@ -10,9 +10,16 @@ import { IMBSMRegistry } from "./interfaces/IMBSMRegistry.sol";
 import { ProtocolConfig } from "./config/ProtocolConfig.sol";
 
 /// @title TangleStorage
-/// @notice Storage layout for Tangle Protocol v2
-/// @dev Inherit this contract to maintain storage compatibility across upgrades
-/// @dev Storage slots are explicitly managed to prevent collisions
+/// @notice Storage layout for Tangle Protocol v2.
+/// @dev GREENFIELD / PRE-MAINNET LAYOUT. This layout is being finalized before the first
+///      persistent deployment: it is NOT upgrade-compatible with earlier revisions (this
+///      revision inserts _blueprintHasConfig, replaces the definition-blob and job-schema
+///      mappings in place, and drops the retired _pendingNativeRewards / _deprecatedTntStakerFeeBps
+///      slots). Every deployment is redeployed from scratch via script/FullDeploy.s.sol — this
+///      impl MUST NOT be used as an in-place UUPS upgrade of any existing proxy (e.g. the
+///      base-sepolia test proxy), which would misread all state from the first shifted slot.
+///      After mainnet launch the layout FREEZES and append-only discipline (new vars at the
+///      end, consume a __gap slot) resumes.
 abstract contract TangleStorage {
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -529,10 +536,19 @@ abstract contract TangleStorage {
     ///      is shrunk by one to preserve total storage size for upgrade safety.
     mapping(uint64 => Types.AssetSecurityCommitment[]) internal _slashCommitmentSnapshots;
 
+    /// @notice Per-deployment gas budget forwarded to a blueprint-manager hook. Zero = use
+    ///         MANAGER_HOOK_GAS_LIMIT_DEFAULT (500k). Chains that meter SSTORE far above
+    ///         mainnet (e.g. Tempo ~11x) set this higher at deploy time so a real BSM setup
+    ///         hook clears; other chains keep the tight 500k DoS bound. Bounded either way.
+    uint256 internal _managerHookGasLimit;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @dev Reserved storage slots for future appends.
-    uint256[28] private __gap;
+    /// @dev Reserved storage slots for future appends. __gap size 28.
+    ///      Consumed from the standard 50: initial(10) + binary-versions(5) +
+    ///      supply-chain-hardening(5) + slash-commitment-snapshot(1) + manager-hook-gas-limit(1);
+    ///      the greenfield blueprint reshuffle above is net-zero on total slot count.
+    uint256[27] private __gap;
 }

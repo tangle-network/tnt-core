@@ -83,7 +83,11 @@ abstract contract BlueprintsManage is Base {
     /// @notice Retrieve the blueprint definition, reconstructed from the decomposed
     /// on-chain fields (no monolithic blob is stored — `blueprintDefinitionHash`
     /// anchors the creation-time encoding; the full bytes live in the master
-    /// manager's BlueprintDefinitionRecorded event). Jobs round-trip exactly.
+    /// manager's BlueprintDefinitionRecorded event). Job count, index order, and
+    /// param/result schemas round-trip exactly; job display strings
+    /// (name/description/metadataUri) and 7 of 9 metadata prose fields are dropped
+    /// on-chain and carried by the event — so keccak256(abi.encode(this view)) does
+    /// NOT equal blueprintDefinitionHash (which anchors the full event payload).
     /// `hasConfig` reflects the creation-time value, and
     /// sources reflect the current (post-genesis) set — the view the blueprint
     /// manager reads to resolve operator binaries.

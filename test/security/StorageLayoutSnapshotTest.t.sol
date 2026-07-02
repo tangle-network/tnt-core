@@ -49,6 +49,11 @@ contract StorageLayoutSnapshotTest is Test {
         assertEq(_pinnedTangleSlot("_serviceRequestCount"), 5, "Tangle._serviceRequestCount moved");
         assertEq(_pinnedTangleSlot("_blueprints"), 6, "Tangle._blueprints moved");
         assertEq(_pinnedTangleSlot("_blueprintConfigs"), 7, "Tangle._blueprintConfigs moved");
+        // Tail pins: without these the snapshot is blind past slot 7, so any mid-layout
+        // insertion (which shifts the tail) would pass unnoticed. These pin the last two
+        // real vars before __gap; a field inserted anywhere before them trips this test.
+        assertEq(_pinnedTangleSlot("_slashCommitmentSnapshots"), 89, "Tangle tail moved (mid-layout insertion?)");
+        assertEq(_pinnedTangleSlot("_managerHookGasLimit"), 90, "Tangle tail moved (mid-layout insertion?)");
     }
 
     // ───────────────────────────────────────────────────────────────────────

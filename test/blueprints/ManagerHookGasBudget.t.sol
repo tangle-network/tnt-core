@@ -33,23 +33,38 @@ contract GasExhaustingBSM {
 
 contract ManagerHookGasBudgetTest is BaseTest {
     /// @notice The manager hook budget (MANAGER_HOOK_GAS_LIMIT = 2M) clears a real
-    ///         setup hook that does a few dozen SSTOREs. Chains that meter storage
-    ///         far above mainnet (e.g. Tempo ~6-11x) inflate a ~45k hook toward the
-    ///         old 500k budget; this pins the raised budget so such hooks survive.
-    ///         Reverting the constant to 500k makes this test fail.
-    function test_CreateBlueprintClearsStorageHeavySetupHook() public {
+    ///         setup hook that does a few dozen SSTOREs (~1.2M gas). Under the tight 500k
+    ///         DEFAULT budget it OOGs and creation reverts; raising the per-deployment budget
+    ///         (as high-SSTORE-metering chains like Tempo do) lets it clear. Pins both sides
+    ///         of the configurable budget.
+    function test_DefaultBudgetBoundsHeavySetupHook() public {
         StorageHeavySetupBSM bsm = new StorageHeavySetupBSM();
-        Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://heavy-hook", address(bsm));
+        Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://heavy-hook-default", address(bsm));
+
+        // Default budget is 500k (no override set).
+        assertEq(tangle.managerHookGasLimit(), 500_000, "default budget");
+        vm.prank(developer);
+        vm.expectRevert();
+        tangle.createBlueprint(def);
+        assertFalse(bsm.initialized(), "heavy hook OOGs under the 500k default");
+    }
+
+    function test_RaisedBudgetClearsStorageHeavySetupHook() public {
+        StorageHeavySetupBSM bsm = new StorageHeavySetupBSM();
+        Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://heavy-hook-raised", address(bsm));
+
+        vm.prank(admin);
+        tangle.setManagerHookGasLimit(2_000_000);
+        assertEq(tangle.managerHookGasLimit(), 2_000_000, "raised budget");
 
         vm.prank(developer);
         uint64 id = tangle.createBlueprint(def);
-
-        assertTrue(bsm.initialized(), "setup hook ran to completion");
+        assertTrue(bsm.initialized(), "setup hook ran to completion under the raised budget");
         assertEq(tangle.getBlueprint(id).manager, address(bsm), "manager wired");
     }
 
     /// @notice The budget is still a hard ceiling: a manager that tries to burn the
-    ///         whole transaction is cut off at 2M and — because createBlueprint treats
+    ///         whole transaction is cut off at the hook budget and — because createBlueprint treats
     ///         its own manager's failure as fatal — creation reverts instead of the
     ///         caller silently paying for unbounded hostile work.
     function test_CreateBlueprintCapsGasExhaustingHook() public {
@@ -60,8 +75,8 @@ contract ManagerHookGasBudgetTest is BaseTest {
         vm.prank(developer);
         vm.expectRevert();
         tangle.createBlueprint(def);
-        // The hook's damage is bounded by the budget (plus protocol overhead), not
-        // by the transaction gas limit.
+        // The hook's damage is bounded by the budget (500k default, plus protocol
+        // overhead), not by the transaction gas limit.
         assertLt(gasBefore - gasleft(), 6_000_000, "hostile hook gas is bounded");
     }
 }

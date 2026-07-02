@@ -76,6 +76,9 @@ abstract contract Base is
     /// @param recorder The new recorder address (or zero to disable)
     event MetricsRecorderUpdated(address indexed recorder);
 
+    /// @notice Emitted when the per-deployment manager-hook gas budget is changed.
+    event ManagerHookGasLimitUpdated(uint256 limit);
+
     /// @notice Emitted when the operator status registry is updated
     /// @param registry The new registry address (or zero to disable)
     event OperatorStatusRegistryUpdated(address indexed registry);
@@ -485,11 +488,22 @@ abstract contract Base is
     ///      on chains that meter storage far above mainnet — e.g. Tempo prices SSTORE
     ///      ~11x higher, turning a ~45k mainnet hook into ~500k there. 2M keeps the
     ///      reentrancy/DoS bound tight while clearing that headroom.
-    uint256 internal constant MANAGER_HOOK_GAS_LIMIT = 2_000_000;
+    /// @notice Default gas budget for a blueprint-manager hook when no per-deployment
+    ///         override is set. 500k is the tight all-chain DoS bound; a buggy/malicious BSM
+    ///         can burn at most this per hook, and downstream CEI finalization always has gas.
+    uint256 internal constant MANAGER_HOOK_GAS_LIMIT_DEFAULT = 500_000;
+
+    /// @dev Effective per-hook gas budget: the per-deployment override if set, else the default.
+    ///      Lets high-SSTORE-metering chains (e.g. Tempo) raise the budget so a real setup hook
+    ///      clears, without loosening the DoS bound on cheap chains.
+    function _hookGasLimit() internal view returns (uint256) {
+        uint256 configured = _managerHookGasLimit;
+        return configured == 0 ? MANAGER_HOOK_GAS_LIMIT_DEFAULT : configured;
+    }
 
     /// @notice Call manager with revert on failure (capped gas).
     function _callManager(address manager, bytes memory data) internal {
-        (bool success, bytes memory returnData) = manager.call{ gas: MANAGER_HOOK_GAS_LIMIT }(data);
+        (bool success, bytes memory returnData) = manager.call{ gas: _hookGasLimit() }(data);
         if (!success) {
             if (returnData.length > 0) {
                 revert Errors.ManagerReverted(manager, returnData);
@@ -502,7 +516,7 @@ abstract contract Base is
     /// @dev Failure is observable via the `ManagerHookFailed` event so off-chain monitors
     ///      can detect a misbehaving BSM without halting the protocol path.
     function _tryCallManager(address manager, bytes memory data) internal {
-        (bool success, bytes memory returnData) = manager.call{ gas: MANAGER_HOOK_GAS_LIMIT }(data);
+        (bool success, bytes memory returnData) = manager.call{ gas: _hookGasLimit() }(data);
         if (!success) {
             emit ManagerHookFailed(manager, bytes4(data), returnData);
         }
@@ -510,7 +524,7 @@ abstract contract Base is
 
     /// @notice Best-effort gas-capped staticcall to a manager view hook.
     /// @dev Returns `(false, "")` on revert, on a manager set to `address(0)`, on calls
-    ///      that consumed more than `MANAGER_HOOK_GAS_LIMIT` gas, or on returndata
+    ///      that consumed more than the hook gas budget, or on returndata
     ///      shorter than `minReturnLen`. Callers MUST treat the failure case as
     ///      "no answer" and fall back to a safe default; never trust an `ok=false`
     ///      branch to surface a structured error.
@@ -524,12 +538,12 @@ abstract contract Base is
         returns (bool ok, bytes memory ret)
     {
         if (manager == address(0)) return (false, "");
-        (ok, ret) = manager.staticcall{ gas: MANAGER_HOOK_GAS_LIMIT }(data);
+        (ok, ret) = manager.staticcall{ gas: _hookGasLimit() }(data);
         if (!ok || ret.length < minReturnLen) return (false, "");
     }
 
     /// @notice Maximum gas forwarded to the price-oracle adapter per query.
-    /// @dev Same cap pattern as `MANAGER_HOOK_GAS_LIMIT`: bounds the cost of a buggy
+    /// @dev Same cap pattern as the manager hook budget: bounds the cost of a buggy
     ///      or adversarial oracle adapter on the billing hot path so the keeper's
     ///      gas budget cannot be drained.
     uint256 internal constant ORACLE_QUERY_GAS_LIMIT = 250_000;

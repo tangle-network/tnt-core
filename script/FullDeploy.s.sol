@@ -57,6 +57,7 @@ contract FullDeploy is DeployV2 {
         uint256 minDelegation;
         uint16 operatorCommissionBps;
         uint32 maxBlueprintsPerOperator;
+        uint256 managerHookGasLimit;
     }
 
     struct StakeAssetConfig {
@@ -300,6 +301,12 @@ contract FullDeploy is DeployV2 {
             inflationPool, cfg.incentives, metrics, rewardVaults, tangle, serviceFeeDistributor, staking
         );
         _wireTangleModules(tangle, statusRegistry, metrics, rewardVaults, tntToken, cfg.incentives, cfg.guards);
+        // High-SSTORE-metering chains (e.g. Tempo ~11x) need a larger BSM hook budget than the
+        // 500k default or createBlueprint's setup hook OOGs; set it while the deployer still
+        // holds ADMIN_ROLE (before bootstrap revoke). Zero/absent keeps the 500k default.
+        if (cfg.core.managerHookGasLimit != 0) {
+            Tangle(payable(tangle)).setManagerHookGasLimit(cfg.core.managerHookGasLimit);
+        }
         _configureOperatorBondToken(staking, tntToken);
         _applyGuards(staking, tangle, cfg.guards);
         // Apply slash/payment params while the deployer still holds ADMIN_ROLE
@@ -439,6 +446,9 @@ contract FullDeploy is DeployV2 {
         }
         if (jsonBlob.keyExists(".core.operatorCommissionBps")) {
             cfg.core.operatorCommissionBps = uint16(jsonBlob.readUint(".core.operatorCommissionBps"));
+        }
+        if (jsonBlob.keyExists(".core.managerHookGasLimit")) {
+            cfg.core.managerHookGasLimit = jsonBlob.readUint(".core.managerHookGasLimit");
         }
         if (jsonBlob.keyExists(".core.maxBlueprintsPerOperator")) {
             cfg.core.maxBlueprintsPerOperator = uint32(jsonBlob.readUint(".core.maxBlueprintsPerOperator"));
