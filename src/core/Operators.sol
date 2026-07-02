@@ -396,7 +396,7 @@ abstract contract Operators is Base {
     /// @notice Update operator preferences for a blueprint
     /// @param blueprintId The blueprint to update preferences for
     /// @param ecdsaPublicKey New ECDSA public key (pass empty bytes to keep unchanged)
-    /// @param rpcAddress RPC endpoint to advertise on this update. Not persisted on-chain
+    /// @param rpcAddress RPC endpoint to advertise on this update (required; not persisted on-chain
     ///        (off-chain discovery only); it is emitted in OperatorPreferencesUpdated and
     ///        forwarded to the BSM hook, so pass the current endpoint on every update.
     function updateOperatorPreferences(
@@ -410,6 +410,11 @@ abstract contract Operators is Base {
         if (reg.registeredAt == 0) {
             revert Errors.OperatorNotRegistered(blueprintId, msg.sender);
         }
+
+        // rpcAddress is event-only now (not persisted), so it is the sole channel for the
+        // operator's endpoint on every update: a key-only update that omitted it would
+        // otherwise broadcast an empty endpoint and break gossip reachability. Require it.
+        if (bytes(rpcAddress).length == 0) revert Errors.OperatorRpcAddressRequired();
 
         reg.updatedAt = uint64(block.timestamp);
 
@@ -445,6 +450,9 @@ abstract contract Operators is Base {
         bytes memory encodedPreferences =
             abi.encode(Types.OperatorPreferences({ ecdsaPublicKey: prefs.ecdsaPublicKey, rpcAddress: rpcAddress }));
 
+        // CEI: emit before the untrusted manager hook (matches _registerOperator).
+        emit OperatorPreferencesUpdated(blueprintId, msg.sender, prefs.ecdsaPublicKey, rpcAddress);
+
         Types.Blueprint storage bp = _blueprints[blueprintId];
         if (bp.manager != address(0)) {
             _tryCallManager(
@@ -452,8 +460,6 @@ abstract contract Operators is Base {
                 abi.encodeCall(IBlueprintServiceManager.onUpdatePreferences, (msg.sender, encodedPreferences))
             );
         }
-
-        emit OperatorPreferencesUpdated(blueprintId, msg.sender, prefs.ecdsaPublicKey, rpcAddress);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
