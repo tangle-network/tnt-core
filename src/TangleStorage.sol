@@ -93,6 +93,11 @@ abstract contract TangleStorage {
     /// @notice Blueprint ID => Configuration
     mapping(uint64 => Types.BlueprintConfig) internal _blueprintConfigs;
 
+    /// @notice Blueprint ID => whether the creator supplied an explicit config
+    ///         (vs. the normalized Fixed/PayOnce default). Preserves the creation-time
+    ///         value for getBlueprintDefinition; on-chain logic uses the normalized config.
+    mapping(uint64 => bool) internal _blueprintHasConfig;
+
     /// @notice Blueprint ID => Metadata URI
     mapping(uint64 => string) internal _blueprintMetadataUri;
 

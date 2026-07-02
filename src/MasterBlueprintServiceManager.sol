@@ -29,7 +29,6 @@ contract MasterBlueprintServiceManager is IMasterBlueprintServiceManager, Access
     /// @notice blueprintId => record
     mapping(uint64 => BlueprintRecord) private _records;
 
-    event BlueprintDefinitionRecorded(uint64 indexed blueprintId, address indexed owner, bytes encodedDefinition);
 
     /// @notice Authoritative indexer event for a new binary version.
     event BinaryVersionRecorded(

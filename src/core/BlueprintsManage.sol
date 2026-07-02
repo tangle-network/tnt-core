@@ -84,7 +84,7 @@ abstract contract BlueprintsManage is Base {
     /// on-chain fields (no monolithic blob is stored — `blueprintDefinitionHash`
     /// anchors the creation-time encoding; the full bytes live in the master
     /// manager's BlueprintDefinitionRecorded event). Jobs round-trip exactly.
-    /// `hasConfig` reads true with the creation-time normalized config, and
+    /// `hasConfig` reflects the creation-time value, and
     /// sources reflect the current (post-genesis) set — the view the blueprint
     /// manager reads to resolve operator binaries.
     function getBlueprintDefinition(uint64 blueprintId)
@@ -97,7 +97,7 @@ abstract contract BlueprintsManage is Base {
         definition.metadataHash = _blueprintMetadataHash[blueprintId];
         definition.manager = _blueprints[blueprintId].manager;
         definition.masterManagerRevision = _blueprintMasterRevisions[blueprintId];
-        definition.hasConfig = true;
+        definition.hasConfig = _blueprintHasConfig[blueprintId];
         definition.config = _blueprintConfigs[blueprintId];
         definition.metadata = _blueprintMetadata[blueprintId];
 

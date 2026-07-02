@@ -48,6 +48,7 @@ abstract contract BlueprintsCreate is Base {
         });
 
         _blueprintConfigs[blueprintId] = config;
+        _blueprintHasConfig[blueprintId] = def.hasConfig;
         _storeBlueprintSchemas(blueprintId, def);
         _storeBlueprintMetadata(blueprintId, def.metadataUri, def.metadataHash, def.metadata);
         _storeBlueprintSources(blueprintId, def.sources);
