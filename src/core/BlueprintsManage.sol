@@ -72,20 +72,45 @@ abstract contract BlueprintsManage is Base {
         return _blueprintMasterRevisions[blueprintId];
     }
 
-    /// @notice Retrieve the blueprint definition, with current (post-genesis) sources.
+    /// @notice keccak256 of the ABI-encoded definition captured at creation.
+    /// @dev Verifies an event-sourced copy (the master manager's
+    ///      BlueprintDefinitionRecorded event carries the full bytes). Zero for
+    ///      blueprints created before the definition-hash migration.
+    function blueprintDefinitionHash(uint64 blueprintId) external view returns (bytes32) {
+        return _blueprintDefinitionHash[blueprintId];
+    }
+
+    /// @notice Retrieve the blueprint definition, reconstructed from the decomposed
+    /// on-chain fields (no monolithic blob is stored — `blueprintDefinitionHash`
+    /// anchors the creation-time encoding; the full bytes live in the master
+    /// manager's BlueprintDefinitionRecorded event). Job count, index order, and
+    /// param/result schemas round-trip exactly; job display strings
+    /// (name/description/metadataUri) and 7 of 9 metadata prose fields are dropped
+    /// on-chain and carried by the event — so keccak256(abi.encode(this view)) does
+    /// NOT equal blueprintDefinitionHash (which anchors the full event payload).
+    /// `hasConfig` reflects the creation-time value, and
+    /// sources reflect the current (post-genesis) set — the view the blueprint
+    /// manager reads to resolve operator binaries.
     function getBlueprintDefinition(uint64 blueprintId)
         external
         view
         returns (Types.BlueprintDefinition memory definition)
     {
-        bytes storage blob = _blueprintDefinitionBlobs[blueprintId];
-        if (blob.length == 0) revert Errors.BlueprintNotFound(blueprintId);
-        definition = abi.decode(blob, (Types.BlueprintDefinition));
-        // The blob is the genesis snapshot, but sources are mutable post-genesis
-        // via setBlueprintSources (stored in _blueprintSources). Overlay the live
-        // sources so this view — which the blueprint-manager reads to resolve the
-        // operator binary — reflects the current source set, not the stale blob.
+        if (_blueprints[blueprintId].createdAt == 0) revert Errors.BlueprintNotFound(blueprintId);
+        definition.metadataUri = _blueprintMetadataUri[blueprintId];
+        definition.metadataHash = _blueprintMetadataHash[blueprintId];
+        definition.manager = _blueprints[blueprintId].manager;
+        definition.masterManagerRevision = _blueprintMasterRevisions[blueprintId];
+        definition.hasConfig = _blueprintHasConfig[blueprintId];
+        definition.config = _blueprintConfigs[blueprintId];
+        definition.metadata = _blueprintMetadata[blueprintId];
+
+        definition.jobs = _blueprintJobs[blueprintId];
+
+        definition.registrationSchema = _registrationSchemas[blueprintId];
+        definition.requestSchema = _requestSchemas[blueprintId];
         definition.sources = _blueprintSources[blueprintId];
+        definition.supportedMemberships = _blueprintSupportedMemberships[blueprintId];
     }
 
     /// @notice Update blueprint metadata
@@ -257,9 +282,9 @@ abstract contract BlueprintsManage is Base {
             revert Errors.NotBlueprintOwner(blueprintId, msg.sender);
         }
 
-        uint256 schemaCount = _blueprintJobSchemas[blueprintId].length;
+        uint256 jobCount = _blueprintJobs[blueprintId].length;
         for (uint256 i = 0; i < jobIndexes.length; i++) {
-            if (jobIndexes[i] >= schemaCount) {
+            if (jobIndexes[i] >= jobCount) {
                 revert Errors.InvalidJobIndex(jobIndexes[i]);
             }
             _jobEventRates[blueprintId][jobIndexes[i]] = rates[i];

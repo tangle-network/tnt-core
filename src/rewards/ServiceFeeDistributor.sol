@@ -150,6 +150,9 @@ contract ServiceFeeDistributor is
     error NotInflationPool();
     error InvalidModeChange();
     error InvalidBlueprintAmounts();
+    error BadMsgValue();
+    error UnexpectedMsgValue();
+    error EthTransferFailed();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -465,15 +468,10 @@ contract ServiceFeeDistributor is
         if (msg.sender != tangle) revert NotTangle();
         if (amount == 0) return;
 
-        if (paymentToken == address(0)) {
-            require(msg.value == amount, "bad msg.value");
-        } else {
-            require(msg.value == 0, "unexpected msg.value");
-            // Pull the ERC20 in via the caller's approval. Pull-payment lets the
-            // caller wrap this entry in try/catch and revoke the approval on
-            // revert without stranding tokens at the distributor.
-            IERC20(paymentToken).safeTransferFrom(msg.sender, address(this), amount);
-        }
+        // Pull-payment for the ERC20 leg (via the caller's approval) lets the caller
+        // wrap this entry in try/catch and revoke the approval on revert without
+        // stranding tokens at the distributor.
+        _receivePayment(paymentToken, amount, true);
 
         _operatorRewardTokens[operator].add(paymentToken);
 
@@ -525,11 +523,7 @@ contract ServiceFeeDistributor is
         if (msg.sender != inflationPool) revert NotInflationPool();
         if (amount == 0) return;
 
-        if (paymentToken == address(0)) {
-            require(msg.value == amount, "bad msg.value");
-        } else {
-            require(msg.value == 0, "unexpected msg.value");
-        }
+        _receivePayment(paymentToken, amount, false);
 
         _operatorRewardTokens[operator].add(paymentToken);
         _distributeImmediate(serviceId, blueprintId, operator, paymentToken, amount);
@@ -566,12 +560,12 @@ contract ServiceFeeDistributor is
         uint256 fixedAmount = amount - allAmount;
 
         if (allAmount > 0 && allUsdTotal > 0) {
-            _distributeAllForRequirements(serviceId, operator, paymentToken, allAmount, allUsdTotal, reqs);
+            _distributeForRequirements(serviceId, 0, operator, paymentToken, allAmount, allUsdTotal, reqs, false);
         }
 
         if (fixedAmount > 0 && fixedUsdTotal > 0) {
-            _distributeFixedForRequirements(
-                serviceId, blueprintId, operator, paymentToken, fixedAmount, fixedUsdTotal, reqs
+            _distributeForRequirements(
+                serviceId, blueprintId, operator, paymentToken, fixedAmount, fixedUsdTotal, reqs, true
             );
         }
     }
@@ -606,11 +600,11 @@ contract ServiceFeeDistributor is
         uint256 fixedAmount = amount - allAmount;
 
         if (allAmount > 0 && allUsdTotal > 0) {
-            _distributeAllForOperatorAssets(operator, paymentToken, allAmount, allUsdTotal, set);
+            _distributeForOperatorAssets(operator, 0, paymentToken, allAmount, allUsdTotal, set, false);
         }
 
         if (fixedAmount > 0 && fixedUsdTotal > 0) {
-            _distributeFixedForOperatorAssets(operator, blueprintId, paymentToken, fixedAmount, fixedUsdTotal, set);
+            _distributeForOperatorAssets(operator, blueprintId, paymentToken, fixedAmount, fixedUsdTotal, set, true);
         }
     }
 
@@ -647,51 +641,17 @@ contract ServiceFeeDistributor is
         }
     }
 
-    function _distributeAllForRequirements(
-        uint64 serviceId,
-        address operator,
-        address paymentToken,
-        uint256 amount,
-        uint256 usdTotal,
-        Types.AssetSecurityRequirement[] memory reqs
-    )
-        internal
-    {
-        uint256 remaining = amount;
-        uint256 remainingUsd = usdTotal;
-
-        for (uint256 i = 0; i < reqs.length && remaining > 0; i++) {
-            Types.Asset memory a = reqs[i].asset;
-            bytes32 assetHash = _assetHash(a);
-            uint16 commitmentBps =
-                ITangleSecurityView(tangle).getServiceSecurityCommitmentBps(serviceId, operator, a.kind, a.token);
-            if (commitmentBps == 0) continue;
-
-            uint256 allScore = totalAllScore[operator][assetHash];
-            if (allScore == 0) continue;
-
-            uint256 allEffective = _applySlashFactor(allScore, _getAllSlashFactor(operator, assetHash));
-            uint256 allUsd = _toUsd(a, (allEffective * commitmentBps) / BPS_DENOMINATOR);
-            if (allUsd == 0) continue;
-
-            uint256 share = (remaining * allUsd) / remainingUsd;
-            remaining -= share;
-            remainingUsd -= allUsd;
-            if (share == 0) continue;
-
-            accAllPerScore[operator][assetHash][paymentToken] += (share * PRECISION) / allScore;
-            _operatorAssetRewardTokens[operator][assetHash].add(paymentToken);
-        }
-    }
-
-    function _distributeFixedForRequirements(
+    /// @dev Score-weighted split of `amount` across a service's security requirements.
+    ///      `fixedMode` selects the Fixed-mode pools (per-blueprint) vs the All-mode pools.
+    function _distributeForRequirements(
         uint64 serviceId,
         uint64 blueprintId,
         address operator,
         address paymentToken,
         uint256 amount,
         uint256 usdTotal,
-        Types.AssetSecurityRequirement[] memory reqs
+        Types.AssetSecurityRequirement[] memory reqs,
+        bool fixedMode
     )
         internal
     {
@@ -705,20 +665,26 @@ contract ServiceFeeDistributor is
                 ITangleSecurityView(tangle).getServiceSecurityCommitmentBps(serviceId, operator, a.kind, a.token);
             if (commitmentBps == 0) continue;
 
-            uint256 fixedScore = totalFixedScore[operator][blueprintId][assetHash];
-            if (fixedScore == 0) continue;
+            uint256 score =
+                fixedMode ? totalFixedScore[operator][blueprintId][assetHash] : totalAllScore[operator][assetHash];
+            if (score == 0) continue;
 
-            uint256 fixedEffective =
-                _applySlashFactor(fixedScore, _getFixedSlashFactor(operator, blueprintId, assetHash));
-            uint256 fixedUsd = _toUsd(a, (fixedEffective * commitmentBps) / BPS_DENOMINATOR);
-            if (fixedUsd == 0) continue;
+            uint256 factor = fixedMode
+                ? _getFixedSlashFactor(operator, blueprintId, assetHash)
+                : _getAllSlashFactor(operator, assetHash);
+            uint256 usd = _toUsd(a, (_applySlashFactor(score, factor) * commitmentBps) / BPS_DENOMINATOR);
+            if (usd == 0) continue;
 
-            uint256 share = (remaining * fixedUsd) / remainingUsd;
+            uint256 share = (remaining * usd) / remainingUsd;
             remaining -= share;
-            remainingUsd -= fixedUsd;
+            remainingUsd -= usd;
             if (share == 0) continue;
 
-            accFixedPerScore[operator][blueprintId][assetHash][paymentToken] += (share * PRECISION) / fixedScore;
+            if (fixedMode) {
+                accFixedPerScore[operator][blueprintId][assetHash][paymentToken] += (share * PRECISION) / score;
+            } else {
+                accAllPerScore[operator][assetHash][paymentToken] += (share * PRECISION) / score;
+            }
             _operatorAssetRewardTokens[operator][assetHash].add(paymentToken);
         }
     }
@@ -745,45 +711,16 @@ contract ServiceFeeDistributor is
         }
     }
 
-    function _distributeAllForOperatorAssets(
-        address operator,
-        address paymentToken,
-        uint256 amount,
-        uint256 usdTotal,
-        EnumerableSet.Bytes32Set storage set
-    )
-        internal
-    {
-        uint256 remaining = amount;
-        uint256 remainingUsd = usdTotal;
-
-        uint256 assetCount = set.length();
-        for (uint256 i = 0; i < assetCount && remaining > 0; i++) {
-            bytes32 assetHash = set.at(i);
-            uint256 denom = totalAllScore[operator][assetHash];
-            if (denom == 0) continue;
-
-            uint256 usd =
-                _toUsd(_assetByHash[assetHash], _applySlashFactor(denom, _getAllSlashFactor(operator, assetHash)));
-            if (usd == 0) continue;
-
-            uint256 share = (remaining * usd) / remainingUsd;
-            remaining -= share;
-            remainingUsd -= usd;
-            if (share == 0) continue;
-
-            accAllPerScore[operator][assetHash][paymentToken] += (share * PRECISION) / denom;
-            _operatorAssetRewardTokens[operator][assetHash].add(paymentToken);
-        }
-    }
-
-    function _distributeFixedForOperatorAssets(
+    /// @dev Score-weighted split of `amount` across an operator's registered assets when the
+    ///      service declares no requirements. `fixedMode` selects Fixed vs All pools.
+    function _distributeForOperatorAssets(
         address operator,
         uint64 blueprintId,
         address paymentToken,
         uint256 amount,
         uint256 usdTotal,
-        EnumerableSet.Bytes32Set storage set
+        EnumerableSet.Bytes32Set storage set,
+        bool fixedMode
     )
         internal
     {
@@ -793,13 +730,14 @@ contract ServiceFeeDistributor is
         uint256 assetCount = set.length();
         for (uint256 i = 0; i < assetCount && remaining > 0; i++) {
             bytes32 assetHash = set.at(i);
-            uint256 denom = totalFixedScore[operator][blueprintId][assetHash];
+            uint256 denom =
+                fixedMode ? totalFixedScore[operator][blueprintId][assetHash] : totalAllScore[operator][assetHash];
             if (denom == 0) continue;
 
-            uint256 usd = _toUsd(
-                _assetByHash[assetHash],
-                _applySlashFactor(denom, _getFixedSlashFactor(operator, blueprintId, assetHash))
-            );
+            uint256 factor = fixedMode
+                ? _getFixedSlashFactor(operator, blueprintId, assetHash)
+                : _getAllSlashFactor(operator, assetHash);
+            uint256 usd = _toUsd(_assetByHash[assetHash], _applySlashFactor(denom, factor));
             if (usd == 0) continue;
 
             uint256 share = (remaining * usd) / remainingUsd;
@@ -807,7 +745,11 @@ contract ServiceFeeDistributor is
             remainingUsd -= usd;
             if (share == 0) continue;
 
-            accFixedPerScore[operator][blueprintId][assetHash][paymentToken] += (share * PRECISION) / denom;
+            if (fixedMode) {
+                accFixedPerScore[operator][blueprintId][assetHash][paymentToken] += (share * PRECISION) / denom;
+            } else {
+                accAllPerScore[operator][assetHash][paymentToken] += (share * PRECISION) / denom;
+            }
             _operatorAssetRewardTokens[operator][assetHash].add(paymentToken);
         }
     }
@@ -835,12 +777,18 @@ contract ServiceFeeDistributor is
             _harvestToken(msg.sender, operator, assetHash, token, mode);
         }
 
-        amount = claimable[msg.sender][token];
-        if (amount == 0) return 0;
-        claimable[msg.sender][token] = 0;
+        amount = _payoutClaimable(msg.sender, token);
+    }
 
-        _transferPayment(payable(msg.sender), token, amount);
-        emit Claimed(msg.sender, token, amount);
+    /// @dev Zero out and pay a claimant's accrued `claimable` balance for `token`. Shared
+    ///      terminal-transfer step for the claim entrypoints (each carries `nonReentrant`).
+    function _payoutClaimable(address account, address token) internal returns (uint256 amount) {
+        amount = claimable[account][token];
+        if (amount == 0) return 0;
+        claimable[account][token] = 0;
+
+        _transferPayment(payable(account), token, amount);
+        emit Claimed(account, token, amount);
     }
 
     /// @notice Claim all pending rewards across all operators and assets for a specific payment token
@@ -893,43 +841,75 @@ contract ServiceFeeDistributor is
             }
         }
 
-        totalAmount = claimable[account][token];
-        if (totalAmount == 0) return 0;
-        claimable[account][token] = 0;
-
-        _transferPayment(payable(account), token, totalAmount);
-        emit Claimed(account, token, totalAmount);
+        totalAmount = _payoutClaimable(account, token);
     }
 
-    function _harvestToken(address delegator, address operator, bytes32 assetHash, address token, uint8 mode) internal {
-        uint256 userScore = _positionScore[delegator][operator][assetHash];
-
+    /// @dev Compute a position's pending reward for `token` without mutating debt. Shared
+    ///      read-side accrual math for {_harvestToken} and {pendingRewards}; the harvest
+    ///      path advances debt separately via {_settlePositionDebt} so this stays `view`.
+    function _pendingPosition(
+        address delegator,
+        address operator,
+        bytes32 assetHash,
+        address token,
+        uint8 mode
+    )
+        internal
+        view
+        returns (uint256 pending)
+    {
         if (mode == 1) {
-            if (userScore == 0) return;
-            uint256 acc = accAllPerScore[operator][assetHash][token];
-            uint256 accumulated = (userScore * acc) / PRECISION;
+            uint256 userScore = _positionScore[delegator][operator][assetHash];
+            if (userScore == 0) return 0;
+            uint256 accumulated = (userScore * accAllPerScore[operator][assetHash][token]) / PRECISION;
             uint256 debt = _debtAll[delegator][operator][assetHash][token];
-            if (accumulated > debt) {
-                claimable[delegator][token] += (accumulated - debt);
-            }
-            _debtAll[delegator][operator][assetHash][token] = accumulated;
-            return;
+            if (accumulated > debt) pending = accumulated - debt;
+            return pending;
         }
 
-        // Fixed mode - iterate over blueprints
         uint64[] storage bps = _fixedBlueprints[delegator][operator][assetHash];
         for (uint256 i = 0; i < bps.length; i++) {
             uint64 bpId = bps[i];
             uint256 blueprintScore = _positionFixedScore[delegator][operator][assetHash][bpId];
             if (blueprintScore == 0) continue;
-            uint256 acc = accFixedPerScore[operator][bpId][assetHash][token];
-            uint256 accumulated = (blueprintScore * acc) / PRECISION;
+            uint256 accumulated = (blueprintScore * accFixedPerScore[operator][bpId][assetHash][token]) / PRECISION;
             uint256 debt = _debtFixed[delegator][operator][bpId][assetHash][token];
-            if (accumulated > debt) {
-                claimable[delegator][token] += (accumulated - debt);
-            }
-            _debtFixed[delegator][operator][bpId][assetHash][token] = accumulated;
+            if (accumulated > debt) pending += accumulated - debt;
         }
+    }
+
+    /// @dev Advance a harvested position's reward debt to the current accumulator.
+    function _settlePositionDebt(
+        address delegator,
+        address operator,
+        bytes32 assetHash,
+        address token,
+        uint8 mode
+    )
+        internal
+    {
+        if (mode == 1) {
+            uint256 userScore = _positionScore[delegator][operator][assetHash];
+            if (userScore == 0) return;
+            _debtAll[delegator][operator][assetHash][token] =
+                (userScore * accAllPerScore[operator][assetHash][token]) / PRECISION;
+            return;
+        }
+
+        uint64[] storage bps = _fixedBlueprints[delegator][operator][assetHash];
+        for (uint256 i = 0; i < bps.length; i++) {
+            uint64 bpId = bps[i];
+            uint256 blueprintScore = _positionFixedScore[delegator][operator][assetHash][bpId];
+            if (blueprintScore == 0) continue;
+            _debtFixed[delegator][operator][bpId][assetHash][token] =
+                (blueprintScore * accFixedPerScore[operator][bpId][assetHash][token]) / PRECISION;
+        }
+    }
+
+    function _harvestToken(address delegator, address operator, bytes32 assetHash, address token, uint8 mode) internal {
+        uint256 pending = _pendingPosition(delegator, operator, assetHash, token, mode);
+        if (pending > 0) claimable[delegator][token] += pending;
+        _settlePositionDebt(delegator, operator, assetHash, token, mode);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -976,30 +956,18 @@ contract ServiceFeeDistributor is
         return allUsdTotal + fixedUsdTotal;
     }
 
-    function operatorRewardTokens(address operator) external view returns (address[] memory tokens) {
-        EnumerableSet.AddressSet storage set = _operatorRewardTokens[operator];
-        tokens = new address[](set.length());
-        for (uint256 i = 0; i < tokens.length; i++) {
-            tokens[i] = set.at(i);
-        }
+    function operatorRewardTokens(address operator) external view returns (address[] memory) {
+        return _operatorRewardTokens[operator].values();
     }
 
     /// @notice Get all operators a delegator has positions with
-    function delegatorOperators(address delegator) external view returns (address[] memory operators) {
-        EnumerableSet.AddressSet storage set = _delegatorOperators[delegator];
-        operators = new address[](set.length());
-        for (uint256 i = 0; i < operators.length; i++) {
-            operators[i] = set.at(i);
-        }
+    function delegatorOperators(address delegator) external view returns (address[] memory) {
+        return _delegatorOperators[delegator].values();
     }
 
     /// @notice Get all asset hashes a delegator has positions for with a specific operator
-    function delegatorAssets(address delegator, address operator) external view returns (bytes32[] memory assetHashes) {
-        EnumerableSet.Bytes32Set storage set = _delegatorAssets[delegator][operator];
-        assetHashes = new bytes32[](set.length());
-        for (uint256 i = 0; i < assetHashes.length; i++) {
-            assetHashes[i] = set.at(i);
-        }
+    function delegatorAssets(address delegator, address operator) external view returns (bytes32[] memory) {
+        return _delegatorAssets[delegator][operator].values();
     }
 
     /// @notice Get a delegator's position details
@@ -1033,30 +1001,7 @@ contract ServiceFeeDistributor is
                 bytes32 assetHash = assets.at(j);
                 uint8 mode = _positionMode[delegator][operator][assetHash];
                 if (mode == 0) continue;
-
-                if (mode == 1) {
-                    uint256 userScore = _positionScore[delegator][operator][assetHash];
-                    if (userScore == 0) continue;
-                    uint256 acc = accAllPerScore[operator][assetHash][token];
-                    uint256 accumulated = (userScore * acc) / PRECISION;
-                    uint256 debt = _debtAll[delegator][operator][assetHash][token];
-                    if (accumulated > debt) {
-                        pending += (accumulated - debt);
-                    }
-                } else {
-                    uint64[] storage bps = _fixedBlueprints[delegator][operator][assetHash];
-                    for (uint256 k = 0; k < bps.length; k++) {
-                        uint64 bpId = bps[k];
-                        uint256 blueprintScore = _positionFixedScore[delegator][operator][assetHash][bpId];
-                        if (blueprintScore == 0) continue;
-                        uint256 acc = accFixedPerScore[operator][bpId][assetHash][token];
-                        uint256 accumulated = (blueprintScore * acc) / PRECISION;
-                        uint256 debt = _debtFixed[delegator][operator][bpId][assetHash][token];
-                        if (accumulated > debt) {
-                            pending += (accumulated - debt);
-                        }
-                    }
-                }
+                pending += _pendingPosition(delegator, operator, assetHash, token, mode);
             }
         }
     }
@@ -1216,31 +1161,11 @@ contract ServiceFeeDistributor is
     /// @notice O(N) where N = number of reward tokens for this specific operator-asset pair.
     /// Much more efficient than iterating all operator tokens.
     function _syncDebtsToCurrentAcc(address delegator, address operator, bytes32 assetHash, uint8 mode) internal {
-        uint256 userScore = _positionScore[delegator][operator][assetHash];
-        // Use per-asset token set for efficiency
+        // Per-asset token set: only the tokens actually distributed for this operator-asset.
         EnumerableSet.AddressSet storage set = _operatorAssetRewardTokens[operator][assetHash];
         uint256 length = set.length();
-
-        if (mode == 1) {
-            for (uint256 i = 0; i < length; i++) {
-                address token = set.at(i);
-                uint256 acc = accAllPerScore[operator][assetHash][token];
-                _debtAll[delegator][operator][assetHash][token] = (userScore * acc) / PRECISION;
-            }
-            return;
-        }
-
-        // Fixed mode
-        uint64[] storage bps = _fixedBlueprints[delegator][operator][assetHash];
-        for (uint256 j = 0; j < bps.length; j++) {
-            uint64 bpId = bps[j];
-            uint256 blueprintScore = _positionFixedScore[delegator][operator][assetHash][bpId];
-            if (blueprintScore == 0) continue;
-            for (uint256 i = 0; i < length; i++) {
-                address token = set.at(i);
-                uint256 acc = accFixedPerScore[operator][bpId][assetHash][token];
-                _debtFixed[delegator][operator][bpId][assetHash][token] = (blueprintScore * acc) / PRECISION;
-            }
+        for (uint256 i = 0; i < length; i++) {
+            _settlePositionDebt(delegator, operator, assetHash, set.at(i), mode);
         }
     }
 
@@ -1266,36 +1191,6 @@ contract ServiceFeeDistributor is
             existing.push(id);
             _fixedBlueprintIndexPlusOne[delegator][operator][assetHash][id] = existing.length;
         }
-    }
-
-    function _addFixedBlueprint(address delegator, address operator, bytes32 assetHash, uint64 blueprintId) internal {
-        if (_fixedBlueprintIndexPlusOne[delegator][operator][assetHash][blueprintId] != 0) return;
-        uint64[] storage arr = _fixedBlueprints[delegator][operator][assetHash];
-        arr.push(blueprintId);
-        _fixedBlueprintIndexPlusOne[delegator][operator][assetHash][blueprintId] = arr.length;
-    }
-
-    function _removeFixedBlueprint(
-        address delegator,
-        address operator,
-        bytes32 assetHash,
-        uint64 blueprintId
-    )
-        internal
-    {
-        uint256 indexPlusOne = _fixedBlueprintIndexPlusOne[delegator][operator][assetHash][blueprintId];
-        if (indexPlusOne == 0) return;
-
-        uint64[] storage arr = _fixedBlueprints[delegator][operator][assetHash];
-        uint256 index = indexPlusOne - 1;
-        uint256 lastIndex = arr.length - 1;
-        if (index != lastIndex) {
-            uint64 lastId = arr[lastIndex];
-            arr[index] = lastId;
-            _fixedBlueprintIndexPlusOne[delegator][operator][assetHash][lastId] = index + 1;
-        }
-        arr.pop();
-        _fixedBlueprintIndexPlusOne[delegator][operator][assetHash][blueprintId] = 0;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1335,37 +1230,9 @@ contract ServiceFeeDistributor is
     )
         internal
     {
-        Types.AssetSecurityRequirement[] memory reqs =
-            ITangleSecurityView(tangle).getServiceSecurityRequirements(serviceId);
-
-        if (reqs.length == 0) {
-            // No security requirements - distribute across all operator assets
-            _distributeWithoutRequirements(serviceId, blueprintId, operator, paymentToken, amount);
-        } else {
-            // Compute USD totals for All vs Fixed mode delegators
-            (uint256 allUsdTotal, uint256 fixedUsdTotal) =
-                _computeUsdTotalsForRequirements(serviceId, blueprintId, operator, reqs);
-
-            uint256 totalUsd = allUsdTotal + fixedUsdTotal;
-            if (totalUsd == 0) {
-                // No eligible delegators - send to treasury
-                _transferPayment(ITangleSecurityView(tangle).treasury(), paymentToken, amount);
-                return;
-            }
-
-            uint256 allAmount = (amount * allUsdTotal) / totalUsd;
-            uint256 fixedAmount = amount - allAmount;
-
-            if (allAmount > 0 && allUsdTotal > 0) {
-                _distributeAllForRequirements(serviceId, operator, paymentToken, allAmount, allUsdTotal, reqs);
-            }
-
-            if (fixedAmount > 0 && fixedUsdTotal > 0) {
-                _distributeFixedForRequirements(
-                    serviceId, blueprintId, operator, paymentToken, fixedAmount, fixedUsdTotal, reqs
-                );
-            }
-        }
+        // Streaming chunks distribute with the exact same score-weighted split as an
+        // immediate payment; `durationSeconds` is not needed once the chunk amount is known.
+        _distributeImmediate(serviceId, blueprintId, operator, paymentToken, amount);
     }
 
     /// @notice Public function to drip a specific stream and distribute to delegators
@@ -1450,11 +1317,22 @@ contract ServiceFeeDistributor is
         return priceOracle.toUSD(token, amount);
     }
 
+    /// @dev Validate/collect an inbound payment: native value must equal `amount`;
+    ///      an ERC20 leg forbids stray value and (when `pullErc20`) pulls via approval.
+    function _receivePayment(address paymentToken, uint256 amount, bool pullErc20) internal {
+        if (paymentToken == address(0)) {
+            if (msg.value != amount) revert BadMsgValue();
+        } else {
+            if (msg.value != 0) revert UnexpectedMsgValue();
+            if (pullErc20) IERC20(paymentToken).safeTransferFrom(msg.sender, address(this), amount);
+        }
+    }
+
     function _transferPayment(address payable to, address token, uint256 amount) internal {
         if (amount == 0) return;
         if (token == address(0)) {
             (bool ok,) = to.call{ value: amount }("");
-            require(ok, "eth transfer failed");
+            if (!ok) revert EthTransferFailed();
         } else {
             IERC20(token).safeTransfer(to, amount);
         }

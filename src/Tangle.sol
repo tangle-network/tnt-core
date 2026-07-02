@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { Base } from "./core/Base.sol";
+import { TangleCoreApi } from "./core/TangleCoreApi.sol";
 import { FacetRouterBase } from "./facets/FacetRouterBase.sol";
 import { Errors } from "./libraries/Errors.sol";
 
 /// @title Tangle
 /// @notice Router contract that dispatches calls to protocol facets
-contract Tangle is Base, FacetRouterBase {
+contract Tangle is TangleCoreApi, FacetRouterBase {
     /// @notice Initialize the contract
     function initialize(address admin, address staking_, address payable treasury_) external initializer {
         __Base_init(admin, staking_, treasury_);

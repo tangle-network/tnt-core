@@ -74,11 +74,11 @@ abstract contract JobsRFQ is Base {
         }
 
         // Validate job inputs
-        if (jobIndex >= _blueprintJobSchemas[svc.blueprintId].length) {
+        if (jobIndex >= _blueprintJobs[svc.blueprintId].length) {
             revert Errors.InvalidJobIndex(jobIndex);
         }
-        Types.StoredJobSchema storage schema = _blueprintJobSchemas[svc.blueprintId][jobIndex];
-        SchemaLib.validateJobParams(schema, inputs, svc.blueprintId, jobIndex);
+        Types.JobDefinition storage job = _blueprintJobs[svc.blueprintId][jobIndex];
+        SchemaLib.validateJobParams(job, inputs, svc.blueprintId, jobIndex);
 
         // Verify quotes and compute total cost. The operator-signed price is bound to the
         // exact job inputs via keccak256(inputs); a substituted-input redemption reverts.

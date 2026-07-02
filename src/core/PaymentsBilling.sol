@@ -448,7 +448,7 @@ abstract contract PaymentsBilling is PaymentsCore {
     }
 
     /// @notice Resolve the per-period bill adjustment from the blueprint's manager hook.
-    /// @dev Best-effort with a hard gas cap (`MANAGER_HOOK_GAS_LIMIT`). Any revert /
+    /// @dev Best-effort with a hard gas cap (the manager hook gas budget). Any revert /
     ///      out-of-range return / zero manager yields a full-bill (10_000 bps) result.
     ///      Values above 10_000 are clamped — a misbehaving manager cannot inflate a
     ///      customer's bill, only discount it. The gas cap prevents a malicious
@@ -466,7 +466,7 @@ abstract contract PaymentsBilling is PaymentsCore {
     {
         address manager = _blueprints[blueprintId].manager;
         if (manager == address(0)) return uint16(BPS_DENOMINATOR);
-        (bool ok, bytes memory ret) = manager.staticcall{ gas: MANAGER_HOOK_GAS_LIMIT }(
+        (bool ok, bytes memory ret) = manager.staticcall{ gas: _hookGasLimit() }(
             abi.encodeWithSelector(
                 IBlueprintServiceManager.computeBillAdjustmentBps.selector, serviceId, periodStart, periodEnd
             )

@@ -176,8 +176,8 @@ abstract contract JobsSubmission is Base {
     }
 
     function _validateJobInputs(uint64 blueprintId, uint8 jobIndex, bytes calldata inputs) private view {
-        Types.StoredJobSchema storage schema = _jobSchema(blueprintId, jobIndex);
-        SchemaLib.validateJobParams(schema, inputs, blueprintId, jobIndex);
+        Types.JobDefinition storage job = _jobDefinition(blueprintId, jobIndex);
+        SchemaLib.validateJobParams(job, inputs, blueprintId, jobIndex);
     }
 
     function _createJobCall(
@@ -269,8 +269,8 @@ abstract contract JobsSubmission is Base {
     }
 
     function _validateJobResultOutput(uint64 blueprintId, uint8 jobIndex, bytes calldata output) private view {
-        Types.StoredJobSchema storage schema = _jobSchema(blueprintId, jobIndex);
-        SchemaLib.validateJobResult(schema, output, blueprintId, jobIndex);
+        Types.JobDefinition storage job = _jobDefinition(blueprintId, jobIndex);
+        SchemaLib.validateJobResult(job, output, blueprintId, jobIndex);
     }
 
     function _recordOperatorResult(uint64 serviceId, uint64 callId, Types.JobCall storage job) private {
@@ -347,19 +347,16 @@ abstract contract JobsSubmission is Base {
         if (ok) required = abi.decode(ret, (uint32));
     }
 
-    function _jobSchema(
-        uint64 blueprintId,
-        uint8 jobIndex
-    )
+    function _jobDefinition(uint64 blueprintId, uint8 jobIndex)
         internal
         view
-        returns (Types.StoredJobSchema storage schema)
+        returns (Types.JobDefinition storage job)
     {
-        Types.StoredJobSchema[] storage schemas = _blueprintJobSchemas[blueprintId];
-        if (jobIndex >= schemas.length) {
+        Types.JobDefinition[] storage jobs = _blueprintJobs[blueprintId];
+        if (jobIndex >= jobs.length) {
             revert Errors.InvalidJobIndex(jobIndex);
         }
-        return schemas[jobIndex];
+        return jobs[jobIndex];
     }
 
     /// @notice Distribute payment for completed job - to be implemented in Payments mixin

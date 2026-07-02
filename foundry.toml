@@ -2,6 +2,13 @@
 
 [profile.default]
 bytecode_hash = "none"
+# Compile test contracts as dynamically-linked libraries. Cuts full-graph compile
+# time and peak memory, and keeps the optimizer's inlining units small enough that
+# the full build (src + 250 test files, via-IR) no longer dies with a Yul
+# stack-too-deep that no single contract reproduces in isolation. NOTE: linking
+# changes `new Contract()` codegen in tests, which skips `vm.prank` consumption on
+# constructors — so the correctness suite (profile.fast) turns it back OFF.
+dynamic_test_linking = true
 fuzz = { runs = 1_000 }
 gas_reports = ["*"]
 libs = ["dependencies"]
@@ -16,6 +23,9 @@ allow_internal_expect_revert = true
 [profile.fast]
 # Local iteration profile: much faster compile/test cycles.
 # Use with: `FOUNDRY_PROFILE=fast forge test ...`
+# Linking is disabled here: tests must run with exact CREATE semantics
+# (`vm.prank` + `new` consumes the prank), which dynamic linking alters.
+dynamic_test_linking = false
 via_ir = true
 optimizer = false
 sparse_mode = true
