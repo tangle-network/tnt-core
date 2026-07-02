@@ -41,7 +41,6 @@ abstract contract BlueprintsCreate is Base {
             owner: msg.sender,
             manager: def.manager,
             createdAt: uint64(block.timestamp),
-            operatorCount: 0,
             membership: config.membership,
             pricing: config.pricing,
             active: true

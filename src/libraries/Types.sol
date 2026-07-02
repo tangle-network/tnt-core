@@ -29,12 +29,15 @@ library Types {
     /// @dev Struct is packed for optimal storage:
     ///      Slot 0: owner (20 bytes)
     ///      Slot 1: manager (20 bytes)
-    ///      Slot 2: createdAt (8) + operatorCount (4) + membership (1) + pricing (1) + active (1) = 15 bytes
+    ///      Slot 2: createdAt (8) + membership (1) + pricing (1) + active (1) = 11 bytes
+    ///      The registered-operator count is not stored here; it is derived on demand
+    ///      from `_blueprintOperators[blueprintId].length()` (the canonical membership set),
+    ///      exposed via `blueprintOperatorCount`. Keeping a denormalized copy would cost an
+    ///      extra SSTORE on every register/unregister with no invariant reading it.
     struct Blueprint {
         address owner; // Can transfer ownership, update metadata
         address manager; // IBlueprintServiceManager implementation (0 = none)
         uint64 createdAt; // Creation timestamp
-        uint32 operatorCount; // Number of registered operators
         MembershipModel membership; // Fixed or Dynamic
         PricingModel pricing; // How payments work
         bool active; // Can be deactivated by owner
@@ -240,8 +243,11 @@ library Types {
     /// @dev The ecdsaPublicKey is used for gossip network message signing/verification
     ///      and may differ from the operator's wallet key (msg.sender)
     struct OperatorPreferences {
-        bytes ecdsaPublicKey; // ECDSA public key for gossip network identity
-        string rpcAddress; // RPC endpoint URL
+        bytes ecdsaPublicKey; // ECDSA public key for gossip network identity (persisted; read on-chain for gossip-key dedup)
+        // RPC endpoint URL. Off-chain discovery only — never persisted on-chain (empty in
+        // storage); the real value is emitted in OperatorRegistered / OperatorPreferencesUpdated
+        // and forwarded to the BSM hook. Source it from those events, not getOperatorPreferences.
+        string rpcAddress;
     }
 
     /// @notice BLS public key for aggregated signature verification
