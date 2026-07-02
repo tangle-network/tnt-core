@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-07-02
+
+Event-sourced blueprint definitions and operator endpoints: `createBlueprint`
+stores `keccak256(abi.encode(definition))` and emits the full definition in
+`BlueprintDefinitionRecorded` on the MBSM (createBlueprint gas −64% on
+SSTORE-heavy chains), and operator RPC endpoints ride events instead of
+storage. Includes the input-bound RFQ quote hardening and the full
+security-audit remediation batch landed since 0.17.1 (#147–#192): rewards
+decay/solvency fixes, oracle circuit breakers, migration front-run guards —
+behavior changes behind existing selectors unless listed below.
+
+### Breaking (Rust consumers)
+
+- `Blueprint` struct: `operatorCount` field removed (also shifts the
+  `getBlueprint` return tuple and the struct's EIP-712 type string). Migrate
+  to the `blueprintOperatorCount(uint64)` getter, which derives the count
+  from the operator set.
+- `JobQuoteDetails` gains a trailing `bytes32 inputsHash` field
+  (`keccak256(inputs)`), binding an operator's signed price to the exact job
+  inputs. The EIP-712 `JobQuoteDetails` type string changes accordingly;
+  quotes signed without `inputsHash` no longer verify, and submission
+  reverts `JobQuoteInputsMismatch` when the hash does not match the
+  submitted inputs.
+- `getBlueprintDefinition`/`blueprintMetadata` now return lossy display
+  data (7 of 9 metadata fields zeroed): the canonical definition lives in
+  the `BlueprintDefinitionRecorded` event, anchored on-chain by
+  `blueprintDefinitionHash(uint64)`. Read display data from the event and
+  verify `keccak256(abi.encode(definition)) == blueprintDefinitionHash(id)`.
+- `getOperatorPreferences` now always returns an empty `rpcAddress`: the
+  endpoint is event-sourced from `OperatorRegistered` /
+  `OperatorPreferencesUpdated`. `updateOperatorPreferences` reverts
+  `OperatorRpcAddressRequired` when `rpcAddress` is empty.
+
+### Added (binding surface)
+
+- `blueprintDefinitionHash(uint64)` view + `BlueprintDefinitionRecorded`
+  event (emitted via the MBSM) carrying the full blueprint definition.
+- `blueprintOperatorCount(uint64)` view deriving the live operator count.
+- `IMasterBlueprintServiceManager` bindings module (`BinaryVersionRecorded`,
+  definition-recording surface).
+- `setManagerHookGasLimit(uint256)` admin setter: per-deployment BSM hook
+  gas budget (default 500k, admin-capped at 8M for SSTORE-expensive chains).
+- `DepositManager` unbonding entries now carry `expiryTimestamp` (absolute
+  `block.timestamp` deadline) instead of a block number.
+
 ## [0.17.1] - 2026-05-17
 
 ### Changed
