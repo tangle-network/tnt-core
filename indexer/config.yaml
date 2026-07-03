@@ -81,6 +81,7 @@ chains:
         handler: src/EventHandlers.ts
         events:
           - event: BlueprintDefinitionRecorded(uint64 indexed blueprintId, address indexed owner, bytes encodedDefinition)
+          - event: BinaryVersionRecorded(uint64 indexed blueprintId, uint64 indexed versionId, bytes32 sha256Hash, string binaryUri)
       - name: MultiAssetDelegation
         address:
           - "0xfeb417fc6d343e0fc88ec9fdb8294bf84d69f0ca"

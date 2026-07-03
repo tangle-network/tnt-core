@@ -1,5 +1,6 @@
 import { indexer } from "envio";
-import type { BlueprintDefinition } from "envio";
+import type { BinaryVersion, BlueprintDefinition } from "envio";
+import { decodeBlueprintDefinition } from "../lib/blueprintDefinition";
 import {
   getEventId,
   getPointsManager,
@@ -16,15 +17,70 @@ indexer.onEvent({ contract: "MasterBlueprintServiceManager", event: "BlueprintDe
   const timestamp = getTimestamp(event);
   const blueprintId = toBigInt(event.params.blueprintId);
   const owner = normalizeAddress(event.params.owner);
+  const encodedDefinition = toHexString(event.params.encodedDefinition);
+
+  // 0.18 stores only the definition hash on-chain; this payload is the sole
+  // on-chain source of blueprint/job display prose. Raw hex is persisted
+  // regardless so a decode regression never loses data.
+  const decoded = decodeBlueprintDefinition(encodedDefinition as `0x${string}`);
+  if (!decoded.succeeded) {
+    context.log.error(
+      `BlueprintDefinitionRecorded decode failed for blueprint ${blueprintId} (ABI spec drift from the deployed struct?): ${decoded.error}`,
+    );
+  }
+  const display = decoded.succeeded ? decoded.value : undefined;
+
   const definition: BlueprintDefinition = {
     id: getEventId(event),
     blueprintId,
     owner,
-    encodedDefinition: toHexString(event.params.encodedDefinition),
+    encodedDefinition,
+    metadataUri: display?.metadataUri || undefined,
+    name: display?.name || undefined,
+    description: display?.description || undefined,
+    author: display?.author || undefined,
+    category: display?.category || undefined,
+    codeRepository: display?.codeRepository || undefined,
+    logo: display?.logo || undefined,
+    website: display?.website || undefined,
+    license: display?.license || undefined,
+    jobNames: display?.jobNames,
+    jobDescriptions: display?.jobDescriptions,
+    decodeError: decoded.succeeded ? undefined : decoded.error,
     recordedAt: timestamp,
     txHash: getTxHash(event),
   } as BlueprintDefinition;
   context.BlueprintDefinition.set(definition);
+
+  // Mirror the display name onto the Blueprint entity so catalog queries
+  // don't need a join. Newest recording wins, matching on-chain semantics.
+  if (display) {
+    const blueprint = await context.Blueprint.get(blueprintId.toString());
+    if (blueprint) {
+      context.Blueprint.set({
+        ...blueprint,
+        name: display.name || undefined,
+        description: display.description || undefined,
+        updatedAt: timestamp,
+      });
+    }
+  }
+
   const points = getPointsManager(pointsContext(context), event);
   await awardDeveloperBlueprint(points, owner, blueprintId.toString());
+});
+
+indexer.onEvent({ contract: "MasterBlueprintServiceManager", event: "BinaryVersionRecorded" }, async ({ event, context }) => {
+  const blueprintId = toBigInt(event.params.blueprintId);
+  const versionId = toBigInt(event.params.versionId);
+  const version: BinaryVersion = {
+    id: `${blueprintId}-${versionId}`,
+    blueprintId,
+    versionId,
+    sha256Hash: toHexString(event.params.sha256Hash),
+    binaryUri: event.params.binaryUri,
+    recordedAt: getTimestamp(event),
+    txHash: getTxHash(event),
+  } as BinaryVersion;
+  context.BinaryVersion.set(version);
 });

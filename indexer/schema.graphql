@@ -135,6 +135,9 @@ type Blueprint {
   manager: String
   metadataUri: String
   metadataHash: String
+  "Display name decoded from BlueprintDefinitionRecorded (0.18 zeroes it in storage)."
+  name: String
+  description: String
   active: Boolean!
   createdAt: BigInt!
   updatedAt: BigInt!
@@ -159,6 +162,30 @@ type BlueprintDefinition {
   blueprintId: BigInt!
   owner: String!
   encodedDefinition: String!
+  "Decoded from encodedDefinition — the only on-chain source of display prose on 0.18 chains."
+  metadataUri: String
+  name: String
+  description: String
+  author: String
+  category: String
+  codeRepository: String
+  logo: String
+  website: String
+  license: String
+  jobNames: [String!]
+  jobDescriptions: [String!]
+  "Null when the payload failed to decode (ABI drift) — see decodeError."
+  decodeError: String
+  recordedAt: BigInt!
+  txHash: String!
+}
+
+type BinaryVersion {
+  id: ID!
+  blueprintId: BigInt!
+  versionId: BigInt!
+  sha256Hash: String!
+  binaryUri: String!
   recordedAt: BigInt!
   txHash: String!
 }
