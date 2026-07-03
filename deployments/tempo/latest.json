@@ -1,0 +1,82 @@
+{
+  "network": "tempo",
+  "chainId": 42431,
+  "deployer": "0x2420fff17c4213a4075cf5f7b6dc33429aaf22bb",
+  "admin": "0x2420fff17c4213a4075cf5f7b6dc33429aaf22bb",
+  "treasury": "0x2420fff17c4213a4075cf5f7b6dc33429aaf22bb",
+  "timelock": "0x2420fff17c4213a4075cf5f7b6dc33429aaf22bb",
+  "multisig": "0x2420fff17c4213a4075cf5f7b6dc33429aaf22bb",
+  "tangle": "0x77c1cdfdda642a9c2587545768088c7cad6c4ced",
+  "staking": "0x8ed44aa6c65ef51c880fed08c9b2a611604b5693",
+  "restaking": "0x8ed44aa6c65ef51c880fed08c9b2a611604b5693",
+  "statusRegistry": "0x9f5799bbb9abfcb89645f5bb4c4844efd3c87c0c",
+  "tntToken": "0xb91177666047459e13a6e1254fffae60762ec2b9",
+  "metrics": "0xedffd611b47a273f28a35b9de5ee29c793c58f7c",
+  "rewardVaults": "0xa2f876e7cb7702e161290b704e45271dd240fa76",
+  "inflationPool": "0x53894ba39bf548ef38018f5d29c67a57206173b4",
+  "serviceFeeDistributor": "0xdc7ff0f48e409fcec01e1ba375fd5af558b0986e",
+  "streamingPaymentManager": "0x0000000000000000000000000000000000000000",
+  "credits": "0x2adc4f3f6c7a7fceed3f51a0c2da576ebb872332",
+  "epochLength": 604800,
+  "stakeAssets": [
+    {
+      "symbol": "TNT",
+      "token": "0xb91177666047459e13a6e1254fffae60762ec2b9",
+      "adapter": "0x0000000000000000000000000000000000000000",
+      "minOperatorStake": "1000000000000000000",
+      "minDelegation": "100000000000000000",
+      "depositCap": "250000000000000000000000",
+      "rewardMultiplierBps": 10000
+    }
+  ],
+  "rewardVaultsConfig": [
+    {
+      "asset": "0xb91177666047459e13a6e1254fffae60762ec2b9",
+      "depositCap": "250000000000000000000000",
+      "active": true
+    }
+  ],
+  "inflationWeights": {
+    "stakingBps": 5500,
+    "operatorsBps": 2500,
+    "customersBps": 1000,
+    "developersBps": 1000,
+    "stakersBps": 0
+  },
+  "guards": {
+    "pauseStaking": false,
+    "pauseTangle": false,
+    "requireAdapters": false,
+    "delegatorDelay": 0,
+    "operatorDelay": 0,
+    "bondLessDelay": 0,
+    "maxBlueprintsPerOperator": 0
+  },
+  "migration": {
+    "deploy": true,
+    "emitArtifacts": true,
+    "useMockVerifier": false,
+    "artifactsPath": "deployments/tempo/migration.json",
+    "merklePath": "packages/migration-claim/merkle-tree.json",
+    "evmClaimsPath": "packages/migration-claim/evm-claims.json",
+    "treasuryCarveoutPath": "packages/migration-claim/treasury-carveout.json",
+    "foundationCarveoutPath": "packages/migration-claim/foundation-carveout.json",
+    "notes": "tempo testnet additive deployment",
+    "migrationOwner": "0x2420fff17c4213a4075cf5f7b6dc33429aaf22bb",
+    "sp1VerifierGateway": "0x397a5f7f3dbd538f23de225b51f532c34448da9b",
+    "programVKey": "0x000d74444f16d75f72527687a36c1bd4c49e6799816dac4989be3bc175e86fd7",
+    "merkleRoot": "0x54ec5497e0a2f43ec721c1ec5392cb224cf710b1210b579dcaefea002bb51adb",
+    "substrateAllocation": "51244581812207794935986305",
+    "evmAllocation": "1125776519168932451653760",
+    "treasuryRecipient": "0x2420fff17c4213a4075cf5f7b6dc33429aaf22bb",
+    "treasuryAmount": "32588831841878446700145909",
+    "foundationRecipient": "0x2420fff17c4213a4075cf5f7b6dc33429aaf22bb",
+    "foundationAmount": "15040809826744825912214026",
+    "claimDeadline": "1814491629",
+    "unlockedBps": 0,
+    "cliffDuration": 0,
+    "vestingDuration": 0,
+    "tangleMigration": "0xd29708d5768e192d31d3adcbd14532fb2a220d6f",
+    "zkVerifier": "0xc48a0f728df02647da5d923bd2193fd1f411c707"
+  }
+}
