@@ -18,6 +18,8 @@ type Manifest = {
   rewardVaults?: string;
   inflationPool?: string;
   credits?: string;
+  /** Not written by FullDeploy today — pass --mbsm when the manifest lacks it. */
+  mbsm?: string;
 };
 
 const parseArgs = () => {
@@ -91,8 +93,20 @@ function main() {
 
   const manifest = JSON.parse(readFileSync(resolve(manifestPath), "utf-8")) as Manifest;
   const stakingAddress = isAddress(manifest.staking) ? manifest.staking : null;
+  // The MBSM carries BlueprintDefinitionRecorded — on 0.18 chains the ONLY
+  // source of blueprint display data. FullDeploy manifests do not include it,
+  // so require it explicitly rather than silently leaving the config pointed
+  // at a dead address after a redeploy.
+  const mbsmAddress = isAddress(args["mbsm"]) ? args["mbsm"] : isAddress(manifest.mbsm) ? manifest.mbsm : null;
+  if (!mbsmAddress) {
+    throw new Error(
+      "MasterBlueprintServiceManager address required: pass --mbsm 0x… (or add `mbsm` to the manifest). " +
+        "Without it the indexer keeps watching the previous deployment's MBSM and blueprint display data silently vanishes.",
+    );
+  }
   const updates: Array<{ name: string; address: string | null }> = [
     { name: "Tangle", address: isAddress(manifest.tangle) ? manifest.tangle : null },
+    { name: "MasterBlueprintServiceManager", address: mbsmAddress },
     { name: "MultiAssetDelegation", address: stakingAddress },
     { name: "OperatorStatusRegistry", address: isAddress(manifest.statusRegistry) ? manifest.statusRegistry : null },
     { name: "RewardVaults", address: isAddress(manifest.rewardVaults) ? manifest.rewardVaults : null },
