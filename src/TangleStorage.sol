@@ -114,9 +114,6 @@ abstract contract TangleStorage {
     /// @notice Blueprint ID => Rich metadata
     mapping(uint64 => Types.BlueprintMetadata) internal _blueprintMetadata;
 
-    /// @notice Blueprint ID => Implementation sources
-    mapping(uint64 => Types.BlueprintSource[]) internal _blueprintSources;
-
     /// @notice Blueprint ID => Supported membership models
     mapping(uint64 => Types.MembershipModel[]) internal _blueprintSupportedMemberships;
 
@@ -231,8 +228,10 @@ abstract contract TangleStorage {
     /// @notice Service ID => Call ID => Operator => Result submitted flag
     mapping(uint64 => mapping(uint64 => mapping(address => bool))) internal _jobResultSubmitted;
 
-    /// @notice Service ID => Call ID => Job inputs (for passing to onJobResult hook)
-    mapping(uint64 => mapping(uint64 => bytes)) internal _jobInputs;
+    /// @notice Service ID => Call ID => keccak256(job inputs). Only the hash is stored (one word):
+    ///         raw inputs ride the JobSubmitted/JobSubmittedFromQuote events and reach the BSM via
+    ///         onJobCall at submit; the hash re-anchors them for onJobResult witness verification.
+    mapping(uint64 => mapping(uint64 => bytes32)) internal _jobInputsHash;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // REWARDS STORAGE (Slot 61-70)

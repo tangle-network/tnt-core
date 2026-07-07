@@ -335,50 +335,6 @@ abstract contract JobsAggregation is Base {
         }
     }
 
-    /// @notice Compute the expected aggregated public key from registered operator BLS keys
-    /// @dev Iterates through the signerBitmap and aggregates (adds) the BLS pubkeys of signers
-    /// @param serviceId The service ID
-    /// @param signerBitmap Bitmap indicating which operators signed
-    /// @return aggregatedPubkey The aggregated G2 public key
-    function _computeExpectedAggregatedPubkey(
-        uint64 serviceId,
-        uint256 signerBitmap
-    )
-        private
-        view
-        returns (Types.BN254G2Point memory aggregatedPubkey)
-    {
-        address[] memory operators = _getServiceOperatorList(serviceId);
-        bool firstKey = true;
-
-        for (uint256 i = 0; i < operators.length; i++) {
-            if ((signerBitmap >> i) & 1 == 1) {
-                // This operator is marked as a signer in the bitmap
-                Types.BLSPubkey storage storedKey = _serviceOperatorBlsPubkeys[serviceId][operators[i]];
-
-                // Verify the operator has a BLS key registered for this service
-                // A key is considered "not registered" if all components are zero
-                if (storedKey.key[0] == 0 && storedKey.key[1] == 0 && storedKey.key[2] == 0 && storedKey.key[3] == 0) {
-                    revert Errors.OperatorBlsPubkeyNotRegistered(serviceId, operators[i]);
-                }
-
-                Types.BN254G2Point memory operatorPubkey =
-                    Types.BN254G2Point([storedKey.key[0], storedKey.key[1]], [storedKey.key[2], storedKey.key[3]]);
-
-                if (firstKey) {
-                    aggregatedPubkey = operatorPubkey;
-                    firstKey = false;
-                } else {
-                    // Add this operator's pubkey to the aggregated pubkey
-                    aggregatedPubkey = BN254.addG2(aggregatedPubkey, operatorPubkey);
-                }
-            }
-        }
-
-        // If no signers were found (empty bitmap with all inactive operators),
-        // the aggregatedPubkey will be all zeros (point at infinity)
-    }
-
     function _validateServiceForAggregatedResult(Types.Service storage svc, uint64 serviceId) private view {
         if (svc.status != Types.ServiceStatus.Active) {
             revert Errors.ServiceNotActive(serviceId);

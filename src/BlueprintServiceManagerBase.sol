@@ -270,7 +270,7 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
         uint8,
         uint64,
         address,
-        bytes calldata,
+        bytes32,
         bytes calldata
     )
         external
@@ -389,7 +389,15 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @inheritdoc IBlueprintServiceManager
-    function onBinaryVersionPublished(uint64, Types.BinaryVersion calldata) external virtual onlyFromTangle {
+    function onBinaryVersionPublished(
+        uint64,
+        Types.BinaryVersion calldata,
+        string calldata
+    )
+        external
+        virtual
+        onlyFromTangle
+    {
         // No-op by default. Override to gate publishes (revert) or to surface
         // off-chain notifications. The registry row has already been written when
         // this fires, so reverts are observed but do not roll back the version.

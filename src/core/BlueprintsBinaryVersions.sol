@@ -80,7 +80,6 @@ abstract contract BlueprintsBinaryVersions is Base {
             Types.BinaryVersion({
                 versionId: versionId,
                 sha256Hash: sha256Hash,
-                binaryUri: binaryUri,
                 attestationHash: attestationHash,
                 publishedAt: uint64(block.timestamp),
                 deprecated: false
@@ -100,10 +99,12 @@ abstract contract BlueprintsBinaryVersions is Base {
         if (bp.manager != address(0)) {
             _tryCallManager(
                 bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onBinaryVersionPublished, (blueprintId, versions[versionId]))
+                abi.encodeCall(
+                    IBlueprintServiceManager.onBinaryVersionPublished, (blueprintId, versions[versionId], binaryUri)
+                )
             );
         }
-        _notifyMasterOnVersionPublished(blueprintId, versions[versionId]);
+        _notifyMasterOnVersionPublished(blueprintId, versions[versionId], binaryUri);
     }
 
     /// @notice Set the active binary version for a blueprint.
@@ -214,11 +215,17 @@ abstract contract BlueprintsBinaryVersions is Base {
     ///      `onlyFromTangle` identity check. Skipped silently when no registry
     ///      is configured (tests that bypass the registry path) — the
     ///      blueprint-scoped event already persisted carries the same data.
-    function _notifyMasterOnVersionPublished(uint64 blueprintId, Types.BinaryVersion storage version) private {
+    function _notifyMasterOnVersionPublished(
+        uint64 blueprintId,
+        Types.BinaryVersion storage version,
+        string calldata binaryUri
+    )
+        private
+    {
         if (address(_mbsmRegistry) == address(0)) return;
         address master = _mbsmRegistry.getMBSM(blueprintId);
         if (master == address(0)) return;
-        IMasterBlueprintServiceManager(master).onBinaryVersionPublished(blueprintId, version);
+        IMasterBlueprintServiceManager(master).onBinaryVersionPublished(blueprintId, version, binaryUri);
     }
 
     /// @dev MBSM indexer notification for an operator ack. See

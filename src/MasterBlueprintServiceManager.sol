@@ -67,13 +67,14 @@ contract MasterBlueprintServiceManager is IMasterBlueprintServiceManager, Access
     /// @inheritdoc IMasterBlueprintServiceManager
     function onBinaryVersionPublished(
         uint64 blueprintId,
-        Types.BinaryVersion calldata version
+        Types.BinaryVersion calldata version,
+        string calldata binaryUri
     )
         external
         override
         onlyRole(TANGLE_ROLE)
     {
-        emit BinaryVersionRecorded(blueprintId, version.versionId, version.sha256Hash, version.binaryUri);
+        emit BinaryVersionRecorded(blueprintId, version.versionId, version.sha256Hash, binaryUri);
     }
 
     /// @inheritdoc IMasterBlueprintServiceManager

@@ -73,9 +73,7 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
     error MaxVersionsExceeded();
     error VersionAlreadyRegistered(address mbsmAddress);
     error InvalidRevision(uint32 revision);
-    error NoVersionsRegistered();
     error VersionInGracePeriod(uint32 revision, uint256 gracePeriodEnds);
-    error VersionHasActiveServices(uint32 revision);
     error InvalidGracePeriod();
     error NotAContract(address mbsmAddress);
     error EmergencyDeprecationNotReady(uint32 revision, uint256 readyAt);

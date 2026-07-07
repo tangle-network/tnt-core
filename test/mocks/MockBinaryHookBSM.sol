@@ -69,7 +69,8 @@ contract MockBinaryHookBSM is BlueprintServiceManagerBase {
 
     function onBinaryVersionPublished(
         uint64 blueprintId,
-        Types.BinaryVersion calldata version
+        Types.BinaryVersion calldata version,
+        string calldata binaryUri
     )
         external
         override
@@ -83,7 +84,7 @@ contract MockBinaryHookBSM is BlueprintServiceManagerBase {
                 blueprintId: blueprintId,
                 versionId: version.versionId,
                 sha256Hash: version.sha256Hash,
-                binaryUri: version.binaryUri,
+                binaryUri: binaryUri,
                 attestationHash: version.attestationHash,
                 senderAtCall: msg.sender
             })

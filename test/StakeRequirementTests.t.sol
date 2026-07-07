@@ -68,7 +68,7 @@ contract MockBSM_StakeRequirement is BlueprintServiceManagerBase {
         uint8,
         uint64,
         address,
-        bytes calldata,
+        bytes32,
         bytes calldata
     )
         external

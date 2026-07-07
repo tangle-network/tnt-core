@@ -108,14 +108,16 @@ contract StorageLayoutSnapshotTest is Test {
         // Tail pins: without these the snapshot is blind past slot 7, so any mid-layout
         // insertion (which shifts the tail) would pass unnoticed. These pin the last two
         // real vars before __gap; a field inserted anywhere before them trips this test.
+        // Slots shifted down by 1 vs the pre-0.19 layout: the mid-layout `_blueprintSources`
+        // mapping was removed (sources are now event-sourced, anchored only by `_blueprintSourcesHash`).
         assertEq(
             _writtenSlot(probe.writeSlashCommitmentSnapshot.selector),
-            _mappingLeaf(PROBE_KEY, 89),
+            _mappingLeaf(PROBE_KEY, 88),
             "Tangle tail moved (mid-layout insertion?)"
         );
         assertEq(
             _writtenSlot(probe.writeManagerHookGasLimit.selector),
-            bytes32(uint256(90)),
+            bytes32(uint256(89)),
             "Tangle tail moved (mid-layout insertion?)"
         );
     }

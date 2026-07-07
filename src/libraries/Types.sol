@@ -271,13 +271,6 @@ library Types {
         uint16 exposureBps; // Committed exposure percentage
     }
 
-    /// @notice Operator's full security commitment for a service
-    struct OperatorSecurityCommitment {
-        address operator;
-        AssetSecurityCommitment[] commitments; // Per-asset commitments
-        uint64 committedAt;
-    }
-
     // ═══════════════════════════════════════════════════════════════════════════
     // TEE ATTESTATION COMMITMENTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -453,13 +446,6 @@ library Types {
         uint256 payment; // Payment for this job (EventDriven model)
         bool completed; // Marked complete by hook or threshold
         bool isRFQ; // True if submitted via RFQ with signed quotes
-    }
-
-    /// @notice Job result from an operator
-    struct JobResult {
-        address operator;
-        uint64 submittedAt;
-        bytes32 outputHash; // Hash of actual output (full data in event)
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -688,15 +674,6 @@ library Types {
         address operator; // Operator address (recovered from signature)
     }
 
-    /// @notice EIP-712 domain for quote signatures
-    /// @dev Used for structured data signing
-    struct QuoteDomain {
-        string name; // "TangleQuote"
-        string version; // "1"
-        uint256 chainId;
-        address verifyingContract;
-    }
-
     /// @notice Per-job quote details from an operator
     /// @dev `requester` is part of the typed data so the operator's signature commits
     ///      to who is allowed to redeem the quote. Mirrors the same field on the
@@ -733,13 +710,6 @@ library Types {
     enum ThresholdType {
         CountBased, // Percentage of operator count
         StakeWeighted // Percentage of total stake
-    }
-
-    /// @notice BLS aggregation configuration for a job
-    struct AggregationConfig {
-        bool required; // Whether aggregation is required
-        uint16 thresholdBps; // Threshold in basis points (6700 = 67%)
-        ThresholdType thresholdType; // Count-based or stake-weighted
     }
 
     /// @notice BN254 G1 point for BLS signatures
@@ -810,7 +780,6 @@ library Types {
     struct BinaryVersion {
         uint64 versionId; // monotonic, append-only per blueprint
         bytes32 sha256Hash; // canonical binary hash
-        string binaryUri; // ipfs://... or https://...
         bytes32 attestationHash; // optional sigstore / SLSA bundle hash; zero if unset
         uint64 publishedAt; // block.timestamp at publish
         bool deprecated; // append-only signal, never rolled back
@@ -859,7 +828,6 @@ library Types {
     struct Attestation {
         address attester;
         bytes32 reportHash;
-        string reportUri;
         AttestationKind kind;
         uint8 severityFound;
         uint64 attestedAt;

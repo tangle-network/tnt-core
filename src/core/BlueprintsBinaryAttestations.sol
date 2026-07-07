@@ -84,7 +84,6 @@ abstract contract BlueprintsBinaryAttestations is Base {
             Types.Attestation({
                 attester: msg.sender,
                 reportHash: reportHash,
-                reportUri: reportUri,
                 kind: kind,
                 severityFound: severityFound,
                 attestedAt: uint64(block.timestamp),

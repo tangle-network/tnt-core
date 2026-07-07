@@ -143,7 +143,7 @@ contract SlashingTest is BaseTest {
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(uint8(proposal.status), uint8(SlashingLib.SlashStatus.Disputed));
-        assertEq(proposal.disputeReason, "Invalid evidence");
+        // disputeReason is no longer stored on-chain; it rides the SlashDisputed event.
     }
 
     function test_DisputeSlash_BySlashAdmin() public {

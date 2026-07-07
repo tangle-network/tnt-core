@@ -53,7 +53,6 @@ library SlashingLib {
         uint64 proposedAt; // When slash was proposed
         uint64 executeAfter; // When slash can be executed
         SlashStatus status; // Current status
-        string disputeReason; // Reason if disputed
         // Address that posted the dispute bond. address(0) when undisputed.
         address disputer;
         // Native-asset bond locked when the slash was disputed. Refunded on cancel,
@@ -281,7 +280,6 @@ library SlashingLib {
             proposedAt: uint64(block.timestamp),
             executeAfter: executeAfter,
             status: SlashStatus.Pending,
-            disputeReason: "",
             disputer: address(0),
             disputeBond: 0,
             disputedAt: 0,
@@ -330,7 +328,6 @@ library SlashingLib {
         }
 
         proposal.status = SlashStatus.Disputed;
-        proposal.disputeReason = reason;
         proposal.disputer = disputer;
         proposal.disputeBond = bondPosted;
         proposal.disputedAt = uint64(block.timestamp);
@@ -421,41 +418,4 @@ library SlashingLib {
         emit SlashCancelled(slashId, canceller, reason);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // QUERIES
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice Get pending slash proposals for an operator
-    /// @param proposals Storage mapping for proposals
-    /// @param operator The operator address
-    /// @param fromId Start searching from this ID
-    /// @param toId Search up to this ID (exclusive)
-    /// @return ids Array of pending slash IDs
-    function getPendingSlashes(
-        mapping(uint64 => SlashProposal) storage proposals,
-        address operator,
-        uint64 fromId,
-        uint64 toId
-    )
-        internal
-        view
-        returns (uint64[] memory ids)
-    {
-        // First pass: count matching
-        uint64 count = 0;
-        for (uint64 i = fromId; i < toId; i++) {
-            if (proposals[i].operator == operator && proposals[i].status == SlashStatus.Pending) {
-                count++;
-            }
-        }
-
-        // Second pass: collect IDs
-        ids = new uint64[](count);
-        uint64 idx = 0;
-        for (uint64 i = fromId; i < toId && idx < count; i++) {
-            if (proposals[i].operator == operator && proposals[i].status == SlashStatus.Pending) {
-                ids[idx++] = i;
-            }
-        }
-    }
 }

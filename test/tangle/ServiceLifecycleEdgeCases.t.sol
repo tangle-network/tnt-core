@@ -105,7 +105,7 @@ contract LifecycleMockBSM is BlueprintServiceManagerBase {
         uint8,
         uint64 jobCallId,
         address,
-        bytes calldata,
+        bytes32,
         bytes calldata
     )
         external
