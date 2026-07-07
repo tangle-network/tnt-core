@@ -249,14 +249,16 @@ interface IBlueprintServiceManager {
     /// @param job The job index
     /// @param jobCallId The job call ID
     /// @param operator The operator submitting
-    /// @param inputs Original job inputs
+    /// @param inputsHash keccak256 of the original job inputs. The raw inputs are delivered to the
+    ///        manager at submit time via `onJobCall`; a BSM that needs them at result time caches
+    ///        them there and verifies against this hash (they also ride the JobSubmitted event).
     /// @param outputs Result outputs (blueprint-specific encoding)
     function onJobResult(
         uint64 serviceId,
         uint8 job,
         uint64 jobCallId,
         address operator,
-        bytes calldata inputs,
+        bytes32 inputsHash,
         bytes calldata outputs
     )
         external
@@ -393,7 +395,12 @@ interface IBlueprintServiceManager {
     ///      Tangle forwards this call best-effort via `_tryCallManager`, so a revert is
     ///      observed off-chain via `ManagerHookFailed` but does NOT undo the on-chain
     ///      version row — the registry is append-only by design.
-    function onBinaryVersionPublished(uint64 blueprintId, Types.BinaryVersion calldata version) external;
+    function onBinaryVersionPublished(
+        uint64 blueprintId,
+        Types.BinaryVersion calldata version,
+        string calldata binaryUri
+    )
+        external;
 
     /// @notice Called when an operator acknowledges a binary version for a service
     /// @dev Default no-op; custom BSMs MAY react (e.g. emit reputation events, gate

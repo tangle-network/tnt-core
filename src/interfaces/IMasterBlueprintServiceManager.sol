@@ -37,7 +37,13 @@ interface IMasterBlueprintServiceManager {
     ///      consumers.
     /// @param blueprintId Blueprint receiving the new version.
     /// @param version Full binary version record.
-    function onBinaryVersionPublished(uint64 blueprintId, Types.BinaryVersion calldata version) external;
+    /// @param binaryUri Off-chain pointer to the binary (event-only; not stored on-chain).
+    function onBinaryVersionPublished(
+        uint64 blueprintId,
+        Types.BinaryVersion calldata version,
+        string calldata binaryUri
+    )
+        external;
 
     /// @notice Indexer notification for an operator binary acknowledgement.
     /// @param serviceId Service whose operator acked the version.

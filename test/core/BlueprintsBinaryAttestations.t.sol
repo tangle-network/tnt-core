@@ -139,7 +139,6 @@ contract BlueprintsBinaryAttestationsTest is UpgradeFlowHarness {
         Types.Attestation memory a = attestations.getAttestation(blueprintId, 0, 0);
         assertEq(a.attester, user1);
         assertEq(a.reportHash, REPORT_HASH);
-        assertEq(a.reportUri, "ipfs://r");
         assertEq(uint8(a.kind), uint8(Types.AttestationKind.FORMAL));
         assertEq(a.severityFound, 2);
         assertEq(a.attestedAt, uint64(block.timestamp));
@@ -253,7 +252,6 @@ contract BlueprintsBinaryAttestationsTest is UpgradeFlowHarness {
         // Other fields untouched: provenance preserved.
         assertEq(a.attester, user1);
         assertEq(a.reportHash, REPORT_HASH);
-        assertEq(a.reportUri, "ipfs://r");
     }
 
     function test_revoke_doesNotChangeAttestationCount() public {

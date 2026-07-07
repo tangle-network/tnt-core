@@ -170,8 +170,6 @@ library Errors {
     /// @notice No operators specified
     error NoOperators();
 
-    /// @notice Invalid TTL value
-    error InvalidTTL(uint64 ttl);
 
     /// @notice TTL below minimum
     error TTLBelowMinimum(uint64 ttl, uint64 minimum);
@@ -200,8 +198,6 @@ library Errors {
     /// @notice Invalid security requirement (min > max, zero exposure, etc.)
     error InvalidSecurityRequirement();
 
-    /// @notice Security commitments don't match requirements
-    error SecurityCommitmentMismatch();
 
     /// @notice Security commitments required for approval
     error SecurityCommitmentsRequired(uint64 requestId);
@@ -217,8 +213,6 @@ library Errors {
     /// @notice Missing commitment for required asset
     error MissingAssetCommitment(address asset);
 
-    /// @notice Operator lacks sufficient stake for commitment
-    error InsufficientStakeForCommitment(address operator, address asset);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // JOB
@@ -281,18 +275,10 @@ library Errors {
     /// @notice Invalid payment token for escrow
     error InvalidPaymentToken();
 
-    /// @notice Service-fee distributor required but not configured
-    error ServiceFeeDistributorNotSet();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STAKING
     // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice Staking module not set
-    error StakingNotSet();
-
-    /// @notice Slash amount exceeds stake
-    error SlashExceedsStake(address operator, uint256 slashAmount, uint256 stake);
 
     /// @notice Slash percentage exceeds maximum (100%)
     error SlashBpsExceedsMax(uint16 slashBps, uint16 maxBps);
@@ -306,16 +292,6 @@ library Errors {
 
     /// @notice Service manager rejected operation
     error ManagerRejected(address manager);
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // HOOK (DEPRECATED - use Manager errors)
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice Hook call reverted
-    error HookReverted(address hook, bytes reason);
-
-    /// @notice Hook returned false (rejected operation)
-    error HookRejected(address hook);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // RFQ (Request For Quote)
@@ -423,15 +399,6 @@ library Errors {
 
     /// @notice Aggregation threshold not met
     error AggregationThresholdNotMet(uint64 serviceId, uint64 callId, uint256 achieved, uint256 required);
-
-    /// @notice Operator not found in signer bitmap
-    error InvalidSignerBitmap(uint256 bitmap);
-
-    /// @notice Signer is not an active operator for this service
-    error InvalidSigner(uint64 serviceId, address signer);
-
-    /// @notice Duplicate signer in bitmap
-    error DuplicateSigner();
 
     /// @notice Invalid G1 point in signature
     error InvalidG1Point();

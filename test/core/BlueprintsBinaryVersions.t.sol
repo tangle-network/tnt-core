@@ -93,7 +93,6 @@ contract BlueprintsBinaryVersionsTest is UpgradeFlowHarness {
         Types.BinaryVersion memory row = versions.getBinaryVersion(bp, 0);
         assertEq(row.versionId, 0);
         assertEq(row.sha256Hash, HASH_V0);
-        assertEq(row.binaryUri, "ipfs://v0");
         assertEq(row.attestationHash, ATT_HASH);
         assertEq(row.publishedAt, uint64(block.timestamp));
         assertFalse(row.deprecated);

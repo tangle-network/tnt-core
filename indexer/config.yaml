@@ -23,7 +23,7 @@ chains:
           - event: BlueprintTransferred(uint64 indexed blueprintId, address indexed from, address indexed to)
           - event: BlueprintTransferProposed(uint64 indexed blueprintId, address indexed from, address indexed pendingOwner)
           - event: BlueprintTransferCancelled(uint64 indexed blueprintId, address indexed owner)
-          - event: BlueprintSourcesUpdated(uint64 indexed blueprintId, uint256 sourceCount)
+          - event: BlueprintSourcesRecorded(uint64 indexed blueprintId, bytes32 indexed sourcesHash, (uint8 kind, (string registry, string image, string tag) container, (uint8 runtime, uint8 fetcher, string artifactUri, string entrypoint) wasm, (uint8 fetcher, string artifactUri, string entrypoint) native, (string cargoPackage, string cargoBin, string basePath) testing, (uint8 arch, uint8 os, string name, bytes32 sha256)[] binaries)[] sources)
           - event: BlueprintSourcesAcked(uint64 indexed blueprintId, address indexed operator, bytes32 sourcesHash)
           - event: BlueprintUpdated(uint64 indexed blueprintId, string metadataUri, bytes32 metadataHash)
           - event: EscrowFunded(uint64 indexed serviceId, address indexed token, uint256 amount)

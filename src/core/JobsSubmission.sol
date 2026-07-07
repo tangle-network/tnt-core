@@ -48,10 +48,12 @@ abstract contract JobsSubmission is Base {
         _validateJobInputs(svc.blueprintId, jobIndex, inputs);
 
         callId = _createJobCall(serviceId, jobIndex, msg.sender, payment, false);
-        bytes memory managerInputs = inputs;
-        _jobInputs[serviceId][callId] = managerInputs;
+        // Store only the input hash (one word) instead of the full blob: the raw inputs already
+        // ride the JobSubmitted event (indexer source) and reach the BSM via onJobCall at submit
+        // time; the hash re-anchors them at result time for onJobResult witness verification.
+        _jobInputsHash[serviceId][callId] = keccak256(inputs);
 
-        _finalizeJobSubmission(bp.manager, serviceId, jobIndex, callId, msg.sender, managerInputs);
+        _finalizeJobSubmission(bp.manager, serviceId, jobIndex, callId, msg.sender, inputs);
     }
 
     /// @notice Submit job result
@@ -293,7 +295,7 @@ abstract contract JobsSubmission is Base {
             manager,
             abi.encodeCall(
                 IBlueprintServiceManager.onJobResult,
-                (serviceId, jobIndex, callId, msg.sender, _jobInputs[serviceId][callId], output)
+                (serviceId, jobIndex, callId, msg.sender, _jobInputsHash[serviceId][callId], output)
             )
         );
     }

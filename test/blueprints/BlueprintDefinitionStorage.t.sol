@@ -10,7 +10,9 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Vm } from "forge-std/Vm.sol";
 
 contract BlueprintDefinitionStorageTest is BaseTest {
-    event BlueprintSourcesUpdated(uint64 indexed blueprintId, uint256 sourceCount);
+    event BlueprintSourcesRecorded(
+        uint64 indexed blueprintId, bytes32 indexed sourcesHash, Types.BlueprintSource[] sources
+    );
 
     /// @dev Decode the full blueprint definition from the BlueprintDefinitionRecorded
     ///      event payload — the canonical off-chain copy of the display data that is no
@@ -93,56 +95,57 @@ contract BlueprintDefinitionStorageTest is BaseTest {
         blueprintId = tangle.createBlueprint(def);
     }
 
-    function test_GetBlueprintDefinition_ReflectsLiveSources() public {
+    function test_BlueprintSourcesHash_ReflectsLiveSources() public {
         uint64 id = _createOwned();
-        // Genesis: the definition's sources match the genesis (one container source).
-        Types.BlueprintDefinition memory g = tangle.getBlueprintDefinition(id);
-        assertEq(g.sources.length, 1, "genesis def sources");
-        assertEq(uint256(g.sources[0].kind), uint256(Types.BlueprintSourceKind.Container), "genesis kind");
+        // Genesis: sources are anchored on-chain by hash only (the array itself is
+        // not stored). The genesis set is one container source.
+        Types.BlueprintSource[] memory genesis = new Types.BlueprintSource[](1);
+        genesis[0] = _defaultBlueprintSource();
+        bytes32 genesisHash = tangle.blueprintSourcesHash(id);
+        assertEq(genesisHash, keccak256(abi.encode(genesis)), "genesis sources hash");
 
         Types.BlueprintSource[] memory next = new Types.BlueprintSource[](1);
         next[0] = _multiArchNativeSource();
         vm.prank(developer);
         tangle.setBlueprintSources(id, next);
 
-        // The definition view (what the manager reads) must now reflect the live
-        // sources, not the stale genesis blob — else setBlueprintSources is a no-op
-        // for binary resolution.
+        // The on-chain anchor (what operators ack against) must now reflect the live
+        // sources, not the stale genesis set — else setBlueprintSources is a no-op
+        // for binary resolution. A hash match verifies the FULL array round-trips.
+        assertEq(tangle.blueprintSourcesHash(id), keccak256(abi.encode(next)), "hash reflects new sources");
+        assertTrue(tangle.blueprintSourcesHash(id) != genesisHash, "hash changed from genesis");
+
+        // The definition view no longer reconstructs sources on-chain (empty array);
+        // display data lives in the BlueprintSourcesRecorded event, not this view.
         Types.BlueprintDefinition memory d = tangle.getBlueprintDefinition(id);
-        assertEq(d.sources.length, 1, "def reflects new source count");
-        assertEq(uint256(d.sources[0].kind), uint256(Types.BlueprintSourceKind.Native), "def kind -> Native");
-        assertEq(uint256(d.sources[0].native.fetcher), uint256(Types.BlueprintFetcherKind.Github), "def fetcher");
-        assertEq(d.sources[0].binaries.length, 2, "def per-arch binaries");
-        assertEq(d.sources[0].binaries[1].sha256, bytes32(uint256(0xB0B)), "def binary sha overlaid");
+        assertEq(d.sources.length, 0, "def sources not stored on-chain");
         // Non-source fields still come from the genesis blob (unchanged).
         assertEq(d.metadataUri, "ipfs://set-sources", "metadataUri preserved from blob");
     }
 
     function test_SetBlueprintSources_RepointsToMultiArch() public {
         uint64 id = _createOwned();
-        // Genesis: one single-arch container source.
-        assertEq(tangle.blueprintSources(id).length, 1, "precondition: one genesis source");
+        // Genesis: one single-arch container source, anchored by hash only.
+        Types.BlueprintSource[] memory genesis = new Types.BlueprintSource[](1);
+        genesis[0] = _defaultBlueprintSource();
+        assertEq(
+            tangle.blueprintSourcesHash(id), keccak256(abi.encode(genesis)), "precondition: genesis sources hash"
+        );
 
         Types.BlueprintSource[] memory next = new Types.BlueprintSource[](1);
         next[0] = _multiArchNativeSource();
+        bytes32 nextHash = keccak256(abi.encode(next));
 
-        vm.expectEmit(true, false, false, true, address(tangle));
-        emit BlueprintSourcesUpdated(id, 1);
+        // The repoint re-fires the FULL source array (both arches, exact hashes)
+        // alongside the anchor hash; matching topics + data proves the whole payload.
+        vm.expectEmit(true, true, false, true, address(tangle));
+        emit BlueprintSourcesRecorded(id, nextHash, next);
         vm.prank(developer);
         tangle.setBlueprintSources(id, next);
 
-        Types.BlueprintSource[] memory stored = tangle.blueprintSources(id);
-        assertEq(stored.length, 1, "source count");
-        assertEq(uint256(stored[0].kind), uint256(Types.BlueprintSourceKind.Native), "kind -> Native");
-        assertEq(uint256(stored[0].native.fetcher), uint256(Types.BlueprintFetcherKind.Github), "fetcher -> Github");
-        assertEq(stored[0].native.artifactUri, next[0].native.artifactUri, "artifactUri");
-        // Deep copy of nested binaries, both arches present with exact hashes.
-        assertEq(stored[0].binaries.length, 2, "binary count");
-        assertEq(uint256(stored[0].binaries[0].arch), uint256(Types.BlueprintArchitecture.Amd64), "binary0 arch");
-        assertEq(uint256(stored[0].binaries[1].arch), uint256(Types.BlueprintArchitecture.Arm64), "binary1 arch");
-        assertEq(uint256(stored[0].binaries[1].os), uint256(Types.BlueprintOperatingSystem.Linux), "binary1 os");
-        assertEq(stored[0].binaries[1].name, next[0].binaries[1].name, "binary1 name");
-        assertEq(stored[0].binaries[1].sha256, bytes32(uint256(0xB0B)), "binary1 sha256");
+        // A hash match verifies the full content round-trips — any field difference
+        // (kind, fetcher, artifactUri, per-arch binaries, names, sha256s) changes it.
+        assertEq(tangle.blueprintSourcesHash(id), nextHash, "sources hash reflects multi-arch repoint");
     }
 
     function test_SetBlueprintSources_AllowsX86OnlyRemoteNativeSource() public {
@@ -156,19 +159,13 @@ contract BlueprintDefinitionStorageTest is BaseTest {
         vm.prank(developer);
         tangle.setBlueprintSources(id, next);
 
-        Types.BlueprintSource[] memory stored = tangle.blueprintSources(id);
-        assertEq(stored.length, 1, "source count");
-        assertEq(uint256(stored[0].kind), uint256(Types.BlueprintSourceKind.Native), "kind -> Native");
-        assertEq(uint256(stored[0].native.fetcher), uint256(Types.BlueprintFetcherKind.Http), "fetcher -> Http");
-        assertEq(stored[0].native.entrypoint, "trading-blueprint", "entrypoint");
-        assertEq(stored[0].binaries.length, 1, "binary count");
-        assertEq(uint256(stored[0].binaries[0].arch), uint256(Types.BlueprintArchitecture.Amd64), "binary arch");
-        assertEq(stored[0].binaries[0].name, "trading-blueprint", "binary name");
-        assertEq(stored[0].binaries[0].sha256, bytes32(uint256(0xA11CE)), "binary sha256");
+        // Hash anchors the full x86-only remote-native set (kind, Http fetcher,
+        // entrypoint, single Amd64 binary + sha256); a match round-trips all of it.
+        assertEq(tangle.blueprintSourcesHash(id), keccak256(abi.encode(next)), "sources hash reflects x86-only set");
 
+        // The on-chain definition view no longer reconstructs sources.
         Types.BlueprintDefinition memory definition = tangle.getBlueprintDefinition(id);
-        assertEq(definition.sources.length, 1, "definition source count");
-        assertEq(definition.sources[0].native.artifactUri, stored[0].native.artifactUri, "definition artifactUri");
+        assertEq(definition.sources.length, 0, "definition sources not stored on-chain");
     }
 
     function test_SetBlueprintSources_ReflectsPerArchRemoteNativeSourceArray() public {
@@ -185,19 +182,13 @@ contract BlueprintDefinitionStorageTest is BaseTest {
         vm.prank(developer);
         tangle.setBlueprintSources(id, next);
 
-        Types.BlueprintSource[] memory stored = tangle.blueprintSources(id);
-        assertEq(stored.length, 2, "source count");
-        assertEq(stored[0].binaries.length, 1, "x86 binary count");
-        assertEq(stored[1].binaries.length, 1, "arm binary count");
-        assertEq(uint256(stored[0].binaries[0].arch), uint256(Types.BlueprintArchitecture.Amd64), "x86 arch");
-        assertEq(uint256(stored[1].binaries[0].arch), uint256(Types.BlueprintArchitecture.Arm64), "arm arch");
-        assertEq(stored[0].native.entrypoint, "trading-blueprint", "x86 entrypoint");
-        assertEq(stored[1].native.entrypoint, "trading-blueprint", "arm entrypoint");
+        // Hash anchors the full two-source per-arch array (x86 + arm, each with its
+        // own binary, arch, entrypoint, uri and sha256); a match round-trips it all.
+        assertEq(tangle.blueprintSourcesHash(id), keccak256(abi.encode(next)), "sources hash reflects per-arch array");
 
+        // The on-chain definition view no longer reconstructs sources.
         Types.BlueprintDefinition memory definition = tangle.getBlueprintDefinition(id);
-        assertEq(definition.sources.length, 2, "definition source count");
-        assertEq(definition.sources[1].binaries[0].sha256, bytes32(uint256(0xB0B)), "definition arm sha");
-        assertEq(definition.sources[1].native.artifactUri, stored[1].native.artifactUri, "definition arm uri");
+        assertEq(definition.sources.length, 0, "definition sources not stored on-chain");
     }
 
     function test_SetBlueprintSources_ReplacesNotAppends_NoStaleEntries() public {
@@ -209,19 +200,21 @@ contract BlueprintDefinitionStorageTest is BaseTest {
         big[1] = _defaultBlueprintSource(); // 1 binary
         vm.prank(developer);
         tangle.setBlueprintSources(id, big);
-        assertEq(tangle.blueprintSources(id).length, 2, "after first set");
+        assertEq(tangle.blueprintSourcesHash(id), keccak256(abi.encode(big)), "after first set");
 
-        // Re-set to a single source with a single binary; delete must clear the
-        // prior nested binaries array, not leave the old second binary dangling.
+        // Re-set to a single source with a single binary; the anchor must be recomputed
+        // over ONLY the new set, not left carrying the old second source/binary.
         Types.BlueprintSource[] memory small = new Types.BlueprintSource[](1);
         small[0] = _defaultBlueprintSource();
         vm.prank(developer);
         tangle.setBlueprintSources(id, small);
 
-        Types.BlueprintSource[] memory stored = tangle.blueprintSources(id);
-        assertEq(stored.length, 1, "shrunk to one source");
-        assertEq(stored[0].binaries.length, 1, "shrunk to one binary (no stale entries)");
-        assertEq(uint256(stored[0].kind), uint256(Types.BlueprintSourceKind.Container), "kind reset");
+        // Hash equals keccak256(abi.encode(small)) exactly — any stale entry from the
+        // prior set would change the encoding and break this equality. Replace, not append.
+        assertEq(tangle.blueprintSourcesHash(id), keccak256(abi.encode(small)), "shrunk to one source, no stale entries");
+        assertTrue(
+            tangle.blueprintSourcesHash(id) != keccak256(abi.encode(big)), "anchor no longer reflects the old big set"
+        );
     }
 
     function test_SetBlueprintSources_RevertsForNonOwner() public {
@@ -325,11 +318,13 @@ contract BlueprintDefinitionStorageTest is BaseTest {
         assertEq(recorded.metadata.category, def.metadata.category, "event metadata category");
         assertEq(recorded.metadata.license, def.metadata.license, "event metadata license");
 
-        Types.BlueprintSource[] memory storedSources = tangle.blueprintSources(blueprintId);
-        assertEq(storedSources.length, def.sources.length, "source length mismatch");
-        assertEq(uint256(storedSources[1].kind), uint256(def.sources[1].kind));
-        assertEq(storedSources[1].wasm.artifactUri, def.sources[1].wasm.artifactUri);
-        assertEq(storedSources[1].wasm.entrypoint, def.sources[1].wasm.entrypoint);
+        // Sources are anchored on-chain by hash only; a match round-trips the full
+        // two-source set (container + wasm, with wasm kind/artifactUri/entrypoint).
+        assertEq(
+            tangle.blueprintSourcesHash(blueprintId),
+            keccak256(abi.encode(def.sources)),
+            "sources hash mismatch"
+        );
 
         Types.MembershipModel[] memory memberships = tangle.blueprintSupportedMemberships(blueprintId);
         assertEq(memberships.length, def.supportedMemberships.length, "membership length mismatch");

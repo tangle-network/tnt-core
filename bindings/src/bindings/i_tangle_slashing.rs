@@ -5,7 +5,7 @@
 library SlashingLib {
     type SlashStatus is uint8;
     struct SlashConfig { uint64 disputeWindow; bool instantSlashEnabled; uint16 maxSlashBps; uint64 disputeResolutionDeadline; uint256 disputeBond; uint16 maxPendingSlashesPerOperator; }
-    struct SlashProposal { uint64 serviceId; address operator; address proposer; uint16 slashBps; uint16 effectiveSlashBps; bytes32 evidence; uint64 proposedAt; uint64 executeAfter; SlashStatus status; string disputeReason; address disputer; uint256 disputeBond; uint64 disputedAt; uint64 disputeDeadline; }
+    struct SlashProposal { uint64 serviceId; address operator; address proposer; uint16 slashBps; uint16 effectiveSlashBps; bytes32 evidence; uint64 proposedAt; uint64 executeAfter; SlashStatus status; address disputer; uint256 disputeBond; uint64 disputedAt; uint64 disputeDeadline; }
 }
 ```*/
 #[allow(
@@ -490,7 +490,7 @@ struct SlashConfig { uint64 disputeWindow; bool instantSlashEnabled; uint16 maxS
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct SlashProposal { uint64 serviceId; address operator; address proposer; uint16 slashBps; uint16 effectiveSlashBps; bytes32 evidence; uint64 proposedAt; uint64 executeAfter; SlashStatus status; string disputeReason; address disputer; uint256 disputeBond; uint64 disputedAt; uint64 disputeDeadline; }
+struct SlashProposal { uint64 serviceId; address operator; address proposer; uint16 slashBps; uint16 effectiveSlashBps; bytes32 evidence; uint64 proposedAt; uint64 executeAfter; SlashStatus status; address disputer; uint256 disputeBond; uint64 disputedAt; uint64 disputeDeadline; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -513,8 +513,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
         pub executeAfter: u64,
         #[allow(missing_docs)]
         pub status: <SlashStatus as alloy::sol_types::SolType>::RustType,
-        #[allow(missing_docs)]
-        pub disputeReason: alloy::sol_types::private::String,
         #[allow(missing_docs)]
         pub disputer: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
@@ -544,7 +542,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Uint<64>,
             SlashStatus,
-            alloy::sol_types::sol_data::String,
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Uint<64>,
@@ -561,7 +558,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
             u64,
             u64,
             <SlashStatus as alloy::sol_types::SolType>::RustType,
-            alloy::sol_types::private::String,
             alloy::sol_types::private::Address,
             alloy::sol_types::private::primitives::aliases::U256,
             u64,
@@ -592,7 +588,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     value.proposedAt,
                     value.executeAfter,
                     value.status,
-                    value.disputeReason,
                     value.disputer,
                     value.disputeBond,
                     value.disputedAt,
@@ -614,11 +609,10 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     proposedAt: tuple.6,
                     executeAfter: tuple.7,
                     status: tuple.8,
-                    disputeReason: tuple.9,
-                    disputer: tuple.10,
-                    disputeBond: tuple.11,
-                    disputedAt: tuple.12,
-                    disputeDeadline: tuple.13,
+                    disputer: tuple.9,
+                    disputeBond: tuple.10,
+                    disputedAt: tuple.11,
+                    disputeDeadline: tuple.12,
                 }
             }
         }
@@ -656,9 +650,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                         64,
                     > as alloy_sol_types::SolType>::tokenize(&self.executeAfter),
                     <SlashStatus as alloy_sol_types::SolType>::tokenize(&self.status),
-                    <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
-                        &self.disputeReason,
-                    ),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.disputer,
                     ),
@@ -745,7 +736,7 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "SlashProposal(uint64 serviceId,address operator,address proposer,uint16 slashBps,uint16 effectiveSlashBps,bytes32 evidence,uint64 proposedAt,uint64 executeAfter,uint8 status,string disputeReason,address disputer,uint256 disputeBond,uint64 disputedAt,uint64 disputeDeadline)",
+                    "SlashProposal(uint64 serviceId,address operator,address proposer,uint16 slashBps,uint16 effectiveSlashBps,bytes32 evidence,uint64 proposedAt,uint64 executeAfter,uint8 status,address disputer,uint256 disputeBond,uint64 disputedAt,uint64 disputeDeadline)",
                 )
             }
             #[inline]
@@ -797,10 +788,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                         .0,
                     <SlashStatus as alloy_sol_types::SolType>::eip712_data_word(
                             &self.status,
-                        )
-                        .0,
-                    <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.disputeReason,
                         )
                         .0,
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
@@ -868,9 +855,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     )
                     + <SlashStatus as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.status,
-                    )
-                    + <alloy::sol_types::sol_data::String as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.disputeReason,
                     )
                     + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.disputer,
@@ -945,10 +929,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                 );
                 <SlashStatus as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.status,
-                    out,
-                );
-                <alloy::sol_types::sol_data::String as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.disputeReason,
                     out,
                 );
                 <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
@@ -1134,7 +1114,6 @@ library SlashingLib {
         uint64 proposedAt;
         uint64 executeAfter;
         SlashStatus status;
-        string disputeReason;
         address disputer;
         uint256 disputeBond;
         uint64 disputedAt;
@@ -1381,11 +1360,6 @@ interface ITangleSlashing {
             "name": "status",
             "type": "uint8",
             "internalType": "enum SlashingLib.SlashStatus"
-          },
-          {
-            "name": "disputeReason",
-            "type": "string",
-            "internalType": "string"
           },
           {
             "name": "disputer",

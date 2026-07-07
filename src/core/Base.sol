@@ -394,29 +394,24 @@ abstract contract Base is
         }
     }
 
-    /// @dev Replace a blueprint's stored sources with `sources` (delete + deep copy).
-    ///      Shared by createBlueprint (genesis write) and setBlueprintSources (owner
-    ///      repoint). Callers must validate via {_validateBlueprintSources} first.
+    /// @notice Emitted on blueprint creation and every source repoint, carrying the FULL source set.
+    /// @dev Sources are NOT stored on-chain (only `_blueprintSourcesHash` anchors them); the cold-start
+    ///      manager reconstructs them from this event via the indexer. A repoint re-fires the whole
+    ///      array (not a delta) so event-sourced copies always converge on the latest set.
+    event BlueprintSourcesRecorded(
+        uint64 indexed blueprintId, bytes32 indexed sourcesHash, Types.BlueprintSource[] sources
+    );
+
+    /// @dev Anchor a blueprint's sources by hash and emit the full payload. No on-chain array is kept:
+    ///      the cold-start manager resolves operator binaries from the BlueprintSourcesRecorded event
+    ///      (via the indexer), and `_blueprintSourcesHash` remains the on-chain anchor that operators
+    ///      ack against (a repoint changes the hash, invalidating stale acks). calldata-encoded so the
+    ///      digest is deterministic and cheap to recompute off-chain. Shared by createBlueprint (genesis)
+    ///      and setBlueprintSources (owner repoint). Callers must validate via {_validateBlueprintSources}.
     function _writeBlueprintSources(uint64 blueprintId, Types.BlueprintSource[] calldata sources) internal {
-        delete _blueprintSources[blueprintId];
-        Types.BlueprintSource[] storage stored = _blueprintSources[blueprintId];
-        for (uint256 i = 0; i < sources.length; ++i) {
-            Types.BlueprintSource storage dst = stored.push();
-            Types.BlueprintSource calldata src = sources[i];
-            dst.kind = src.kind;
-            dst.container = src.container;
-            dst.wasm = src.wasm;
-            dst.native = src.native;
-            dst.testing = src.testing;
-            for (uint256 j = 0; j < src.binaries.length; ++j) {
-                dst.binaries.push(src.binaries[j]);
-            }
-        }
-        // Pin a digest of the cold-start sources so operators can ack a specific
-        // source-set and the off-chain manager can gate boot on that ack (a repoint
-        // changes this hash, invalidating stale acks). calldata-encoded so the digest
-        // is deterministic and cheap to recompute off-chain from the same input.
-        _blueprintSourcesHash[blueprintId] = keccak256(abi.encode(sources));
+        bytes32 sourcesHash = keccak256(abi.encode(sources));
+        _blueprintSourcesHash[blueprintId] = sourcesHash;
+        emit BlueprintSourcesRecorded(blueprintId, sourcesHash, sources);
     }
 
     function _getServiceRequest(uint64 id) internal view returns (Types.ServiceRequest storage) {

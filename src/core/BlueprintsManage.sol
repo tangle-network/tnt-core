@@ -22,7 +22,6 @@ abstract contract BlueprintsManage is Base {
     event BlueprintDeactivated(uint64 indexed blueprintId);
     event JobEventRateSet(uint64 indexed blueprintId, uint8 indexed jobIndex, uint256 rate);
     event BlueprintResourceRequirementsSet(uint64 indexed blueprintId, uint256 count);
-    event BlueprintSourcesUpdated(uint64 indexed blueprintId, uint256 sourceCount);
     event BlueprintSourcesAcked(uint64 indexed blueprintId, address indexed operator, bytes32 sourcesHash);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -43,15 +42,6 @@ abstract contract BlueprintsManage is Base {
         metadata = _blueprintMetadata[blueprintId];
         metadataUri = _blueprintMetadataUri[blueprintId];
         metadataHash = _blueprintMetadataHash[blueprintId];
-    }
-
-    /// @notice Get blueprint sources
-    function blueprintSources(uint64 blueprintId) external view returns (Types.BlueprintSource[] memory sources) {
-        Types.BlueprintSource[] storage stored = _blueprintSources[blueprintId];
-        sources = new Types.BlueprintSource[](stored.length);
-        for (uint256 i = 0; i < stored.length; ++i) {
-            sources[i] = stored[i];
-        }
     }
 
     /// @notice Get blueprint supported membership models
@@ -88,9 +78,10 @@ abstract contract BlueprintsManage is Base {
     /// (name/description/metadataUri) and 7 of 9 metadata prose fields are dropped
     /// on-chain and carried by the event — so keccak256(abi.encode(this view)) does
     /// NOT equal blueprintDefinitionHash (which anchors the full event payload).
-    /// `hasConfig` reflects the creation-time value, and
-    /// sources reflect the current (post-genesis) set — the view the blueprint
-    /// manager reads to resolve operator binaries.
+    /// `hasConfig` reflects the creation-time value. `sources` is returned EMPTY: sources
+    /// are no longer stored on-chain (only `blueprintSourcesHash` anchors them); the
+    /// cold-start manager reconstructs the current set from the BlueprintSourcesRecorded
+    /// event via the indexer.
     function getBlueprintDefinition(uint64 blueprintId)
         external
         view
@@ -109,7 +100,7 @@ abstract contract BlueprintsManage is Base {
 
         definition.registrationSchema = _registrationSchemas[blueprintId];
         definition.requestSchema = _requestSchemas[blueprintId];
-        definition.sources = _blueprintSources[blueprintId];
+        // definition.sources intentionally left empty — sources are event-sourced (see docstring).
         definition.supportedMemberships = _blueprintSupportedMemberships[blueprintId];
     }
 
@@ -159,8 +150,8 @@ abstract contract BlueprintsManage is Base {
             revert Errors.NotBlueprintOwner(blueprintId, msg.sender);
         }
         _validateBlueprintSources(sources);
+        // _writeBlueprintSources pins the hash and emits BlueprintSourcesRecorded (full payload).
         _writeBlueprintSources(blueprintId, sources);
-        emit BlueprintSourcesUpdated(blueprintId, sources.length);
     }
 
     /// @notice Propose a transfer of blueprint ownership (step 1 of 2).

@@ -102,9 +102,6 @@ interface ITangleBlueprints {
         view
         returns (Types.BlueprintMetadata memory metadata, string memory metadataUri, bytes32 metadataHash);
 
-    /// @notice Get blueprint sources
-    function blueprintSources(uint64 blueprintId) external view returns (Types.BlueprintSource[] memory sources);
-
     /// @notice Get blueprint supported membership models
     function blueprintSupportedMemberships(uint64 blueprintId)
         external

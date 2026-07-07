@@ -116,8 +116,9 @@ abstract contract JobsRFQ is Base {
             quotedOperators[i] = quotes[i].operator;
         }
 
-        // Store inputs for manager hook
-        _jobInputs[serviceId][callId] = inputs;
+        // Store only the input hash (reuse the keccak already computed at line 86 for quote
+        // verification) for the onJobResult witness anchor; raw inputs ride the event below.
+        _jobInputsHash[serviceId][callId] = inputsHash;
 
         emit JobSubmittedFromQuote(serviceId, callId, jobIndex, msg.sender, quotedOperators, totalPrice, inputs);
 

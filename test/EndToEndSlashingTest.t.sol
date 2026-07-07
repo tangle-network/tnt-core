@@ -563,7 +563,7 @@ contract ChallengingSquareBSM is BlueprintServiceManagerBase {
         uint8,
         uint64 callId,
         address operator,
-        bytes calldata,
+        bytes32,
         bytes calldata outputs
     )
         external
