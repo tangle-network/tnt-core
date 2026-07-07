@@ -159,36 +159,33 @@ fn gen_bindings() -> Result<()> {
     fs::create_dir_all(&abi_dir)
         .with_context(|| format!("failed to create {}", abi_dir.display()))?;
 
+    // Source the ABI JSON from the SAME out dir the build wrote to. Honors FOUNDRY_OUT so a
+    // redirected build (e.g. FOUNDRY_OUT=.drew-out-bind, used when the default `out/` is
+    // root-owned/unwritable) is picked up instead of a stale `out/local-build`. Previously these
+    // were hardcoded to `out/local-build`, so a redirected build silently copied STALE ABIs while
+    // the .rs bindings were fresh — shipping abi/*.json that still referenced removed functions.
+    let out_dir = std::env::var("FOUNDRY_OUT").unwrap_or_else(|_| "out/local-build".to_string());
     let abi_files = [
-        ("ITangle.json", "out/local-build/ITangle.sol/ITangle.json"),
-        (
-            "ITangleFull.json",
-            "out/local-build/ITangle.sol/ITangleFull.json",
-        ),
-        (
-            "ITangleSlashing.json",
-            "out/local-build/ITangleSlashing.sol/ITangleSlashing.json",
-        ),
+        ("ITangle.json", "ITangle.sol/ITangle.json"),
+        ("ITangleFull.json", "ITangle.sol/ITangleFull.json"),
+        ("ITangleSlashing.json", "ITangleSlashing.sol/ITangleSlashing.json"),
         (
             "IBlueprintServiceManager.json",
-            "out/local-build/IBlueprintServiceManager.sol/IBlueprintServiceManager.json",
+            "IBlueprintServiceManager.sol/IBlueprintServiceManager.json",
         ),
         (
             "OperatorStatusRegistry.json",
-            "out/local-build/OperatorStatusRegistry.sol/OperatorStatusRegistry.json",
+            "OperatorStatusRegistry.sol/OperatorStatusRegistry.json",
         ),
         (
             "IMultiAssetDelegation.json",
-            "out/local-build/IMultiAssetDelegation.sol/IMultiAssetDelegation.json",
+            "IMultiAssetDelegation.sol/IMultiAssetDelegation.json",
         ),
-        (
-            "MultiAssetDelegation.json",
-            "out/local-build/MultiAssetDelegation.sol/MultiAssetDelegation.json",
-        ),
+        ("MultiAssetDelegation.json", "MultiAssetDelegation.sol/MultiAssetDelegation.json"),
     ];
 
-    for (i, (name, source)) in abi_files.iter().enumerate() {
-        let src = repo_root.join(source);
+    for (i, (name, rel)) in abi_files.iter().enumerate() {
+        let src = repo_root.join(&out_dir).join(rel);
         let dst = abi_dir.join(name);
         fs::copy(&src, &dst).with_context(|| {
             format!(
