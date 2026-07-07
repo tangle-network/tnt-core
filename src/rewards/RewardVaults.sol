@@ -1013,10 +1013,25 @@ contract RewardVaults is
     ///      `boostedScore` — diluting honest delegators until the locker chooses to transact. This lets
     ///      any diluted co-delegator or keeper force the collapse. No-op (via `_decayExpiredLock`) when
     ///      the lock is absent, not yet expired, or already at base weight; idempotent.
-    function settleExpiredLock(address asset, address delegator, address operator) external nonReentrant {
+    /// @return applied True if a boost was actually decayed; false on every no-op path, so a keeper
+    ///         learns whether the poke did anything without having to re-read storage.
+    function settleExpiredLock(
+        address asset,
+        address delegator,
+        address operator
+    )
+        external
+        nonReentrant
+        returns (bool applied)
+    {
         DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
+        // Cheap short-circuit: for an absent or not-yet-expired lock there is nothing to decay and
+        // `_decayExpiredLock` would return at its first guard anyway. Checking the debt slot (already
+        // needed) first lets us skip the cold `operatorPools[asset][operator]` SLOAD on that common
+        // no-op poke against a non-existent/active position.
+        if (debt.lockExpiry == 0 || block.timestamp < debt.lockExpiry) return false;
         OperatorPool storage pool = operatorPools[asset][operator];
-        _decayExpiredLock(asset, delegator, operator, pool, debt);
+        return _decayExpiredLock(asset, delegator, operator, pool, debt);
     }
 
     /// @notice Effective (decay-aware) boosted score for views, without mutating storage.
