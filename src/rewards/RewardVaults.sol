@@ -1005,6 +1005,20 @@ contract RewardVaults is
         return true;
     }
 
+    /// @notice Permissionlessly collapse a position's expired lock-multiplier boost back to base weight.
+    /// @dev Mirrors `ServiceFeeDistributor.settleExpiredLock`. The lazy `_decayExpiredLock` otherwise
+    ///      only runs on the locker's OWN claim/stake/unstake, so an idle locker keeps earning the
+    ///      (up to 1.6x) boosted share of every epoch after `lockExpiry` — `_distributeToOperatorPool`
+    ///      keeps advancing `accumulatedPerShare` against a `totalStaked` that still carries the stale
+    ///      `boostedScore` — diluting honest delegators until the locker chooses to transact. This lets
+    ///      any diluted co-delegator or keeper force the collapse. No-op (via `_decayExpiredLock`) when
+    ///      the lock is absent, not yet expired, or already at base weight; idempotent.
+    function settleExpiredLock(address asset, address delegator, address operator) external nonReentrant {
+        DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
+        OperatorPool storage pool = operatorPools[asset][operator];
+        _decayExpiredLock(asset, delegator, operator, pool, debt);
+    }
+
     /// @notice Effective (decay-aware) boosted score for views, without mutating storage.
     /// @dev Mirrors `_decayExpiredLock`: once the lock has expired the position earns only
     ///      its base weight (`stakedAmount`). View functions must report the same weight a
