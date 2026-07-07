@@ -6,22 +6,22 @@
   "treasury": "0x2420fff17c4213a4075cf5f7b6dc33429aaf22bb",
   "timelock": "0x2420fff17c4213a4075cf5f7b6dc33429aaf22bb",
   "multisig": "0x2420fff17c4213a4075cf5f7b6dc33429aaf22bb",
-  "tangle": "0x77c1cdfdda642a9c2587545768088c7cad6c4ced",
-  "staking": "0x8ed44aa6c65ef51c880fed08c9b2a611604b5693",
-  "restaking": "0x8ed44aa6c65ef51c880fed08c9b2a611604b5693",
-  "statusRegistry": "0x9f5799bbb9abfcb89645f5bb4c4844efd3c87c0c",
-  "tntToken": "0xb91177666047459e13a6e1254fffae60762ec2b9",
-  "metrics": "0xedffd611b47a273f28a35b9de5ee29c793c58f7c",
-  "rewardVaults": "0xa2f876e7cb7702e161290b704e45271dd240fa76",
-  "inflationPool": "0x53894ba39bf548ef38018f5d29c67a57206173b4",
-  "serviceFeeDistributor": "0xdc7ff0f48e409fcec01e1ba375fd5af558b0986e",
+  "tangle": "0xff137b9c879c47c28ce389e84501925438ab4cda",
+  "staking": "0x9484d07899b98384f1d66bd5b2659f3ed346f89e",
+  "restaking": "0x9484d07899b98384f1d66bd5b2659f3ed346f89e",
+  "statusRegistry": "0xaedaffd260e21b41cb9926370e32d14bef812b48",
+  "tntToken": "0x64fb7ffae82c1682574e9edb4e2f4e377132f671",
+  "metrics": "0x485289432c55ca68a392a204c4bddf1e4a0acf8f",
+  "rewardVaults": "0x9a1615fdcaaf2f659d78eb0d72fd3759480af7c4",
+  "inflationPool": "0x3602b76c625464895205466c645feff0d911836f",
+  "serviceFeeDistributor": "0x39d16ff4e0bce0e6b00a4a49be80c2b7ad2fb4b4",
   "streamingPaymentManager": "0x0000000000000000000000000000000000000000",
-  "credits": "0x2adc4f3f6c7a7fceed3f51a0c2da576ebb872332",
+  "credits": "0x94e8d532c3205346ee048cf6e37d5e7653c353ae",
   "epochLength": 604800,
   "stakeAssets": [
     {
       "symbol": "TNT",
-      "token": "0xb91177666047459e13a6e1254fffae60762ec2b9",
+      "token": "0x64fb7ffae82c1682574e9edb4e2f4e377132f671",
       "adapter": "0x0000000000000000000000000000000000000000",
       "minOperatorStake": "1000000000000000000",
       "minDelegation": "100000000000000000",
@@ -31,7 +31,7 @@
   ],
   "rewardVaultsConfig": [
     {
-      "asset": "0xb91177666047459e13a6e1254fffae60762ec2b9",
+      "asset": "0x64fb7ffae82c1682574e9edb4e2f4e377132f671",
       "depositCap": "250000000000000000000000",
       "active": true
     }
@@ -72,11 +72,11 @@
     "treasuryAmount": "32588831841878446700145909",
     "foundationRecipient": "0x2420fff17c4213a4075cf5f7b6dc33429aaf22bb",
     "foundationAmount": "15040809826744825912214026",
-    "claimDeadline": "1814491629",
+    "claimDeadline": "1815003116",
     "unlockedBps": 0,
     "cliffDuration": 0,
     "vestingDuration": 0,
-    "tangleMigration": "0xd29708d5768e192d31d3adcbd14532fb2a220d6f",
-    "zkVerifier": "0xc48a0f728df02647da5d923bd2193fd1f411c707"
+    "tangleMigration": "0x090853d08ac6dfb9496e1f6fa828469e41eac64d",
+    "zkVerifier": "0xe4e168cfab3bdf80f78d50121d036f04c10bb5c6"
   }
 }
