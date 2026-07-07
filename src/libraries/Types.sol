@@ -433,18 +433,19 @@ library Types {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Job call - a unit of work submitted to a service
-    /// @dev Struct layout:
-    ///      Slot 0: jobIndex (1) + caller (20) + createdAt (8) + resultCount (4) = 33 bytes (crosses slot)
-    ///      Slot 1: payment (32)
-    ///      Slot 2: completed (1) + isRFQ (1) = 2 bytes
+    /// @dev Struct layout (3 slots; the small fields are grouped so none cross a slot):
+    ///      Slot 0: jobIndex (1) + caller (20) + createdAt (8) = 29 bytes
+    ///      Slot 1: resultCount (4) + completed (1) + isRFQ (1) = 6 bytes
+    ///      Slot 2: payment (32)
+    ///      Callers construct with named fields, so the order is behavior-neutral.
     struct JobCall {
         uint8 jobIndex; // Which job in the blueprint
         address caller;
         uint64 createdAt;
         uint32 resultCount; // Number of results submitted
-        uint256 payment; // Payment for this job (EventDriven model)
         bool completed; // Marked complete by hook or threshold
         bool isRFQ; // True if submitted via RFQ with signed quotes
+        uint256 payment; // Payment for this job (EventDriven model)
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -518,11 +519,15 @@ library Types {
 
     /// @notice Delegation record from delegator to operator
     /// @dev Stores shares, not raw amounts. Use exchange rate to compute actual value.
+    /// @dev Field order is storage-packing sensitive: `shares` (32B) fills slot 0,
+    ///      then `operator` (20B) + `selectionMode` (1B enum) share slot 1, and the
+    ///      nested `asset` struct occupies slot 2 (3 slots vs 4 for the naive order).
+    ///      Callers construct with named fields, so the order is behavior-neutral.
     struct BondInfoDelegator {
-        address operator;
         uint256 shares; // Number of shares in operator's pool (NOT raw amount!)
-        Asset asset;
+        address operator;
         BlueprintSelectionMode selectionMode;
+        Asset asset;
         // Fixed blueprint IDs stored separately if selectionMode == Fixed
     }
 
@@ -535,12 +540,17 @@ library Types {
 
     /// @notice Unstake request (pending delegation removal)
     /// @dev Stores shares to unstake, converted from amount at request time
+    /// @dev Field order is storage-packing sensitive: `operator` (20B) +
+    ///      `requestedRound` (8B) + `selectionMode` (1B enum) = 29B share slot 0,
+    ///      the nested `asset` struct takes slot 1, `shares` slot 2, and
+    ///      `slashFactorSnapshot` slot 3 (4 slots vs 5 for the naive order).
+    ///      Callers construct with named fields, so the order is behavior-neutral.
     struct BondLessRequest {
         address operator;
-        Asset asset;
-        uint256 shares; // Shares to unstake (NOT raw amount!)
         uint64 requestedRound;
         BlueprintSelectionMode selectionMode;
+        Asset asset;
+        uint256 shares; // Shares to unstake (NOT raw amount!)
         uint256 slashFactorSnapshot; // Reserved (kept for storage compatibility)
         // Blueprint IDs stored separately if Fixed
     }
@@ -595,13 +605,17 @@ library Types {
     }
 
     /// @notice Asset configuration
+    /// @dev Field order is storage-packing sensitive: `enabled` (1B) +
+    ///      `rewardMultiplierBps` (2B) share slot 0, and the four 32-byte amounts
+    ///      take slots 1-4 (5 slots vs 6 for the naive order). Callers construct
+    ///      with named fields, so the order is behavior-neutral.
     struct AssetConfig {
         bool enabled;
+        uint16 rewardMultiplierBps; // 10000 = 1x, for asset-specific boosts
         uint256 minOperatorStake;
         uint256 minDelegation;
         uint256 depositCap; // 0 = unlimited
         uint256 currentDeposits; // Track total deposits
-        uint16 rewardMultiplierBps; // 10000 = 1x, for asset-specific boosts
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -770,12 +784,16 @@ library Types {
     ///      canonical integrity anchor for the binary referenced by `binaryUri`.
     ///      `attestationHash` is an optional pointer to a SLSA / sigstore bundle
     ///      digest; zero means "no attestation bundle published with this version."
+    /// @dev Field order is storage-packing sensitive: `versionId` (8B) +
+    ///      `publishedAt` (8B) + `deprecated` (1B) = 17B share slot 0, with the two
+    ///      32-byte hashes in slots 1 and 2 (3 slots vs 4 for the naive order).
+    ///      Callers construct with named fields, so the order is behavior-neutral.
     struct BinaryVersion {
         uint64 versionId; // monotonic, append-only per blueprint
-        bytes32 sha256Hash; // canonical binary hash
-        bytes32 attestationHash; // optional sigstore / SLSA bundle hash; zero if unset
         uint64 publishedAt; // block.timestamp at publish
         bool deprecated; // append-only signal, never rolled back
+        bytes32 sha256Hash; // canonical binary hash
+        bytes32 attestationHash; // optional sigstore / SLSA bundle hash; zero if unset
     }
 
     /// @notice Upgrade policy selected per-service for resolving the effective binary.

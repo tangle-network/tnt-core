@@ -550,10 +550,10 @@ library Types {
     type LockMultiplier is uint8;
     type OperatorStatus is uint8;
     struct Asset { AssetKind kind; address token; }
-    struct AssetConfig { bool enabled; uint256 minOperatorStake; uint256 minDelegation; uint256 depositCap; uint256 currentDeposits; uint16 rewardMultiplierBps; }
+    struct AssetConfig { bool enabled; uint16 rewardMultiplierBps; uint256 minOperatorStake; uint256 minDelegation; uint256 depositCap; uint256 currentDeposits; }
     struct AssetSecurityCommitment { Asset asset; uint16 exposureBps; }
-    struct BondInfoDelegator { address operator; uint256 shares; Asset asset; BlueprintSelectionMode selectionMode; }
-    struct BondLessRequest { address operator; Asset asset; uint256 shares; uint64 requestedRound; BlueprintSelectionMode selectionMode; uint256 slashFactorSnapshot; }
+    struct BondInfoDelegator { uint256 shares; address operator; BlueprintSelectionMode selectionMode; Asset asset; }
+    struct BondLessRequest { address operator; uint64 requestedRound; BlueprintSelectionMode selectionMode; Asset asset; uint256 shares; uint256 slashFactorSnapshot; }
     struct Deposit { uint256 amount; uint256 delegatedAmount; }
     struct LockInfo { uint256 amount; LockMultiplier multiplier; uint64 expiryTimestamp; }
     struct OperatorMetadata { uint256 stake; uint32 delegationCount; OperatorStatus status; uint64 leavingRound; }
@@ -1473,13 +1473,15 @@ struct Asset { AssetKind kind; address token; }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct AssetConfig { bool enabled; uint256 minOperatorStake; uint256 minDelegation; uint256 depositCap; uint256 currentDeposits; uint16 rewardMultiplierBps; }
+struct AssetConfig { bool enabled; uint16 rewardMultiplierBps; uint256 minOperatorStake; uint256 minDelegation; uint256 depositCap; uint256 currentDeposits; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct AssetConfig {
         #[allow(missing_docs)]
         pub enabled: bool,
+        #[allow(missing_docs)]
+        pub rewardMultiplierBps: u16,
         #[allow(missing_docs)]
         pub minOperatorStake: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
@@ -1488,8 +1490,6 @@ struct AssetConfig { bool enabled; uint256 minOperatorStake; uint256 minDelegati
         pub depositCap: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
         pub currentDeposits: alloy::sol_types::private::primitives::aliases::U256,
-        #[allow(missing_docs)]
-        pub rewardMultiplierBps: u16,
     }
     #[allow(
         non_camel_case_types,
@@ -1503,20 +1503,20 @@ struct AssetConfig { bool enabled; uint256 minOperatorStake; uint256 minDelegati
         #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::Bool,
-            alloy::sol_types::sol_data::Uint<256>,
-            alloy::sol_types::sol_data::Uint<256>,
-            alloy::sol_types::sol_data::Uint<256>,
-            alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Uint<16>,
+            alloy::sol_types::sol_data::Uint<256>,
+            alloy::sol_types::sol_data::Uint<256>,
+            alloy::sol_types::sol_data::Uint<256>,
+            alloy::sol_types::sol_data::Uint<256>,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
             bool,
-            alloy::sol_types::private::primitives::aliases::U256,
-            alloy::sol_types::private::primitives::aliases::U256,
-            alloy::sol_types::private::primitives::aliases::U256,
-            alloy::sol_types::private::primitives::aliases::U256,
             u16,
+            alloy::sol_types::private::primitives::aliases::U256,
+            alloy::sol_types::private::primitives::aliases::U256,
+            alloy::sol_types::private::primitives::aliases::U256,
+            alloy::sol_types::private::primitives::aliases::U256,
         );
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
@@ -1535,11 +1535,11 @@ struct AssetConfig { bool enabled; uint256 minOperatorStake; uint256 minDelegati
             fn from(value: AssetConfig) -> Self {
                 (
                     value.enabled,
+                    value.rewardMultiplierBps,
                     value.minOperatorStake,
                     value.minDelegation,
                     value.depositCap,
                     value.currentDeposits,
-                    value.rewardMultiplierBps,
                 )
             }
         }
@@ -1549,11 +1549,11 @@ struct AssetConfig { bool enabled; uint256 minOperatorStake; uint256 minDelegati
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self {
                     enabled: tuple.0,
-                    minOperatorStake: tuple.1,
-                    minDelegation: tuple.2,
-                    depositCap: tuple.3,
-                    currentDeposits: tuple.4,
-                    rewardMultiplierBps: tuple.5,
+                    rewardMultiplierBps: tuple.1,
+                    minOperatorStake: tuple.2,
+                    minDelegation: tuple.3,
+                    depositCap: tuple.4,
+                    currentDeposits: tuple.5,
                 }
             }
         }
@@ -1570,6 +1570,9 @@ struct AssetConfig { bool enabled; uint256 minOperatorStake; uint256 minDelegati
                         &self.enabled,
                     ),
                     <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.rewardMultiplierBps),
+                    <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.minOperatorStake),
                     <alloy::sol_types::sol_data::Uint<
@@ -1581,9 +1584,6 @@ struct AssetConfig { bool enabled; uint256 minOperatorStake; uint256 minDelegati
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.currentDeposits),
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.rewardMultiplierBps),
                 )
             }
             #[inline]
@@ -1658,7 +1658,7 @@ struct AssetConfig { bool enabled; uint256 minOperatorStake; uint256 minDelegati
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "AssetConfig(bool enabled,uint256 minOperatorStake,uint256 minDelegation,uint256 depositCap,uint256 currentDeposits,uint16 rewardMultiplierBps)",
+                    "AssetConfig(bool enabled,uint16 rewardMultiplierBps,uint256 minOperatorStake,uint256 minDelegation,uint256 depositCap,uint256 currentDeposits)",
                 )
             }
             #[inline]
@@ -1676,6 +1676,12 @@ struct AssetConfig { bool enabled; uint256 minOperatorStake; uint256 minDelegati
                 [
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
                             &self.enabled,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.rewardMultiplierBps,
                         )
                         .0,
                     <alloy::sol_types::sol_data::Uint<
@@ -1698,12 +1704,6 @@ struct AssetConfig { bool enabled; uint256 minOperatorStake; uint256 minDelegati
                             &self.currentDeposits,
                         )
                         .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.rewardMultiplierBps,
-                        )
-                        .0,
                 ]
                     .concat()
             }
@@ -1715,6 +1715,11 @@ struct AssetConfig { bool enabled; uint256 minOperatorStake; uint256 minDelegati
                 0usize
                     + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.enabled,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.rewardMultiplierBps,
                     )
                     + <alloy::sol_types::sol_data::Uint<
                         256,
@@ -1736,11 +1741,6 @@ struct AssetConfig { bool enabled; uint256 minOperatorStake; uint256 minDelegati
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.currentDeposits,
                     )
-                    + <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.rewardMultiplierBps,
-                    )
             }
             #[inline]
             fn encode_topic_preimage(
@@ -1752,6 +1752,12 @@ struct AssetConfig { bool enabled; uint256 minOperatorStake; uint256 minDelegati
                 );
                 <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.enabled,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    16,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.rewardMultiplierBps,
                     out,
                 );
                 <alloy::sol_types::sol_data::Uint<
@@ -1776,12 +1782,6 @@ struct AssetConfig { bool enabled; uint256 minOperatorStake; uint256 minDelegati
                     256,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.currentDeposits,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    16,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.rewardMultiplierBps,
                     out,
                 );
             }
@@ -2021,19 +2021,19 @@ struct AssetSecurityCommitment { Asset asset; uint16 exposureBps; }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct BondInfoDelegator { address operator; uint256 shares; Asset asset; BlueprintSelectionMode selectionMode; }
+struct BondInfoDelegator { uint256 shares; address operator; BlueprintSelectionMode selectionMode; Asset asset; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct BondInfoDelegator {
         #[allow(missing_docs)]
-        pub operator: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
         pub shares: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
-        pub asset: <Asset as alloy::sol_types::SolType>::RustType,
+        pub operator: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub selectionMode: <BlueprintSelectionMode as alloy::sol_types::SolType>::RustType,
+        #[allow(missing_docs)]
+        pub asset: <Asset as alloy::sol_types::SolType>::RustType,
     }
     #[allow(
         non_camel_case_types,
@@ -2046,17 +2046,17 @@ struct BondInfoDelegator { address operator; uint256 shares; Asset asset; Bluepr
         #[doc(hidden)]
         #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
-            alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Uint<256>,
-            Asset,
+            alloy::sol_types::sol_data::Address,
             BlueprintSelectionMode,
+            Asset,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
-            alloy::sol_types::private::Address,
             alloy::sol_types::private::primitives::aliases::U256,
-            <Asset as alloy::sol_types::SolType>::RustType,
+            alloy::sol_types::private::Address,
             <BlueprintSelectionMode as alloy::sol_types::SolType>::RustType,
+            <Asset as alloy::sol_types::SolType>::RustType,
         );
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
@@ -2073,7 +2073,7 @@ struct BondInfoDelegator { address operator; uint256 shares; Asset asset; Bluepr
         #[doc(hidden)]
         impl ::core::convert::From<BondInfoDelegator> for UnderlyingRustTuple<'_> {
             fn from(value: BondInfoDelegator) -> Self {
-                (value.operator, value.shares, value.asset, value.selectionMode)
+                (value.shares, value.operator, value.selectionMode, value.asset)
             }
         }
         #[automatically_derived]
@@ -2081,10 +2081,10 @@ struct BondInfoDelegator { address operator; uint256 shares; Asset asset; Bluepr
         impl ::core::convert::From<UnderlyingRustTuple<'_>> for BondInfoDelegator {
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self {
-                    operator: tuple.0,
-                    shares: tuple.1,
-                    asset: tuple.2,
-                    selectionMode: tuple.3,
+                    shares: tuple.0,
+                    operator: tuple.1,
+                    selectionMode: tuple.2,
+                    asset: tuple.3,
                 }
             }
         }
@@ -2097,16 +2097,16 @@ struct BondInfoDelegator { address operator; uint256 shares; Asset asset; Bluepr
             #[inline]
             fn stv_to_tokens(&self) -> <Self as alloy_sol_types::SolType>::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.operator,
-                    ),
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.shares),
-                    <Asset as alloy_sol_types::SolType>::tokenize(&self.asset),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
                     <BlueprintSelectionMode as alloy_sol_types::SolType>::tokenize(
                         &self.selectionMode,
                     ),
+                    <Asset as alloy_sol_types::SolType>::tokenize(&self.asset),
                 )
             }
             #[inline]
@@ -2181,7 +2181,7 @@ struct BondInfoDelegator { address operator; uint256 shares; Asset asset; Bluepr
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "BondInfoDelegator(address operator,uint256 shares,Asset asset,uint8 selectionMode)",
+                    "BondInfoDelegator(uint256 shares,address operator,uint8 selectionMode,Asset asset)",
                 )
             }
             #[inline]
@@ -2198,19 +2198,19 @@ struct BondInfoDelegator { address operator; uint256 shares; Asset asset; Bluepr
             #[inline]
             fn eip712_encode_data(&self) -> alloy_sol_types::private::Vec<u8> {
                 [
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.operator,
-                        )
-                        .0,
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::eip712_data_word(&self.shares)
                         .0,
-                    <Asset as alloy_sol_types::SolType>::eip712_data_word(&self.asset).0,
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.operator,
+                        )
+                        .0,
                     <BlueprintSelectionMode as alloy_sol_types::SolType>::eip712_data_word(
                             &self.selectionMode,
                         )
                         .0,
+                    <Asset as alloy_sol_types::SolType>::eip712_data_word(&self.asset).0,
                 ]
                     .concat()
             }
@@ -2220,19 +2220,19 @@ struct BondInfoDelegator { address operator; uint256 shares; Asset asset; Bluepr
             #[inline]
             fn topic_preimage_length(rust: &Self::RustType) -> usize {
                 0usize
-                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.operator,
-                    )
                     + <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.shares,
                     )
-                    + <Asset as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.asset,
+                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.operator,
                     )
                     + <BlueprintSelectionMode as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.selectionMode,
+                    )
+                    + <Asset as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.asset,
                     )
             }
             #[inline]
@@ -2243,22 +2243,22 @@ struct BondInfoDelegator { address operator; uint256 shares; Asset asset; Bluepr
                 out.reserve(
                     <Self as alloy_sol_types::EventTopic>::topic_preimage_length(rust),
                 );
-                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.operator,
-                    out,
-                );
                 <alloy::sol_types::sol_data::Uint<
                     256,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.shares,
                     out,
                 );
-                <Asset as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.asset,
+                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.operator,
                     out,
                 );
                 <BlueprintSelectionMode as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.selectionMode,
+                    out,
+                );
+                <Asset as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.asset,
                     out,
                 );
             }
@@ -2280,7 +2280,7 @@ struct BondInfoDelegator { address operator; uint256 shares; Asset asset; Bluepr
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct BondLessRequest { address operator; Asset asset; uint256 shares; uint64 requestedRound; BlueprintSelectionMode selectionMode; uint256 slashFactorSnapshot; }
+struct BondLessRequest { address operator; uint64 requestedRound; BlueprintSelectionMode selectionMode; Asset asset; uint256 shares; uint256 slashFactorSnapshot; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2288,13 +2288,13 @@ struct BondLessRequest { address operator; Asset asset; uint256 shares; uint64 r
         #[allow(missing_docs)]
         pub operator: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
-        pub asset: <Asset as alloy::sol_types::SolType>::RustType,
-        #[allow(missing_docs)]
-        pub shares: alloy::sol_types::private::primitives::aliases::U256,
-        #[allow(missing_docs)]
         pub requestedRound: u64,
         #[allow(missing_docs)]
         pub selectionMode: <BlueprintSelectionMode as alloy::sol_types::SolType>::RustType,
+        #[allow(missing_docs)]
+        pub asset: <Asset as alloy::sol_types::SolType>::RustType,
+        #[allow(missing_docs)]
+        pub shares: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
         pub slashFactorSnapshot: alloy::sol_types::private::primitives::aliases::U256,
     }
@@ -2310,19 +2310,19 @@ struct BondLessRequest { address operator; Asset asset; uint256 shares; uint64 r
         #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::Address,
-            Asset,
-            alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Uint<64>,
             BlueprintSelectionMode,
+            Asset,
+            alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Uint<256>,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
             alloy::sol_types::private::Address,
-            <Asset as alloy::sol_types::SolType>::RustType,
-            alloy::sol_types::private::primitives::aliases::U256,
             u64,
             <BlueprintSelectionMode as alloy::sol_types::SolType>::RustType,
+            <Asset as alloy::sol_types::SolType>::RustType,
+            alloy::sol_types::private::primitives::aliases::U256,
             alloy::sol_types::private::primitives::aliases::U256,
         );
         #[cfg(test)]
@@ -2342,10 +2342,10 @@ struct BondLessRequest { address operator; Asset asset; uint256 shares; uint64 r
             fn from(value: BondLessRequest) -> Self {
                 (
                     value.operator,
-                    value.asset,
-                    value.shares,
                     value.requestedRound,
                     value.selectionMode,
+                    value.asset,
+                    value.shares,
                     value.slashFactorSnapshot,
                 )
             }
@@ -2356,10 +2356,10 @@ struct BondLessRequest { address operator; Asset asset; uint256 shares; uint64 r
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self {
                     operator: tuple.0,
-                    asset: tuple.1,
-                    shares: tuple.2,
-                    requestedRound: tuple.3,
-                    selectionMode: tuple.4,
+                    requestedRound: tuple.1,
+                    selectionMode: tuple.2,
+                    asset: tuple.3,
+                    shares: tuple.4,
                     slashFactorSnapshot: tuple.5,
                 }
             }
@@ -2376,16 +2376,16 @@ struct BondLessRequest { address operator; Asset asset; uint256 shares; uint64 r
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.operator,
                     ),
-                    <Asset as alloy_sol_types::SolType>::tokenize(&self.asset),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.shares),
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::tokenize(&self.requestedRound),
                     <BlueprintSelectionMode as alloy_sol_types::SolType>::tokenize(
                         &self.selectionMode,
                     ),
+                    <Asset as alloy_sol_types::SolType>::tokenize(&self.asset),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.shares),
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.slashFactorSnapshot),
@@ -2463,7 +2463,7 @@ struct BondLessRequest { address operator; Asset asset; uint256 shares; uint64 r
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "BondLessRequest(address operator,Asset asset,uint256 shares,uint64 requestedRound,uint8 selectionMode,uint256 slashFactorSnapshot)",
+                    "BondLessRequest(address operator,uint64 requestedRound,uint8 selectionMode,Asset asset,uint256 shares,uint256 slashFactorSnapshot)",
                 )
             }
             #[inline]
@@ -2484,11 +2484,6 @@ struct BondLessRequest { address operator; Asset asset; uint256 shares; uint64 r
                             &self.operator,
                         )
                         .0,
-                    <Asset as alloy_sol_types::SolType>::eip712_data_word(&self.asset).0,
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.shares)
-                        .0,
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::eip712_data_word(
@@ -2498,6 +2493,11 @@ struct BondLessRequest { address operator; Asset asset; uint256 shares; uint64 r
                     <BlueprintSelectionMode as alloy_sol_types::SolType>::eip712_data_word(
                             &self.selectionMode,
                         )
+                        .0,
+                    <Asset as alloy_sol_types::SolType>::eip712_data_word(&self.asset).0,
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.shares)
                         .0,
                     <alloy::sol_types::sol_data::Uint<
                         256,
@@ -2517,14 +2517,6 @@ struct BondLessRequest { address operator; Asset asset; uint256 shares; uint64 r
                     + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.operator,
                     )
-                    + <Asset as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.asset,
-                    )
-                    + <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.shares,
-                    )
                     + <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
@@ -2532,6 +2524,14 @@ struct BondLessRequest { address operator; Asset asset; uint256 shares; uint64 r
                     )
                     + <BlueprintSelectionMode as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.selectionMode,
+                    )
+                    + <Asset as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.asset,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.shares,
                     )
                     + <alloy::sol_types::sol_data::Uint<
                         256,
@@ -2551,16 +2551,6 @@ struct BondLessRequest { address operator; Asset asset; uint256 shares; uint64 r
                     &rust.operator,
                     out,
                 );
-                <Asset as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.asset,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    256,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.shares,
-                    out,
-                );
                 <alloy::sol_types::sol_data::Uint<
                     64,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
@@ -2569,6 +2559,16 @@ struct BondLessRequest { address operator; Asset asset; uint256 shares; uint64 r
                 );
                 <BlueprintSelectionMode as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.selectionMode,
+                    out,
+                );
+                <Asset as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.asset,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    256,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.shares,
                     out,
                 );
                 <alloy::sol_types::sol_data::Uint<
@@ -3966,28 +3966,28 @@ library Types {
     }
     struct AssetConfig {
         bool enabled;
+        uint16 rewardMultiplierBps;
         uint256 minOperatorStake;
         uint256 minDelegation;
         uint256 depositCap;
         uint256 currentDeposits;
-        uint16 rewardMultiplierBps;
     }
     struct AssetSecurityCommitment {
         Asset asset;
         uint16 exposureBps;
     }
     struct BondInfoDelegator {
-        address operator;
         uint256 shares;
-        Asset asset;
+        address operator;
         BlueprintSelectionMode selectionMode;
+        Asset asset;
     }
     struct BondLessRequest {
         address operator;
-        Asset asset;
-        uint256 shares;
         uint64 requestedRound;
         BlueprintSelectionMode selectionMode;
+        Asset asset;
+        uint256 shares;
         uint256 slashFactorSnapshot;
     }
     struct Deposit {
@@ -4727,6 +4727,11 @@ interface IMultiAssetDelegation {
             "internalType": "bool"
           },
           {
+            "name": "rewardMultiplierBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
             "name": "minOperatorStake",
             "type": "uint256",
             "internalType": "uint256"
@@ -4745,11 +4750,6 @@ interface IMultiAssetDelegation {
             "name": "currentDeposits",
             "type": "uint256",
             "internalType": "uint256"
-          },
-          {
-            "name": "rewardMultiplierBps",
-            "type": "uint16",
-            "internalType": "uint16"
           }
         ]
       }
@@ -4886,14 +4886,19 @@ interface IMultiAssetDelegation {
         "internalType": "struct Types.BondInfoDelegator[]",
         "components": [
           {
+            "name": "shares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
             "name": "operator",
             "type": "address",
             "internalType": "address"
           },
           {
-            "name": "shares",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "selectionMode",
+            "type": "uint8",
+            "internalType": "enum Types.BlueprintSelectionMode"
           },
           {
             "name": "asset",
@@ -4911,11 +4916,6 @@ interface IMultiAssetDelegation {
                 "internalType": "address"
               }
             ]
-          },
-          {
-            "name": "selectionMode",
-            "type": "uint8",
-            "internalType": "enum Types.BlueprintSelectionMode"
           }
         ]
       }
@@ -5297,6 +5297,16 @@ interface IMultiAssetDelegation {
             "internalType": "address"
           },
           {
+            "name": "requestedRound",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "selectionMode",
+            "type": "uint8",
+            "internalType": "enum Types.BlueprintSelectionMode"
+          },
+          {
             "name": "asset",
             "type": "tuple",
             "internalType": "struct Types.Asset",
@@ -5317,16 +5327,6 @@ interface IMultiAssetDelegation {
             "name": "shares",
             "type": "uint256",
             "internalType": "uint256"
-          },
-          {
-            "name": "requestedRound",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "selectionMode",
-            "type": "uint8",
-            "internalType": "enum Types.BlueprintSelectionMode"
           },
           {
             "name": "slashFactorSnapshot",

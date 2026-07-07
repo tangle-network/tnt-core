@@ -98,20 +98,29 @@ abstract contract JobsAggregation is Base {
         Types.JobDefinition storage jobDef = _jobDefinition(svc.blueprintId, job.jobIndex);
         SchemaLib.validateJobResult(jobDef, output, svc.blueprintId, job.jobIndex);
 
+        // Snapshot the service operator list ONCE. The set is not mutated within this call
+        // (validation + manager staticcalls + BLS verification are all read-only), so a single
+        // snapshot is identical to re-materializing it in each pass below, and guarantees the
+        // threshold, signature and completion-metric passes all observe the same membership.
+        address[] memory operators = _getServiceOperatorList(serviceId);
+
         (uint256 achieved, uint256 required) =
-            _validateSignersAndThreshold(serviceId, signerBitmap, thresholdBps, thresholdType);
+            _validateSignersAndThreshold(operators, serviceId, signerBitmap, thresholdBps, thresholdType);
         if (achieved < required) {
             revert Errors.AggregationThresholdNotMet(serviceId, callId, achieved, required);
         }
 
-        _verifyAggregatedSignature(serviceId, callId, output, signerBitmap, aggregatedSignature, aggregatedPubkey);
+        _verifyAggregatedSignature(
+            operators, serviceId, callId, output, signerBitmap, aggregatedSignature, aggregatedPubkey
+        );
 
         _finalizeAggregatedResult(
-            svc, job, bp, serviceId, callId, signerBitmap, output, aggregatedSignature, aggregatedPubkey
+            operators, svc, job, bp, serviceId, callId, signerBitmap, output, aggregatedSignature, aggregatedPubkey
         );
     }
 
     function _finalizeAggregatedResult(
+        address[] memory operators,
         Types.Service storage svc,
         Types.JobCall storage job,
         Types.Blueprint storage bp,
@@ -129,7 +138,7 @@ abstract contract JobsAggregation is Base {
         emit AggregatedResultSubmitted(serviceId, callId, signerBitmap, output);
         emit JobCompleted(serviceId, callId);
 
-        _recordAggregatedJobCompletion(serviceId, callId, signerBitmap);
+        _recordAggregatedJobCompletion(operators, serviceId, callId, signerBitmap);
 
         if (svc.pricing == Types.PricingModel.EventDriven && job.payment > 0) {
             if (job.isRFQ) {
@@ -160,15 +169,23 @@ abstract contract JobsAggregation is Base {
     /// @param serviceId The service ID
     /// @param callId The job call ID
     /// @param signerBitmap Bitmap of operators who signed
-    function _recordAggregatedJobCompletion(uint64 serviceId, uint64 callId, uint256 signerBitmap) internal {
+    function _recordAggregatedJobCompletion(
+        address[] memory operators,
+        uint64 serviceId,
+        uint64 callId,
+        uint256 signerBitmap
+    )
+        internal
+    {
         if (_metricsRecorder == address(0)) return;
 
-        address[] memory operators = _getServiceOperatorList(serviceId);
-
-        for (uint256 i = 0; i < operators.length; i++) {
+        for (uint256 i = 0; i < operators.length;) {
             if ((signerBitmap & (uint256(1) << i)) != 0) {
                 // This operator signed - record job completion
                 _recordJobCompletion(operators[i], serviceId, callId, true);
+            }
+            unchecked {
+                ++i;
             }
         }
     }
@@ -181,6 +198,7 @@ abstract contract JobsAggregation is Base {
     /// @return achieved The achieved value (count or stake)
     /// @return required The required value (count or stake)
     function _validateSignersAndThreshold(
+        address[] memory operators,
         uint64 serviceId,
         uint256 signerBitmap,
         uint16 thresholdBps,
@@ -190,7 +208,7 @@ abstract contract JobsAggregation is Base {
         view
         returns (uint256 achieved, uint256 required)
     {
-        SignerStats memory stats = _computeSignerStats(serviceId, signerBitmap, thresholdType);
+        SignerStats memory stats = _computeSignerStats(operators, serviceId, signerBitmap, thresholdType);
 
         // ROOT-CAUSE GUARD: with no staking-active operators the threshold below computes
         // `required == 0` for BOTH paths (operatorCount/totalWeight are 0). The downstream
@@ -228,6 +246,7 @@ abstract contract JobsAggregation is Base {
     }
 
     function _computeSignerStats(
+        address[] memory operators,
         uint64 serviceId,
         uint256 signerBitmap,
         uint8 thresholdType
@@ -236,12 +255,20 @@ abstract contract JobsAggregation is Base {
         view
         returns (SignerStats memory stats)
     {
-        address[] memory operators = _getServiceOperatorList(serviceId);
-
-        for (uint256 i = 0; i < operators.length; i++) {
+        for (uint256 i = 0; i < operators.length;) {
             Types.ServiceOperator storage svcOp = _serviceOperators[serviceId][operators[i]];
-            if (!svcOp.active) continue;
-            if (!_staking.isOperatorActive(operators[i])) continue;
+            if (!svcOp.active) {
+                unchecked {
+                    ++i;
+                }
+                continue;
+            }
+            if (!_staking.isOperatorActive(operators[i])) {
+                unchecked {
+                    ++i;
+                }
+                continue;
+            }
 
             stats.operatorCount++;
             uint256 weight = thresholdType == 1 ? uint256(svcOp.exposureBps) : 1;
@@ -251,10 +278,15 @@ abstract contract JobsAggregation is Base {
                 stats.signerCount++;
                 stats.signerWeight += weight;
             }
+
+            unchecked {
+                ++i;
+            }
         }
     }
 
     function _verifyAggregatedSignature(
+        address[] memory operators,
         uint64 serviceId,
         uint64 callId,
         bytes calldata output,
@@ -276,7 +308,6 @@ abstract contract JobsAggregation is Base {
         // swap-and-pop reorder (operator leaves / forceRemove) invalidates any in-flight
         // signed result instead of mis-crediting a different operator at the same bitmap
         // index (Round 2 operator-collusion #2c).
-        address[] memory operators = _getServiceOperatorList(serviceId);
         Types.BN254G2Point memory expectedPubkey =
             _computeExpectedAggregatedPubkeyFromList(serviceId, signerBitmap, operators);
         if (!BN254.g2Eq(providedPubkey, expectedPubkey)) {
@@ -317,7 +348,7 @@ abstract contract JobsAggregation is Base {
         returns (Types.BN254G2Point memory aggregatedPubkey)
     {
         bool firstKey = true;
-        for (uint256 i = 0; i < operators.length; i++) {
+        for (uint256 i = 0; i < operators.length;) {
             if ((signerBitmap >> i) & 1 == 1) {
                 Types.BLSPubkey storage storedKey = _serviceOperatorBlsPubkeys[serviceId][operators[i]];
                 if (storedKey.key[0] == 0 && storedKey.key[1] == 0 && storedKey.key[2] == 0 && storedKey.key[3] == 0) {
@@ -331,6 +362,9 @@ abstract contract JobsAggregation is Base {
                 } else {
                     aggregatedPubkey = BN254.addG2(aggregatedPubkey, operatorPubkey);
                 }
+            }
+            unchecked {
+                ++i;
             }
         }
     }

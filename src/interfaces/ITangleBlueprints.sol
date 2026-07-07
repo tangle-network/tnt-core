@@ -26,8 +26,6 @@ interface ITangleBlueprints {
 
     event BlueprintDeactivated(uint64 indexed blueprintId);
 
-    event BlueprintSourcesUpdated(uint64 indexed blueprintId, uint256 sourceCount);
-
     event BlueprintSourcesAcked(uint64 indexed blueprintId, address indexed operator, bytes32 sourcesHash);
 
     // ═══════════════════════════════════════════════════════════════════════════

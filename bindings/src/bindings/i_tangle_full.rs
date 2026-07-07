@@ -1542,7 +1542,7 @@ library Types {
     struct ExitConfig { uint64 minCommitmentDuration; uint64 exitQueueDuration; bool forceExitAllowed; }
     struct ExitRequest { uint64 serviceId; uint64 scheduledAt; uint64 executeAfter; bool pending; }
     struct ImageRegistrySource { string registry; string image; string tag; }
-    struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 resultCount; uint256 payment; bool completed; bool isRFQ; }
+    struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 resultCount; bool completed; bool isRFQ; uint256 payment; }
     struct JobDefinition { string name; string description; string metadataUri; bytes paramsSchema; bytes resultSchema; }
     struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; uint8 confidentiality; bytes32 inputsHash; }
     struct NativeSource { BlueprintFetcherKind fetcher; string artifactUri; string entrypoint; }
@@ -7253,7 +7253,7 @@ struct ImageRegistrySource { string registry; string image; string tag; }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 resultCount; uint256 payment; bool completed; bool isRFQ; }
+struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 resultCount; bool completed; bool isRFQ; uint256 payment; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -7267,11 +7267,11 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
         #[allow(missing_docs)]
         pub resultCount: u32,
         #[allow(missing_docs)]
-        pub payment: alloy::sol_types::private::primitives::aliases::U256,
-        #[allow(missing_docs)]
         pub completed: bool,
         #[allow(missing_docs)]
         pub isRFQ: bool,
+        #[allow(missing_docs)]
+        pub payment: alloy::sol_types::private::primitives::aliases::U256,
     }
     #[allow(
         non_camel_case_types,
@@ -7288,9 +7288,9 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Uint<32>,
+            alloy::sol_types::sol_data::Bool,
+            alloy::sol_types::sol_data::Bool,
             alloy::sol_types::sol_data::Uint<256>,
-            alloy::sol_types::sol_data::Bool,
-            alloy::sol_types::sol_data::Bool,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
@@ -7298,9 +7298,9 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
             alloy::sol_types::private::Address,
             u64,
             u32,
+            bool,
+            bool,
             alloy::sol_types::private::primitives::aliases::U256,
-            bool,
-            bool,
         );
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
@@ -7322,9 +7322,9 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                     value.caller,
                     value.createdAt,
                     value.resultCount,
-                    value.payment,
                     value.completed,
                     value.isRFQ,
+                    value.payment,
                 )
             }
         }
@@ -7337,9 +7337,9 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                     caller: tuple.1,
                     createdAt: tuple.2,
                     resultCount: tuple.3,
-                    payment: tuple.4,
-                    completed: tuple.5,
-                    isRFQ: tuple.6,
+                    completed: tuple.4,
+                    isRFQ: tuple.5,
+                    payment: tuple.6,
                 }
             }
         }
@@ -7364,15 +7364,15 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                     <alloy::sol_types::sol_data::Uint<
                         32,
                     > as alloy_sol_types::SolType>::tokenize(&self.resultCount),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.payment),
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
                         &self.completed,
                     ),
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
                         &self.isRFQ,
                     ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.payment),
                 )
             }
             #[inline]
@@ -7447,7 +7447,7 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "JobCall(uint8 jobIndex,address caller,uint64 createdAt,uint32 resultCount,uint256 payment,bool completed,bool isRFQ)",
+                    "JobCall(uint8 jobIndex,address caller,uint64 createdAt,uint32 resultCount,bool completed,bool isRFQ,uint256 payment)",
                 )
             }
             #[inline]
@@ -7479,10 +7479,6 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                         32,
                     > as alloy_sol_types::SolType>::eip712_data_word(&self.resultCount)
                         .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.payment)
-                        .0,
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
                             &self.completed,
                         )
@@ -7490,6 +7486,10 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
                             &self.isRFQ,
                         )
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.payment)
                         .0,
                 ]
                     .concat()
@@ -7518,16 +7518,16 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.resultCount,
                     )
-                    + <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.payment,
-                    )
                     + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.completed,
                     )
                     + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.isRFQ,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.payment,
                     )
             }
             #[inline]
@@ -7560,18 +7560,18 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                     &rust.resultCount,
                     out,
                 );
-                <alloy::sol_types::sol_data::Uint<
-                    256,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.payment,
-                    out,
-                );
                 <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.completed,
                     out,
                 );
                 <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.isRFQ,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    256,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.payment,
                     out,
                 );
             }
@@ -12642,9 +12642,9 @@ library Types {
         address caller;
         uint64 createdAt;
         uint32 resultCount;
-        uint256 payment;
         bool completed;
         bool isRFQ;
+        uint256 payment;
     }
     struct JobDefinition {
         string name;
@@ -12770,7 +12770,6 @@ interface ITangleFull {
     event BlueprintDeactivated(uint64 indexed blueprintId);
     event BlueprintResourceRequirementsSet(uint64 indexed blueprintId, uint256 count);
     event BlueprintSourcesAcked(uint64 indexed blueprintId, address indexed operator, bytes32 sourcesHash);
-    event BlueprintSourcesUpdated(uint64 indexed blueprintId, uint256 sourceCount);
     event BlueprintTransferCancelled(uint64 indexed blueprintId, address indexed owner);
     event BlueprintTransferProposed(uint64 indexed blueprintId, address indexed from, address indexed pendingOwner);
     event BlueprintTransferred(uint64 indexed blueprintId, address indexed from, address indexed to);
@@ -14831,11 +14830,6 @@ interface ITangleFull {
             "internalType": "uint32"
           },
           {
-            "name": "payment",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
             "name": "completed",
             "type": "bool",
             "internalType": "bool"
@@ -14844,6 +14838,11 @@ interface ITangleFull {
             "name": "isRFQ",
             "type": "bool",
             "internalType": "bool"
+          },
+          {
+            "name": "payment",
+            "type": "uint256",
+            "internalType": "uint256"
           }
         ]
       }
@@ -17485,25 +17484,6 @@ interface ITangleFull {
   },
   {
     "type": "event",
-    "name": "BlueprintSourcesUpdated",
-    "inputs": [
-      {
-        "name": "blueprintId",
-        "type": "uint64",
-        "indexed": true,
-        "internalType": "uint64"
-      },
-      {
-        "name": "sourceCount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "BlueprintTransferCancelled",
     "inputs": [
       {
@@ -18895,124 +18875,6 @@ event BlueprintSourcesAcked(uint64 indexed blueprintId, address indexed operator
         impl From<&BlueprintSourcesAcked> for alloy_sol_types::private::LogData {
             #[inline]
             fn from(this: &BlueprintSourcesAcked) -> alloy_sol_types::private::LogData {
-                alloy_sol_types::SolEvent::encode_log_data(this)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `BlueprintSourcesUpdated(uint64,uint256)` and selector `0xe338d7e33d7c6f964b1cb4b1641b040870386807c4217061beb08f5a4ddd8b28`.
-```solidity
-event BlueprintSourcesUpdated(uint64 indexed blueprintId, uint256 sourceCount);
-```*/
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    #[derive(Clone)]
-    pub struct BlueprintSourcesUpdated {
-        #[allow(missing_docs)]
-        pub blueprintId: u64,
-        #[allow(missing_docs)]
-        pub sourceCount: alloy::sol_types::private::primitives::aliases::U256,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[automatically_derived]
-        impl alloy_sol_types::SolEvent for BlueprintSourcesUpdated {
-            type DataTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type TopicList = (
-                alloy_sol_types::sol_data::FixedBytes<32>,
-                alloy::sol_types::sol_data::Uint<64>,
-            );
-            const SIGNATURE: &'static str = "BlueprintSourcesUpdated(uint64,uint256)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                227u8, 56u8, 215u8, 227u8, 61u8, 124u8, 111u8, 150u8, 75u8, 28u8, 180u8,
-                177u8, 100u8, 27u8, 4u8, 8u8, 112u8, 56u8, 104u8, 7u8, 196u8, 33u8,
-                112u8, 97u8, 190u8, 176u8, 143u8, 90u8, 77u8, 221u8, 139u8, 40u8,
-            ]);
-            const ANONYMOUS: bool = false;
-            #[allow(unused_variables)]
-            #[inline]
-            fn new(
-                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
-                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                Self {
-                    blueprintId: topics.1,
-                    sourceCount: data.0,
-                }
-            }
-            #[inline]
-            fn check_signature(
-                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
-            ) -> alloy_sol_types::Result<()> {
-                if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
-                }
-                Ok(())
-            }
-            #[inline]
-            fn tokenize_body(&self) -> Self::DataToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.sourceCount),
-                )
-            }
-            #[inline]
-            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (Self::SIGNATURE_HASH.into(), self.blueprintId.clone())
-            }
-            #[inline]
-            fn encode_topics_raw(
-                &self,
-                out: &mut [alloy_sol_types::abi::token::WordToken],
-            ) -> alloy_sol_types::Result<()> {
-                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
-                    return Err(alloy_sol_types::Error::Overrun);
-                }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
-                out[1usize] = <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::EventTopic>::encode_topic(&self.blueprintId);
-                Ok(())
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::private::IntoLogData for BlueprintSourcesUpdated {
-            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
-                From::from(self)
-            }
-            fn into_log_data(self) -> alloy_sol_types::private::LogData {
-                From::from(&self)
-            }
-        }
-        #[automatically_derived]
-        impl From<&BlueprintSourcesUpdated> for alloy_sol_types::private::LogData {
-            #[inline]
-            fn from(
-                this: &BlueprintSourcesUpdated,
-            ) -> alloy_sol_types::private::LogData {
                 alloy_sol_types::SolEvent::encode_log_data(this)
             }
         }
@@ -50805,8 +50667,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
         #[allow(missing_docs)]
         BlueprintSourcesAcked(BlueprintSourcesAcked),
         #[allow(missing_docs)]
-        BlueprintSourcesUpdated(BlueprintSourcesUpdated),
-        #[allow(missing_docs)]
         BlueprintTransferCancelled(BlueprintTransferCancelled),
         #[allow(missing_docs)]
         BlueprintTransferProposed(BlueprintTransferProposed),
@@ -51019,11 +50879,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 51u8, 227u8, 145u8, 167u8, 181u8, 174u8, 101u8, 137u8, 231u8, 137u8,
             ],
             [
-                227u8, 56u8, 215u8, 227u8, 61u8, 124u8, 111u8, 150u8, 75u8, 28u8, 180u8,
-                177u8, 100u8, 27u8, 4u8, 8u8, 112u8, 56u8, 104u8, 7u8, 196u8, 33u8,
-                112u8, 97u8, 190u8, 176u8, 143u8, 90u8, 77u8, 221u8, 139u8, 40u8,
-            ],
-            [
                 232u8, 13u8, 26u8, 24u8, 58u8, 243u8, 9u8, 22u8, 247u8, 155u8, 21u8,
                 166u8, 200u8, 94u8, 130u8, 71u8, 13u8, 11u8, 136u8, 6u8, 93u8, 253u8,
                 210u8, 80u8, 93u8, 16u8, 106u8, 223u8, 14u8, 139u8, 119u8, 150u8,
@@ -51075,7 +50930,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             ::core::stringify!(BlueprintTransferProposed),
             ::core::stringify!(JobSubmitted),
             ::core::stringify!(BlueprintDeactivated),
-            ::core::stringify!(BlueprintSourcesUpdated),
             ::core::stringify!(SlashCancelled),
             ::core::stringify!(SlashProposed),
             ::core::stringify!(BlueprintSourcesAcked),
@@ -51112,7 +50966,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             <BlueprintTransferProposed as alloy_sol_types::SolEvent>::SIGNATURE,
             <JobSubmitted as alloy_sol_types::SolEvent>::SIGNATURE,
             <BlueprintDeactivated as alloy_sol_types::SolEvent>::SIGNATURE,
-            <BlueprintSourcesUpdated as alloy_sol_types::SolEvent>::SIGNATURE,
             <SlashCancelled as alloy_sol_types::SolEvent>::SIGNATURE,
             <SlashProposed as alloy_sol_types::SolEvent>::SIGNATURE,
             <BlueprintSourcesAcked as alloy_sol_types::SolEvent>::SIGNATURE,
@@ -51142,7 +50995,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for ITangleFullEvents {
         const NAME: &'static str = "ITangleFullEvents";
-        const COUNT: usize = 34usize;
+        const COUNT: usize = 33usize;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
@@ -51181,15 +51034,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                             data,
                         )
                         .map(Self::BlueprintSourcesAcked)
-                }
-                Some(
-                    <BlueprintSourcesUpdated as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
-                ) => {
-                    <BlueprintSourcesUpdated as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                        )
-                        .map(Self::BlueprintSourcesUpdated)
                 }
                 Some(
                     <BlueprintTransferCancelled as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
@@ -51458,9 +51302,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 Self::BlueprintSourcesAcked(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
-                Self::BlueprintSourcesUpdated(inner) => {
-                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
-                }
                 Self::BlueprintTransferCancelled(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
@@ -51562,9 +51403,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::BlueprintSourcesAcked(inner) => {
-                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
-                }
-                Self::BlueprintSourcesUpdated(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::BlueprintTransferCancelled(inner) => {
@@ -53367,12 +53205,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
         ) -> alloy_contract::Event<&P, BlueprintSourcesAcked, N> {
             self.event_filter::<BlueprintSourcesAcked>()
-        }
-        ///Creates a new event filter for the [`BlueprintSourcesUpdated`] event.
-        pub fn BlueprintSourcesUpdated_filter(
-            &self,
-        ) -> alloy_contract::Event<&P, BlueprintSourcesUpdated, N> {
-            self.event_filter::<BlueprintSourcesUpdated>()
         }
         ///Creates a new event filter for the [`BlueprintTransferCancelled`] event.
         pub fn BlueprintTransferCancelled_filter(

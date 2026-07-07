@@ -4812,7 +4812,6 @@ interface ITangleBlueprints {
     event BlueprintDeactivated(uint64 indexed blueprintId);
     event BlueprintResourceRequirementsSet(uint64 indexed blueprintId, uint256 count);
     event BlueprintSourcesAcked(uint64 indexed blueprintId, address indexed operator, bytes32 sourcesHash);
-    event BlueprintSourcesUpdated(uint64 indexed blueprintId, uint256 sourceCount);
     event BlueprintTransferCancelled(uint64 indexed blueprintId, address indexed owner);
     event BlueprintTransferProposed(uint64 indexed blueprintId, address indexed from, address indexed pendingOwner);
     event BlueprintTransferred(uint64 indexed blueprintId, address indexed from, address indexed to);
@@ -6267,25 +6266,6 @@ interface ITangleBlueprints {
   },
   {
     "type": "event",
-    "name": "BlueprintSourcesUpdated",
-    "inputs": [
-      {
-        "name": "blueprintId",
-        "type": "uint64",
-        "indexed": true,
-        "internalType": "uint64"
-      },
-      {
-        "name": "sourceCount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "BlueprintTransferCancelled",
     "inputs": [
       {
@@ -6902,124 +6882,6 @@ event BlueprintSourcesAcked(uint64 indexed blueprintId, address indexed operator
         impl From<&BlueprintSourcesAcked> for alloy_sol_types::private::LogData {
             #[inline]
             fn from(this: &BlueprintSourcesAcked) -> alloy_sol_types::private::LogData {
-                alloy_sol_types::SolEvent::encode_log_data(this)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `BlueprintSourcesUpdated(uint64,uint256)` and selector `0xe338d7e33d7c6f964b1cb4b1641b040870386807c4217061beb08f5a4ddd8b28`.
-```solidity
-event BlueprintSourcesUpdated(uint64 indexed blueprintId, uint256 sourceCount);
-```*/
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    #[derive(Clone)]
-    pub struct BlueprintSourcesUpdated {
-        #[allow(missing_docs)]
-        pub blueprintId: u64,
-        #[allow(missing_docs)]
-        pub sourceCount: alloy::sol_types::private::primitives::aliases::U256,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[automatically_derived]
-        impl alloy_sol_types::SolEvent for BlueprintSourcesUpdated {
-            type DataTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type TopicList = (
-                alloy_sol_types::sol_data::FixedBytes<32>,
-                alloy::sol_types::sol_data::Uint<64>,
-            );
-            const SIGNATURE: &'static str = "BlueprintSourcesUpdated(uint64,uint256)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                227u8, 56u8, 215u8, 227u8, 61u8, 124u8, 111u8, 150u8, 75u8, 28u8, 180u8,
-                177u8, 100u8, 27u8, 4u8, 8u8, 112u8, 56u8, 104u8, 7u8, 196u8, 33u8,
-                112u8, 97u8, 190u8, 176u8, 143u8, 90u8, 77u8, 221u8, 139u8, 40u8,
-            ]);
-            const ANONYMOUS: bool = false;
-            #[allow(unused_variables)]
-            #[inline]
-            fn new(
-                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
-                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                Self {
-                    blueprintId: topics.1,
-                    sourceCount: data.0,
-                }
-            }
-            #[inline]
-            fn check_signature(
-                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
-            ) -> alloy_sol_types::Result<()> {
-                if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
-                }
-                Ok(())
-            }
-            #[inline]
-            fn tokenize_body(&self) -> Self::DataToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.sourceCount),
-                )
-            }
-            #[inline]
-            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (Self::SIGNATURE_HASH.into(), self.blueprintId.clone())
-            }
-            #[inline]
-            fn encode_topics_raw(
-                &self,
-                out: &mut [alloy_sol_types::abi::token::WordToken],
-            ) -> alloy_sol_types::Result<()> {
-                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
-                    return Err(alloy_sol_types::Error::Overrun);
-                }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
-                out[1usize] = <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::EventTopic>::encode_topic(&self.blueprintId);
-                Ok(())
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::private::IntoLogData for BlueprintSourcesUpdated {
-            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
-                From::from(self)
-            }
-            fn into_log_data(self) -> alloy_sol_types::private::LogData {
-                From::from(&self)
-            }
-        }
-        #[automatically_derived]
-        impl From<&BlueprintSourcesUpdated> for alloy_sol_types::private::LogData {
-            #[inline]
-            fn from(
-                this: &BlueprintSourcesUpdated,
-            ) -> alloy_sol_types::private::LogData {
                 alloy_sol_types::SolEvent::encode_log_data(this)
             }
         }
@@ -12517,8 +12379,6 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri, bytes32 
         #[allow(missing_docs)]
         BlueprintSourcesAcked(BlueprintSourcesAcked),
         #[allow(missing_docs)]
-        BlueprintSourcesUpdated(BlueprintSourcesUpdated),
-        #[allow(missing_docs)]
         BlueprintTransferCancelled(BlueprintTransferCancelled),
         #[allow(missing_docs)]
         BlueprintTransferProposed(BlueprintTransferProposed),
@@ -12571,11 +12431,6 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri, bytes32 
                 51u8, 227u8, 145u8, 167u8, 181u8, 174u8, 101u8, 137u8, 231u8, 137u8,
             ],
             [
-                227u8, 56u8, 215u8, 227u8, 61u8, 124u8, 111u8, 150u8, 75u8, 28u8, 180u8,
-                177u8, 100u8, 27u8, 4u8, 8u8, 112u8, 56u8, 104u8, 7u8, 196u8, 33u8,
-                112u8, 97u8, 190u8, 176u8, 143u8, 90u8, 77u8, 221u8, 139u8, 40u8,
-            ],
-            [
                 238u8, 166u8, 152u8, 120u8, 88u8, 50u8, 27u8, 16u8, 81u8, 43u8, 135u8,
                 39u8, 17u8, 16u8, 49u8, 236u8, 143u8, 197u8, 116u8, 170u8, 2u8, 174u8,
                 255u8, 248u8, 167u8, 103u8, 242u8, 142u8, 184u8, 38u8, 165u8, 158u8,
@@ -12590,7 +12445,6 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri, bytes32 
             ::core::stringify!(BlueprintTransferred),
             ::core::stringify!(BlueprintTransferProposed),
             ::core::stringify!(BlueprintDeactivated),
-            ::core::stringify!(BlueprintSourcesUpdated),
             ::core::stringify!(BlueprintSourcesAcked),
         ];
         /// The signatures in the same order as `SELECTORS`.
@@ -12602,7 +12456,6 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri, bytes32 
             <BlueprintTransferred as alloy_sol_types::SolEvent>::SIGNATURE,
             <BlueprintTransferProposed as alloy_sol_types::SolEvent>::SIGNATURE,
             <BlueprintDeactivated as alloy_sol_types::SolEvent>::SIGNATURE,
-            <BlueprintSourcesUpdated as alloy_sol_types::SolEvent>::SIGNATURE,
             <BlueprintSourcesAcked as alloy_sol_types::SolEvent>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
@@ -12629,7 +12482,7 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri, bytes32 
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for ITangleBlueprintsEvents {
         const NAME: &'static str = "ITangleBlueprintsEvents";
-        const COUNT: usize = 9usize;
+        const COUNT: usize = 8usize;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
@@ -12668,15 +12521,6 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri, bytes32 
                             data,
                         )
                         .map(Self::BlueprintSourcesAcked)
-                }
-                Some(
-                    <BlueprintSourcesUpdated as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
-                ) => {
-                    <BlueprintSourcesUpdated as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                        )
-                        .map(Self::BlueprintSourcesUpdated)
                 }
                 Some(
                     <BlueprintTransferCancelled as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
@@ -12742,9 +12586,6 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri, bytes32 
                 Self::BlueprintSourcesAcked(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
-                Self::BlueprintSourcesUpdated(inner) => {
-                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
-                }
                 Self::BlueprintTransferCancelled(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
@@ -12771,9 +12612,6 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri, bytes32 
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::BlueprintSourcesAcked(inner) => {
-                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
-                }
-                Self::BlueprintSourcesUpdated(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::BlueprintTransferCancelled(inner) => {
@@ -13271,12 +13109,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
         ) -> alloy_contract::Event<&P, BlueprintSourcesAcked, N> {
             self.event_filter::<BlueprintSourcesAcked>()
-        }
-        ///Creates a new event filter for the [`BlueprintSourcesUpdated`] event.
-        pub fn BlueprintSourcesUpdated_filter(
-            &self,
-        ) -> alloy_contract::Event<&P, BlueprintSourcesUpdated, N> {
-            self.event_filter::<BlueprintSourcesUpdated>()
         }
         ///Creates a new event filter for the [`BlueprintTransferCancelled`] event.
         pub fn BlueprintTransferCancelled_filter(

@@ -42,14 +42,20 @@ abstract contract PaymentsCore is Base {
     ///      remain in the EnumerableSet for historical accounting; we must not pay them.
     function _activeServiceOperators(uint64 serviceId) internal view returns (address[] memory active) {
         address[] memory all = _serviceOperatorSet[serviceId].values();
+        // Cache each operator's `.active` in the count pass and reuse it in the fill
+        // pass: one SLOAD per operator instead of two. Same set, same order.
+        bool[] memory isActive = new bool[](all.length);
         uint256 activeCount;
         for (uint256 i = 0; i < all.length; ++i) {
-            if (_serviceOperators[serviceId][all[i]].active) activeCount++;
+            if (_serviceOperators[serviceId][all[i]].active) {
+                isActive[i] = true;
+                activeCount++;
+            }
         }
         active = new address[](activeCount);
         uint256 j;
         for (uint256 i = 0; i < all.length; ++i) {
-            if (_serviceOperators[serviceId][all[i]].active) {
+            if (isActive[i]) {
                 active[j++] = all[i];
             }
         }

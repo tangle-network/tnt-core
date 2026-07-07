@@ -122,11 +122,17 @@ abstract contract PaymentsBilling is PaymentsCore {
             return (true, 0);
         }
 
+        // `_tntToken` cannot change mid-tx, so the bond asset is invariant across this
+        // bill. Compute it once and thread it into every consumer (`_accrueOperatorWeights`
+        // and `_commitOperatorCursors`) instead of re-deriving it (SLOAD `_tntToken` +
+        // struct build) at each call site.
+        Types.Asset memory bondAsset = _bondAssetForBilling();
+
         // Same weights drive bill amount AND payout split. `_accrueOperatorWeights` is
         // a VIEW that computes projected cursors without writing them; cursors are
         // committed only on a successful bill or period skip, so a failed try-bill
         // does not advance state and cannot be used to consume periods for free.
-        BillWeights memory w = _accrueOperatorWeights(serviceId, operators, periodEnd);
+        BillWeights memory w = _accrueOperatorWeights(serviceId, operators, periodEnd, bondAsset);
 
         PaymentLib.ServiceEscrow storage escrow = _serviceEscrows[serviceId];
 
@@ -167,7 +173,7 @@ abstract contract PaymentsBilling is PaymentsCore {
         // From here every exit path commits the cursors and advances `lastPaymentAt`.
         // Cursor SSTOREs land BEFORE any external transfer in `_distributeBill` so a
         // reverting transfer never leaves cursors stale.
-        _commitOperatorCursors(serviceId, operators, w.projectedByOpAsset);
+        _commitOperatorCursors(serviceId, operators, w.projectedByOpAsset, w.assetHashByOpAsset);
         svc.lastPaymentAt = periodEnd;
 
         // Skip-on-dust: a bill that rounds to less than 1 wei per recipient is treated
@@ -209,28 +215,23 @@ abstract contract PaymentsBilling is PaymentsCore {
     function _commitOperatorCursors(
         uint64 serviceId,
         address[] memory operators,
-        uint256[][] memory projectedByOpAsset
+        uint256[][] memory projectedByOpAsset,
+        bytes32[][] memory assetHashByOpAsset
     )
         internal
     {
-        Types.Asset memory bondAsset = _bondAssetForBilling();
+        // Asset hashes were already computed (per (op, asset)) in `_accrueOperatorWeights`
+        // over the exact same operator/commitment shape and are threaded forward here so
+        // this commit pass reuses them instead of re-`keccak256`-ing the same tuples.
         for (uint256 i = 0; i < operators.length;) {
             address op = operators[i];
-            Types.AssetSecurityCommitment[] storage commitments = _serviceSecurityCommitments[serviceId][op];
             uint256[] memory projected = projectedByOpAsset[i];
-            uint256 m = commitments.length;
-            if (m == 0) {
-                // Fallback path: single bond-asset cursor. `projected` was sized to 1 by
-                // `_accrueOperatorWeights` to mirror this shape.
-                bytes32 assetHash = keccak256(abi.encode(bondAsset.kind, bondAsset.token));
-                _twapCursorByOpAsset[serviceId][op][assetHash] = projected[0];
-            } else {
-                for (uint256 j = 0; j < m;) {
-                    bytes32 assetHash = keccak256(abi.encode(commitments[j].asset.kind, commitments[j].asset.token));
-                    _twapCursorByOpAsset[serviceId][op][assetHash] = projected[j];
-                    unchecked {
-                        ++j;
-                    }
+            bytes32[] memory assetHashes = assetHashByOpAsset[i];
+            uint256 len = projected.length;
+            for (uint256 j = 0; j < len;) {
+                _twapCursorByOpAsset[serviceId][op][assetHashes[j]] = projected[j];
+                unchecked {
+                    ++j;
                 }
             }
             unchecked {
@@ -247,6 +248,7 @@ abstract contract PaymentsBilling is PaymentsCore {
         uint256 cumDeltaPeriod;
         uint256[] weights; // per-operator (exposure-weighted across assets)
         uint256[][] projectedByOpAsset; // per-(operator, asset_in_commitments)
+        bytes32[][] assetHashByOpAsset; // per-(operator, asset_in_commitments): keccak(kind,token)
         uint256 totalWeight;
         bool hasSecurityCommitments;
     }
@@ -254,14 +256,14 @@ abstract contract PaymentsBilling is PaymentsCore {
     function _accrueOperatorWeights(
         uint64 serviceId,
         address[] memory operators,
-        uint64 periodEnd
+        uint64 periodEnd,
+        Types.Asset memory bondAsset
     )
         internal
         returns (BillWeights memory result)
     {
         IStaking staking = _staking;
         address oracleAddr = _priceOracle;
-        Types.Asset memory bondAsset = _bondAssetForBilling();
 
         // Oracle mode is a property of the SERVICE pinned at activation, not of the
         // current `_priceOracle`. The baseline denominator (`subscriptionBaselineStake`)
@@ -285,6 +287,7 @@ abstract contract PaymentsBilling is PaymentsCore {
         uint256 n = operators.length;
         result.weights = new uint256[](n);
         result.projectedByOpAsset = new uint256[][](n);
+        result.assetHashByOpAsset = new bytes32[][](n);
 
         for (uint256 i = 0; i < n;) {
             address op = operators[i];
@@ -292,12 +295,15 @@ abstract contract PaymentsBilling is PaymentsCore {
             uint256 m = commitments.length;
             uint256 opWeight;
             uint256[] memory projected;
+            bytes32[] memory assetHashes;
             if (m == 0) {
                 // Fallback: no per-asset commitments → treat as a single implicit
                 // commitment to the bond asset at the operator's overall
                 // `ServiceOperator.exposureBps`. Mirrors `_initSubscriptionBaseline`.
                 projected = new uint256[](1);
+                assetHashes = new bytes32[](1);
                 bytes32 assetHash = keccak256(abi.encode(bondAsset.kind, bondAsset.token));
+                assetHashes[0] = assetHash;
                 (uint256 cumOp,, uint256 stakeOp) = staking.getCumStakeSeconds(op, bondAsset);
                 uint256 projectedCum = _projectToPeriodEnd(cumOp, stakeOp, tailSeconds);
                 uint256 cursor = _twapCursorByOpAsset[serviceId][op][assetHash];
@@ -325,12 +331,17 @@ abstract contract PaymentsBilling is PaymentsCore {
                         // Still gas-capped and revert-isolated by _safeToUSD.
                         address token = bondAsset.kind == Types.AssetKind.Native ? address(0) : bondAsset.token;
                         contribution = _safeToUSD(oracleAddr, token, contribution);
+                    } else {
+                        // Fail closed: USD-pinned baseline (denominator in USD scale)
+                        // but neither a per-pair snapshot NOR a live oracle exists to
+                        // convert this raw token-second leg into USD. Keeping identity
+                        // scale here would mismatch the USD baseline and under-bill the
+                        // customer indefinitely. Drop this leg's contribution to zero
+                        // instead of silently scaling at 1x. The remaining correctly
+                        // scaled legs still bill; if every leg is in this state the
+                        // total-weight fallback distributes the (capped) pool equally.
+                        contribution = 0;
                     }
-                    // else: USD-pinned baseline but no per-pair snapshot AND the
-                    // oracle has since been removed. Keep `contribution` at
-                    // identity scale rather than collapsing to raw token-seconds,
-                    // which would mismatch the USD-scale baseline denominator and
-                    // under-bill the customer indefinitely.
                 }
                 opWeight = contribution;
                 if (!result.hasSecurityCommitments && stakeOp > 0 && fallbackBps > 0) {
@@ -338,9 +349,11 @@ abstract contract PaymentsBilling is PaymentsCore {
                 }
             } else {
                 projected = new uint256[](m);
+                assetHashes = new bytes32[](m);
                 for (uint256 j = 0; j < m;) {
                     Types.AssetSecurityCommitment storage c = commitments[j];
                     bytes32 assetHash = keccak256(abi.encode(c.asset.kind, c.asset.token));
+                    assetHashes[j] = assetHash;
                     (uint256 cumOp,, uint256 stakeOp) = staking.getCumStakeSeconds(op, c.asset);
                     uint256 projectedCum = _projectToPeriodEnd(cumOp, stakeOp, tailSeconds);
                     uint256 cursor = _twapCursorByOpAsset[serviceId][op][assetHash];
@@ -362,9 +375,13 @@ abstract contract PaymentsBilling is PaymentsCore {
                         } else if (oracleAddr != address(0)) {
                             address token = c.asset.kind == Types.AssetKind.Native ? address(0) : c.asset.token;
                             contribution = _safeToUSD(oracleAddr, token, contribution);
+                        } else {
+                            // Fail closed: USD-pinned baseline but no per-pair snapshot
+                            // and no live oracle to convert this raw token-second leg
+                            // into USD. Drop the leg to zero rather than scaling at 1x,
+                            // which would mismatch the USD baseline and under-bill.
+                            contribution = 0;
                         }
-                        // else: USD-pinned baseline, no per-pair snapshot, oracle
-                        // removed — keep identity scale (see fallback path above).
                     }
                     opWeight += contribution;
                     if (!result.hasSecurityCommitments && stakeOp > 0 && c.exposureBps > 0) {
@@ -376,6 +393,7 @@ abstract contract PaymentsBilling is PaymentsCore {
                 }
             }
             result.projectedByOpAsset[i] = projected;
+            result.assetHashByOpAsset[i] = assetHashes;
             result.weights[i] = opWeight;
             result.totalWeight += opWeight;
             result.cumDeltaPeriod += opWeight;

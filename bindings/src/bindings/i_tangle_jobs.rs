@@ -3,7 +3,7 @@
 
 ```solidity
 library Types {
-    struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 resultCount; uint256 payment; bool completed; bool isRFQ; }
+    struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 resultCount; bool completed; bool isRFQ; uint256 payment; }
     struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; uint8 confidentiality; bytes32 inputsHash; }
     struct SignedJobQuote { JobQuoteDetails details; bytes signature; address operator; }
 }
@@ -21,7 +21,7 @@ pub mod Types {
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 resultCount; uint256 payment; bool completed; bool isRFQ; }
+struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 resultCount; bool completed; bool isRFQ; uint256 payment; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -35,11 +35,11 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
         #[allow(missing_docs)]
         pub resultCount: u32,
         #[allow(missing_docs)]
-        pub payment: alloy::sol_types::private::primitives::aliases::U256,
-        #[allow(missing_docs)]
         pub completed: bool,
         #[allow(missing_docs)]
         pub isRFQ: bool,
+        #[allow(missing_docs)]
+        pub payment: alloy::sol_types::private::primitives::aliases::U256,
     }
     #[allow(
         non_camel_case_types,
@@ -56,9 +56,9 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Uint<32>,
+            alloy::sol_types::sol_data::Bool,
+            alloy::sol_types::sol_data::Bool,
             alloy::sol_types::sol_data::Uint<256>,
-            alloy::sol_types::sol_data::Bool,
-            alloy::sol_types::sol_data::Bool,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
@@ -66,9 +66,9 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
             alloy::sol_types::private::Address,
             u64,
             u32,
+            bool,
+            bool,
             alloy::sol_types::private::primitives::aliases::U256,
-            bool,
-            bool,
         );
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
@@ -90,9 +90,9 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                     value.caller,
                     value.createdAt,
                     value.resultCount,
-                    value.payment,
                     value.completed,
                     value.isRFQ,
+                    value.payment,
                 )
             }
         }
@@ -105,9 +105,9 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                     caller: tuple.1,
                     createdAt: tuple.2,
                     resultCount: tuple.3,
-                    payment: tuple.4,
-                    completed: tuple.5,
-                    isRFQ: tuple.6,
+                    completed: tuple.4,
+                    isRFQ: tuple.5,
+                    payment: tuple.6,
                 }
             }
         }
@@ -132,15 +132,15 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                     <alloy::sol_types::sol_data::Uint<
                         32,
                     > as alloy_sol_types::SolType>::tokenize(&self.resultCount),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.payment),
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
                         &self.completed,
                     ),
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
                         &self.isRFQ,
                     ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.payment),
                 )
             }
             #[inline]
@@ -215,7 +215,7 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "JobCall(uint8 jobIndex,address caller,uint64 createdAt,uint32 resultCount,uint256 payment,bool completed,bool isRFQ)",
+                    "JobCall(uint8 jobIndex,address caller,uint64 createdAt,uint32 resultCount,bool completed,bool isRFQ,uint256 payment)",
                 )
             }
             #[inline]
@@ -247,10 +247,6 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                         32,
                     > as alloy_sol_types::SolType>::eip712_data_word(&self.resultCount)
                         .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.payment)
-                        .0,
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
                             &self.completed,
                         )
@@ -258,6 +254,10 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
                             &self.isRFQ,
                         )
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.payment)
                         .0,
                 ]
                     .concat()
@@ -286,16 +286,16 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.resultCount,
                     )
-                    + <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.payment,
-                    )
                     + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.completed,
                     )
                     + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.isRFQ,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.payment,
                     )
             }
             #[inline]
@@ -328,18 +328,18 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                     &rust.resultCount,
                     out,
                 );
-                <alloy::sol_types::sol_data::Uint<
-                    256,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.payment,
-                    out,
-                );
                 <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.completed,
                     out,
                 );
                 <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.isRFQ,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    256,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.payment,
                     out,
                 );
             }
@@ -1103,9 +1103,9 @@ library Types {
         address caller;
         uint64 createdAt;
         uint32 resultCount;
-        uint256 payment;
         bool completed;
         bool isRFQ;
+        uint256 payment;
     }
     struct JobQuoteDetails {
         address requester;
@@ -1186,11 +1186,6 @@ interface ITangleJobs {
             "internalType": "uint32"
           },
           {
-            "name": "payment",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
             "name": "completed",
             "type": "bool",
             "internalType": "bool"
@@ -1199,6 +1194,11 @@ interface ITangleJobs {
             "name": "isRFQ",
             "type": "bool",
             "internalType": "bool"
+          },
+          {
+            "name": "payment",
+            "type": "uint256",
+            "internalType": "uint256"
           }
         ]
       }
