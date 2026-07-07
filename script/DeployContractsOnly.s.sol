@@ -35,6 +35,7 @@ import { TangleSlashingFacet } from "../src/facets/tangle/TangleSlashingFacet.so
 import { StakingOperatorsFacet } from "../src/facets/staking/StakingOperatorsFacet.sol";
 import { StakingDepositsFacet } from "../src/facets/staking/StakingDepositsFacet.sol";
 import { StakingDelegationsFacet } from "../src/facets/staking/StakingDelegationsFacet.sol";
+import { StakingUnstakeWithdrawFacet } from "../src/facets/staking/StakingUnstakeWithdrawFacet.sol";
 // StakingRewardsFacet removed - no longer exists
 import { StakingSlashingFacet } from "../src/facets/staking/StakingSlashingFacet.sol";
 import { StakingAssetsFacet } from "../src/facets/staking/StakingAssetsFacet.sol";
@@ -147,6 +148,7 @@ contract DeployContractsOnly is Script {
         mad.registerFacet(address(new StakingOperatorsFacet()));
         mad.registerFacet(address(new StakingDepositsFacet()));
         mad.registerFacet(address(new StakingDelegationsFacet()));
+        mad.registerFacet(address(new StakingUnstakeWithdrawFacet()));
         // StakingRewardsFacet removed - no longer exists
         mad.registerFacet(address(new StakingSlashingFacet()));
         mad.registerFacet(address(new StakingAssetsFacet()));

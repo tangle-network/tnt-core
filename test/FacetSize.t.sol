@@ -23,6 +23,7 @@ import { TangleSlashingFacet } from "../src/facets/tangle/TangleSlashingFacet.so
 import { StakingAdminFacet } from "../src/facets/staking/StakingAdminFacet.sol";
 import { StakingAssetsFacet } from "../src/facets/staking/StakingAssetsFacet.sol";
 import { StakingDelegationsFacet } from "../src/facets/staking/StakingDelegationsFacet.sol";
+import { StakingUnstakeWithdrawFacet } from "../src/facets/staking/StakingUnstakeWithdrawFacet.sol";
 import { StakingDepositsFacet } from "../src/facets/staking/StakingDepositsFacet.sol";
 import { StakingOperatorsFacet } from "../src/facets/staking/StakingOperatorsFacet.sol";
 import { StakingSlashingFacet } from "../src/facets/staking/StakingSlashingFacet.sol";
@@ -84,6 +85,7 @@ contract FacetSizeTest is Test {
         _assertUnderLimit(address(new StakingAdminFacet()), "StakingAdminFacet");
         _assertUnderLimit(address(new StakingAssetsFacet()), "StakingAssetsFacet");
         _assertUnderLimit(address(new StakingDelegationsFacet()), "StakingDelegationsFacet");
+        _assertUnderLimit(address(new StakingUnstakeWithdrawFacet()), "StakingUnstakeWithdrawFacet");
         _assertUnderLimit(address(new StakingDepositsFacet()), "StakingDepositsFacet");
         _assertUnderLimit(address(new StakingOperatorsFacet()), "StakingOperatorsFacet");
         _assertUnderLimit(address(new StakingSlashingFacet()), "StakingSlashingFacet");
