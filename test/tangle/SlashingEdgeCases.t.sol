@@ -79,9 +79,10 @@ contract SlashingEdgeCasesTest is BaseTest {
         uint64 slashId3 = tangle.proposeSlash(serviceId, operator1, 3000, keccak256("evidence3"));
         vm.stopPrank();
 
-        // All should have same proposedAt timestamp
-        assertEq(tangle.getSlashProposal(slashId1).proposedAt, tangle.getSlashProposal(slashId2).proposedAt);
-        assertEq(tangle.getSlashProposal(slashId2).proposedAt, tangle.getSlashProposal(slashId3).proposedAt);
+        // Proposed in the same block => identical executeAfter (proposedAt + fixed window).
+        // proposedAt is no longer stored, so equal executeAfter proves equal proposal time.
+        assertEq(tangle.getSlashProposal(slashId1).executeAfter, tangle.getSlashProposal(slashId2).executeAfter);
+        assertEq(tangle.getSlashProposal(slashId2).executeAfter, tangle.getSlashProposal(slashId3).executeAfter);
 
         // All can be executed after window
         // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection

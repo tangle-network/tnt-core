@@ -12,7 +12,7 @@ contract TangleServicesLifecycleFacet is ServicesLifecycle, IFacetSelectors {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](16);
+        selectorList = new bytes4[](15);
         selectorList[0] = this.terminateService.selector;
         selectorList[1] = this.terminateServiceForNonPayment.selector;
         selectorList[2] = this.addPermittedCaller.selector;
@@ -28,6 +28,5 @@ contract TangleServicesLifecycleFacet is ServicesLifecycle, IFacetSelectors {
         selectorList[12] = this.getExitRequest.selector;
         selectorList[13] = this.getExitStatus.selector;
         selectorList[14] = this.getExitConfig.selector;
-        selectorList[15] = this.canScheduleExit.selector;
     }
 }

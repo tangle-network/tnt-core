@@ -171,13 +171,6 @@ abstract contract DelegationStorage {
     mapping(uint64 => mapping(address => Types.OperatorSnapshot)) internal _atStake;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // SLASH FACTOR (RESERVED)
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice Reserved slot for prior slash-factor tracking (unused with share-based pools).
-    mapping(address => mapping(bytes32 => uint256)) internal _operatorSlashFactor;
-
-    // ═══════════════════════════════════════════════════════════════════════════
     // DELEGATOR DEPOSITS
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -205,9 +198,6 @@ abstract contract DelegationStorage {
 
     /// @notice Blueprint selection for unstake: delegator => unstakeIndex => blueprintIds
     mapping(address => mapping(uint256 => uint64[])) internal _unstakeBlueprints;
-
-    /// @notice Delegator status
-    mapping(address => Types.DelegatorStatus) internal _delegatorStatus;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // REWARDS
@@ -262,6 +252,14 @@ abstract contract DelegationStorage {
         return keccak256(abi.encode(asset.kind, asset.token));
     }
 
+    /// @notice Asset hash of the operator bond asset (native when no bond token is set).
+    /// @dev Single source shared by every manager so bond-hash derivation cannot drift.
+    function _getOperatorBondAssetHash() internal view returns (bytes32 bondHash) {
+        bondHash = _operatorBondToken == address(0)
+            ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
+            : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
+    }
+
     /// @notice Get lock duration for a multiplier
     function _getLockDuration(Types.LockMultiplier multiplier) internal pure returns (uint64) {
         if (multiplier == Types.LockMultiplier.OneMonth) return LOCK_ONE_MONTH;
@@ -290,34 +288,6 @@ abstract contract DelegationStorage {
         }
 
         revert DelegationErrors.InvalidLockMultiplier(uint8(multiplier));
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // RESERVED SLASH FACTOR HELPERS
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice Reserved getter for the historical slash factor (unused with share-based pools)
-    /// @dev Returns PRECISION (1e18) if unset
-    function getOperatorSlashFactor(address operator, bytes32 assetHash) public view returns (uint256) {
-        uint256 factor = _operatorSlashFactor[operator][assetHash];
-        return factor == 0 ? PRECISION : factor;
-    }
-
-    /// @notice Reserved helper kept for storage compatibility (unused)
-    function _applyLazySlash(
-        uint256 originalAmount,
-        uint256 snapshotFactor,
-        uint256 currentFactor
-    )
-        internal
-        pure
-        returns (uint256 effectiveAmount)
-    {
-        if (snapshotFactor == 0 || currentFactor >= snapshotFactor) {
-            return originalAmount; // No slash occurred since request
-        }
-        // Proportional reduction: amount * (currentFactor / snapshotFactor)
-        return (originalAmount * currentFactor) / snapshotFactor;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -358,9 +328,7 @@ abstract contract DelegationStorage {
     ///      self-stake contributes zero.
     function _getOperatorStakeForAssetHash(address operator, bytes32 assetHash) internal view returns (uint256) {
         uint256 delegated = _getOperatorDelegatedStakeForAsset(operator, assetHash);
-        bytes32 bondHash = _operatorBondToken == address(0)
-            ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
-            : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
+        bytes32 bondHash = _getOperatorBondAssetHash();
         if (assetHash == bondHash) {
             // forge-lint: disable-next-line(unsafe-typecast)
             return delegated + _operatorMetadata[operator].stake;
@@ -493,5 +461,5 @@ abstract contract DelegationStorage {
 
     /// @notice Reserved storage gap for future upgrades
     /// @dev Standard gap size is 50 slots. When adding new storage, decrease this gap accordingly.
-    uint256[43] private __gap;
+    uint256[45] private __gap;
 }

@@ -191,11 +191,6 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
         emit EmergencyDeprecationCancelled(revision, _versions[revision - 1]);
     }
 
-    /// @notice View when a queued emergency deprecation becomes executable (0 if none)
-    function emergencyDeprecationReadyAt(uint32 revision) external view returns (uint256) {
-        return _emergencyDeprecationReadyAt[revision];
-    }
-
     /// @notice Set the grace period for deprecations (minimum 1 day)
     function setDeprecationGracePeriod(uint256 newGracePeriod) external onlyRole(MANAGER_ROLE) {
         if (newGracePeriod < 1 days) revert InvalidGracePeriod();
@@ -304,106 +299,10 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
         return _versions[revision - 1] != address(0);
     }
 
-    /// @notice Check if a revision is in the deprecation grace period
-    /// @param revision The revision to check
-    /// @return inGracePeriod True if revision is deprecated but still in grace period
-    /// @return gracePeriodEnds Timestamp when grace period ends (0 if not in grace period)
-    function isInGracePeriod(uint32 revision) external view returns (bool inGracePeriod, uint256 gracePeriodEnds) {
-        if (revision == 0 || revision > _versions.length) return (false, 0);
-        uint256 deprecatedAt = _deprecationTimestamp[revision];
-        if (deprecatedAt == 0) return (false, 0);
-
-        gracePeriodEnds = deprecatedAt + deprecationGracePeriod;
-        inGracePeriod = block.timestamp < gracePeriodEnds && _versions[revision - 1] != address(0);
-    }
-
-    /// @notice Get deprecation timestamp for a revision
-    /// @param revision The revision to check
-    /// @return timestamp When deprecation was initiated (0 if not deprecated)
-    function getDeprecationTimestamp(uint32 revision) external view returns (uint256 timestamp) {
-        return _deprecationTimestamp[revision];
-    }
-
     /// @notice Get all registered MBSM addresses
     /// @return addresses Array of all MBSM addresses (may include address(0) for deprecated)
-    /// @dev For large registries, prefer using getVersionsPaginated to avoid gas issues
     function getAllVersions() external view returns (address[] memory addresses) {
         return _versions;
-    }
-
-    /// @notice Get registered MBSM addresses with pagination
-    /// @param offset Starting index (0-based)
-    /// @param limit Maximum number of versions to return
-    /// @return addresses Array of MBSM addresses in the requested range
-    /// @return total Total number of registered versions
-    function getVersionsPaginated(
-        uint256 offset,
-        uint256 limit
-    )
-        external
-        view
-        returns (address[] memory addresses, uint256 total)
-    {
-        total = _versions.length;
-
-        if (offset >= total) {
-            return (new address[](0), total);
-        }
-
-        uint256 remaining = total - offset;
-        uint256 count = limit < remaining ? limit : remaining;
-
-        addresses = new address[](count);
-        for (uint256 i = 0; i < count; i++) {
-            addresses[i] = _versions[offset + i];
-        }
-    }
-
-    /// @notice Get only active (non-deprecated) versions with pagination
-    /// @param offset Starting index in the active versions (0-based)
-    /// @param limit Maximum number of versions to return
-    /// @return addresses Array of active MBSM addresses
-    /// @return revisions Array of revision numbers for each returned address
-    /// @return totalActive Total number of active versions
-    function getActiveVersionsPaginated(
-        uint256 offset,
-        uint256 limit
-    )
-        external
-        view
-        returns (address[] memory addresses, uint32[] memory revisions, uint256 totalActive)
-    {
-        // First pass: count active versions
-        for (uint256 i = 0; i < _versions.length; i++) {
-            if (_versions[i] != address(0)) {
-                totalActive++;
-            }
-        }
-
-        if (offset >= totalActive) {
-            return (new address[](0), new uint32[](0), totalActive);
-        }
-
-        uint256 remaining = totalActive - offset;
-        uint256 count = limit < remaining ? limit : remaining;
-
-        addresses = new address[](count);
-        revisions = new uint32[](count);
-
-        // Second pass: collect active versions with pagination
-        uint256 activeIndex = 0;
-        uint256 resultIndex = 0;
-
-        for (uint256 i = 0; i < _versions.length && resultIndex < count; i++) {
-            if (_versions[i] != address(0)) {
-                if (activeIndex >= offset) {
-                    addresses[resultIndex] = _versions[i];
-                    revisions[resultIndex] = uint32(i + 1); // 1-indexed revision
-                    resultIndex++;
-                }
-                activeIndex++;
-            }
-        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

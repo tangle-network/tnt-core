@@ -288,7 +288,8 @@ contract SlashingFuzzTest is BaseTest {
         // warp targets are anchored to an on-chain value the IR optimizer cannot fold
         // into `block.timestamp` after a `vm.warp` (which it does not model).
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
-        assertEq(proposal.proposedAt, proposalTime, "Proposal timestamp");
+        // proposedAt is no longer stored; reconstruct it as executeAfter - disputeWindow.
+        assertEq(proposal.executeAfter - disputeWindow, proposalTime, "Proposal timestamp");
         assertEq(proposal.executeAfter, proposalTime + disputeWindow, "Execute after");
         uint256 executeAfter = proposal.executeAfter;
 

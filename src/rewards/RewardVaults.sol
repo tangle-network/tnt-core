@@ -207,6 +207,18 @@ contract RewardVaults is
     error InsufficientStake();
     /// @notice claimDelegatorRewardsFor restricts who may force-realize a position's rewards.
     error NotAuthorizedClaimer(address caller, address delegator);
+    /// @notice A commission value would exceed MAX_COMMISSION_BPS (20%).
+    error CommissionExceedsCap();
+    /// @notice No commission increase is queued (nothing to execute or cancel).
+    error NoPendingIncrease();
+    /// @notice A queued commission increase is still inside its timelock window.
+    error TimelockNotElapsed();
+    /// @notice Lock-duration tiers are not strictly non-decreasing (or oneMonth is 0).
+    error InvalidLockDurations();
+    /// @notice This contract does not hold enough TNT to satisfy the requested reward payout.
+    error InsufficientRewardBalance();
+    /// @notice The TNT reward transfer returned false.
+    error RewardTransferFailed();
 
     /// @notice Emitted when an expired lock's reward boost is lazily decayed back to base weight.
     event LockBoostDecayed(
@@ -239,7 +251,7 @@ contract RewardVaults is
         _grantRole(UPGRADER_ROLE, admin);
         _grantRole(REWARDS_MANAGER_ROLE, admin);
 
-        require(_operatorCommissionBps <= MAX_COMMISSION_BPS, "Commission exceeds cap");
+        if (_operatorCommissionBps > MAX_COMMISSION_BPS) revert CommissionExceedsCap();
         tntToken = TangleToken(_tntToken);
         operatorCommissionBps = _operatorCommissionBps;
 
@@ -298,7 +310,7 @@ contract RewardVaults is
     ///      commission binds; apply it with `executeCommissionIncrease`. This removes the
     ///      previous one-tx, uncapped-at-50% spike primitive.
     function setOperatorCommission(uint16 newBps) external onlyRole(ADMIN_ROLE) {
-        require(newBps <= MAX_COMMISSION_BPS, "Commission exceeds cap");
+        if (newBps > MAX_COMMISSION_BPS) revert CommissionExceedsCap();
         if (newBps <= operatorCommissionBps) {
             operatorCommissionBps = newBps;
             _pendingCommissionBps = 0;
@@ -313,8 +325,8 @@ contract RewardVaults is
 
     /// @notice Execute a queued commission increase after its timelock elapses.
     function executeCommissionIncrease() external onlyRole(ADMIN_ROLE) {
-        require(_commissionExecuteAfter != 0, "No pending increase");
-        require(block.timestamp >= _commissionExecuteAfter, "Timelock not elapsed");
+        if (_commissionExecuteAfter == 0) revert NoPendingIncrease();
+        if (block.timestamp < _commissionExecuteAfter) revert TimelockNotElapsed();
         uint16 newBps = _pendingCommissionBps;
         _pendingCommissionBps = 0;
         _commissionExecuteAfter = 0;
@@ -324,7 +336,7 @@ contract RewardVaults is
 
     /// @notice Cancel a queued commission increase.
     function cancelCommissionIncrease() external onlyRole(ADMIN_ROLE) {
-        require(_commissionExecuteAfter != 0, "No pending increase");
+        if (_commissionExecuteAfter == 0) revert NoPendingIncrease();
         uint16 cancelled = _pendingCommissionBps;
         _pendingCommissionBps = 0;
         _commissionExecuteAfter = 0;
@@ -346,10 +358,10 @@ contract RewardVaults is
         external
         onlyRole(ADMIN_ROLE)
     {
-        require(oneMonth > 0, "oneMonth=0");
-        require(twoMonths >= oneMonth, "twoMonths<one");
-        require(threeMonths >= twoMonths, "threeMonths<two");
-        require(sixMonths >= threeMonths, "sixMonths<three");
+        if (oneMonth == 0) revert InvalidLockDurations();
+        if (twoMonths < oneMonth) revert InvalidLockDurations();
+        if (threeMonths < twoMonths) revert InvalidLockDurations();
+        if (sixMonths < threeMonths) revert InvalidLockDurations();
 
         lockDurationOneMonth = oneMonth;
         lockDurationTwoMonths = twoMonths;
@@ -1083,8 +1095,8 @@ contract RewardVaults is
     /// @dev Requires this contract to hold sufficient TNT (funded by InflationPool)
     function _transferRewards(address to, uint256 amount) internal {
         // Transfer from this contract's balance (funded by InflationPool)
-        require(tntToken.balanceOf(address(this)) >= amount, "Insufficient reward balance");
-        require(tntToken.transfer(to, amount), "Reward transfer failed");
+        if (tntToken.balanceOf(address(this)) < amount) revert InsufficientRewardBalance();
+        if (!tntToken.transfer(to, amount)) revert RewardTransferFailed();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import { Test } from "forge-std/Test.sol";
 import { ValidatorPodManager } from "src/beacon/ValidatorPodManager.sol";
 import { L2SlashingConnector } from "src/beacon/L2SlashingConnector.sol";
-import { MockBeaconOracle } from "src/beacon/BeaconRootReceiver.sol";
+import { MockBeaconOracle } from "../mocks/MockBeaconOracle.sol";
 import { ICrossChainMessenger } from "src/beacon/interfaces/ICrossChainMessenger.sol";
 
 /// @notice Regression for the batch fee-forwarding bug: `batchPropagateBeaconSlashing` used

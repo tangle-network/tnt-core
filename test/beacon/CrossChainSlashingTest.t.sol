@@ -8,7 +8,7 @@ import { L2SlashingReceiver, IL2Slasher } from "../../src/beacon/L2SlashingRecei
 import { TangleL2Slasher } from "../../src/beacon/TangleL2Slasher.sol";
 import { ICrossChainMessenger, ICrossChainReceiver } from "../../src/beacon/interfaces/ICrossChainMessenger.sol";
 import { ValidatorPodManager } from "../../src/beacon/ValidatorPodManager.sol";
-import { MockBeaconOracle } from "../../src/beacon/BeaconRootReceiver.sol";
+import { MockBeaconOracle } from "../mocks/MockBeaconOracle.sol";
 import { IStaking } from "../../src/interfaces/IStaking.sol";
 import { Types } from "../../src/libraries/Types.sol";
 
@@ -599,7 +599,7 @@ contract CrossChainSlashingTest is Test {
         factors[1] = 0.9e18;
 
         vm.startPrank(oracle);
-        vm.expectRevert(bytes("Length mismatch"));
+        vm.expectRevert(L2SlashingConnector.LengthMismatch.selector);
         connector.batchPropagateBeaconSlashing(pods, factors);
         vm.stopPrank();
     }
@@ -652,7 +652,7 @@ contract CrossChainSlashingTest is Test {
         address[] memory operators = new address[](2);
 
         vm.prank(admin);
-        vm.expectRevert(bytes("Length mismatch"));
+        vm.expectRevert(L2SlashingConnector.LengthMismatch.selector);
         connector.batchRegisterPodOperators(pods, operators);
     }
 
@@ -980,7 +980,7 @@ contract CrossChainSlashingTest is Test {
         connector.transferOwnership(newOwner);
 
         vm.prank(admin);
-        vm.expectRevert("Only owner");
+        vm.expectRevert(L2SlashingConnector.NotOwner.selector);
         connector.setChainConfig(999, makeAddr("fail"), 1, true);
 
         vm.prank(newOwner);

@@ -101,15 +101,27 @@ contract ServicesExitFlowTest is BaseTest {
     }
 
     function test_CanScheduleExit_ReflectsCommitmentWindow() public {
+        // Default exit config enforces a min-commitment window (1 day). Before it
+        // elapses, scheduleExit is gated (reverts ExitTooEarly) and no exit is
+        // queued; after warping past it, scheduling succeeds and the status
+        // transitions None -> Scheduled.
         uint64 serviceId = _deployDynamicService(address(0));
-        (bool canExit, string memory reason) = tangle.canScheduleExit(serviceId, operator1);
-        assertFalse(canExit);
-        assertEq(reason, "Minimum commitment not met");
+        uint64 minCommitmentEnd = uint64(block.timestamp) + 1 days;
+
+        assertEq(uint8(tangle.getExitStatus(serviceId, operator1)), uint8(Types.ExitStatus.None));
+
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.ExitTooEarly.selector, serviceId, operator1, minCommitmentEnd, uint64(block.timestamp)
+            )
+        );
+        tangle.scheduleExit(serviceId);
 
         vm.warp(block.timestamp + 2 days);
-        (canExit, reason) = tangle.canScheduleExit(serviceId, operator1);
-        assertTrue(canExit);
-        assertEq(bytes(reason).length, 0);
+        vm.prank(operator1);
+        tangle.scheduleExit(serviceId);
+        assertEq(uint8(tangle.getExitStatus(serviceId, operator1)), uint8(Types.ExitStatus.Scheduled));
     }
 
     function test_AddAndRemovePermittedCaller() public {

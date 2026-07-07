@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import { Script, console2 } from "forge-std/Script.sol";
 
 import { ValidatorPodManager } from "../src/beacon/ValidatorPodManager.sol";
-import { MockBeaconOracle } from "../src/beacon/BeaconRootReceiver.sol";
+import { MockBeaconOracle } from "../test/mocks/MockBeaconOracle.sol";
 import { EIP4788Oracle } from "../src/beacon/l1/EIP4788Oracle.sol";
 import { L2SlashingConnector } from "../src/beacon/L2SlashingConnector.sol";
 import { BaseCrossChainMessenger } from "../src/beacon/bridges/BaseCrossChainMessenger.sol";

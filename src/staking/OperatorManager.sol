@@ -160,9 +160,7 @@ abstract contract OperatorManager is DelegationStorage {
         if (amount == 0) revert DelegationErrors.ZeroAmount();
 
         // Check minimum stake requirement after unstake
-        bytes32 bondHash = _operatorBondToken == address(0)
-            ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
-            : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
+        bytes32 bondHash = _getOperatorBondAssetHash();
         uint256 minStake = _assetConfigs[bondHash].minOperatorStake;
 
         // Include pending unstakes
@@ -196,9 +194,7 @@ abstract contract OperatorManager is DelegationStorage {
         }
 
         // accrue stake-seconds at the pre-unstake stake before mutating self-stake.
-        bytes32 bondHashUnstake = _operatorBondToken == address(0)
-            ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
-            : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
+        bytes32 bondHashUnstake = _getOperatorBondAssetHash();
         _accrueOperatorStakeSeconds(msg.sender, bondHashUnstake);
 
         unstaked = request.amount;
@@ -275,9 +271,7 @@ abstract contract OperatorManager is DelegationStorage {
         }
 
         // accrue stake-seconds at the pre-exit stake before zeroing self-stake.
-        bytes32 bondHashExit = _operatorBondToken == address(0)
-            ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
-            : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
+        bytes32 bondHashExit = _getOperatorBondAssetHash();
         _accrueOperatorStakeSeconds(msg.sender, bondHashExit);
 
         stake = meta.stake;

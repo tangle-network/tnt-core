@@ -571,12 +571,6 @@ abstract contract SlashingManager is RewardsManager {
         );
     }
 
-    function _getOperatorBondAssetHash() internal view returns (bytes32 bondHash) {
-        bondHash = _operatorBondToken == address(0)
-            ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
-            : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
-    }
-
     function _setOperatorInactiveIfBelowMinStake(address operator, bytes32 assetHash) private {
         Types.OperatorMetadata storage meta = _operatorMetadata[operator];
         uint256 minStake = _assetConfigs[assetHash].minOperatorStake;
@@ -767,9 +761,7 @@ abstract contract SlashingManager is RewardsManager {
             revert DelegationErrors.OperatorNotActive(operator);
         }
 
-        bytes32 bondHash = _operatorBondToken == address(0)
-            ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
-            : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
+        bytes32 bondHash = _getOperatorBondAssetHash();
 
         _atStake[currentRound][operator] = Types.OperatorSnapshot({
             stake: meta.stake, totalDelegated: _getOperatorDelegatedStakeForAsset(operator, bondHash)

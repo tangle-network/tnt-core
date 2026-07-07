@@ -23,7 +23,7 @@ interface IStreamingPaymentManager {
         address operator
     )
         external
-        returns (uint256 amount, uint256 durationSeconds, uint64 blueprintId, address paymentToken);
+        returns (uint256 amount, uint64 blueprintId, address paymentToken);
 
     /// @notice Drip all active streams for an operator
     function dripOperatorStreams(address operator)
@@ -32,8 +32,7 @@ interface IStreamingPaymentManager {
             uint64[] memory serviceIds,
             uint64[] memory blueprintIds,
             address[] memory paymentTokens,
-            uint256[] memory amounts,
-            uint256[] memory durations
+            uint256[] memory amounts
         );
 
     /// @notice Called when service is terminated

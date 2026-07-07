@@ -245,10 +245,6 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
     // RESOURCE COMMITMENT PERSISTENCE
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event ResourcesCommitted(
-        uint64 indexed serviceId, address indexed operator, Types.ResourceCommitment[] commitments
-    );
-
     /// @notice Persist resource commitments from request to service
     /// @dev Computes hash of requirements and stores per-operator (same storage as RFQ flow)
     function _persistResourceCommitments(uint64 serviceId, uint64 requestId) private {

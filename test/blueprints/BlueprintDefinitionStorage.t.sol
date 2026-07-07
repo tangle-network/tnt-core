@@ -4,7 +4,6 @@ pragma solidity ^0.8.26;
 import { BaseTest } from "../BaseTest.sol";
 import { Types } from "../../src/libraries/Types.sol";
 import { Errors } from "../../src/libraries/Errors.sol";
-import { MasterBlueprintServiceManager } from "../../src/MasterBlueprintServiceManager.sol";
 import { TangleMetrics } from "../../src/rewards/TangleMetrics.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Vm } from "forge-std/Vm.sol";
@@ -341,13 +340,26 @@ contract BlueprintDefinitionStorageTest is BaseTest {
         Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://mbsm-record", address(0));
         bytes memory encodedDefinition = abi.encode(def);
 
+        // The MBSM no longer stores a record — it only emits. The definition digest
+        // lives on Tangle core; the owner rides the BlueprintDefinitionRecorded event
+        // as an indexed topic.
+        vm.recordLogs();
         vm.prank(developer);
         uint64 blueprintId = tangle.createBlueprint(def);
 
-        MasterBlueprintServiceManager.BlueprintRecord memory record = masterManager.getBlueprintRecord(blueprintId);
-        assertEq(record.owner, developer, "record owner mismatch");
-        assertGt(record.recordedAt, 0, "record timestamp missing");
-        assertEq(record.definitionHash, keccak256(encodedDefinition), "definition digest mismatch");
+        assertEq(tangle.blueprintDefinitionHash(blueprintId), keccak256(encodedDefinition), "definition digest mismatch");
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 topic = keccak256("BlueprintDefinitionRecorded(uint64,address,bytes)");
+        bool found;
+        for (uint256 i = 0; i < logs.length; ++i) {
+            if (logs[i].topics.length > 2 && logs[i].topics[0] == topic) {
+                assertEq(uint64(uint256(logs[i].topics[1])), blueprintId, "event blueprintId mismatch");
+                assertEq(address(uint160(uint256(logs[i].topics[2]))), developer, "record owner mismatch");
+                found = true;
+            }
+        }
+        assertTrue(found, "BlueprintDefinitionRecorded not emitted");
     }
 
     function test_SetMBSMRegistryAccessAndZeroChecks() public {
@@ -456,9 +468,9 @@ contract BlueprintDefinitionStorageTest is BaseTest {
         assertEq(recorded.jobs[1].name, def.jobs[1].name, "event job1 name");
     }
 
-    /// @notice The stored 32-byte digest anchors the creation-time encoding: it must
-    ///         match keccak256(abi.encode(def)), the master manager record, AND the
-    ///         payload of the BlueprintDefinitionRecorded event — which abi-decodes
+    /// @notice The on-chain 32-byte digest (held by Tangle core, not the MBSM) anchors
+    ///         the creation-time encoding: it must match keccak256(abi.encode(def)) AND
+    ///         the payload of the BlueprintDefinitionRecorded event — which abi-decodes
     ///         back to the original definition. This is the event-sourcing contract
     ///         that replaced storing the multi-KB blob on-chain.
     function test_DefinitionHashAnchorsEventSourcedCopy() public {
@@ -470,7 +482,6 @@ contract BlueprintDefinitionStorageTest is BaseTest {
         uint64 id = tangle.createBlueprint(def);
 
         assertEq(tangle.blueprintDefinitionHash(id), expected, "on-chain digest");
-        assertEq(masterManager.getBlueprintRecord(id).definitionHash, expected, "MBSM digest");
 
         // The event payload is the canonical off-chain copy: hash-match + decode round-trip.
         Vm.Log[] memory logs = vm.getRecordedLogs();

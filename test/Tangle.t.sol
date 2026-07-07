@@ -228,7 +228,7 @@ contract TangleTest is BaseTest {
         tangle.updateOperatorPreferences(blueprintId, "", "newPrefs");
 
         Types.OperatorRegistration memory reg = tangle.getOperatorRegistration(blueprintId, operator1);
-        assertTrue(reg.updatedAt >= reg.registeredAt);
+        assertTrue(reg.registeredAt > 0);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

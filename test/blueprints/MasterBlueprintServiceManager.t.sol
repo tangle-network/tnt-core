@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import { Test } from "forge-std/Test.sol";
 
 import { MasterBlueprintServiceManager } from "../../src/MasterBlueprintServiceManager.sol";
+import { IMasterBlueprintServiceManager } from "../../src/interfaces/IMasterBlueprintServiceManager.sol";
 
 contract MasterBlueprintServiceManagerTest is Test {
     MasterBlueprintServiceManager internal mbsm;
@@ -37,16 +38,16 @@ contract MasterBlueprintServiceManagerTest is Test {
         uint64 nowTs = 1_234_567;
         vm.warp(nowTs);
 
+        // The MBSM only ever emits, never reads: the definition (and its owner) is
+        // recorded via BlueprintDefinitionRecorded, whose keccak digest is what the
+        // old on-chain record stored. Assert the full event payload.
+        vm.expectEmit(true, true, false, true, address(mbsm));
+        emit IMasterBlueprintServiceManager.BlueprintDefinitionRecorded(
+            BLUEPRINT_ID, address(0xBEEF), encodedDefinition
+        );
+
         vm.prank(tangle);
         mbsm.onBlueprintCreated(BLUEPRINT_ID, address(0xBEEF), encodedDefinition);
-
-        MasterBlueprintServiceManager.BlueprintRecord memory record = mbsm.getBlueprintRecord(BLUEPRINT_ID);
-
-        assertEq(record.owner, address(0xBEEF));
-        assertEq(record.recordedAt, nowTs);
-        // The full definition is emitted (BlueprintDefinitionRecorded), not stored;
-        // the record keeps only its digest.
-        assertEq(record.definitionHash, keccak256(encodedDefinition));
     }
 
     function test_OnBlueprintCreated_RevertsWithoutRole() public {

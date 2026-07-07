@@ -16,7 +16,7 @@ import { Types } from "../src/libraries/Types.sol";
 import { BlueprintDefinitionHelper } from "../test/support/BlueprintDefinitionHelper.sol";
 import { MockToken } from "../test/mocks/MockToken.sol";
 import { ValidatorPodManager } from "../src/beacon/ValidatorPodManager.sol";
-import { MockBeaconOracle } from "../src/beacon/BeaconRootReceiver.sol";
+import { MockBeaconOracle } from "../test/mocks/MockBeaconOracle.sol";
 import { LiquidDelegationFactory } from "../src/staking/LiquidDelegationFactory.sol";
 import { LiquidDelegationVault } from "../src/staking/LiquidDelegationVault.sol";
 import { TangleMetrics } from "../src/rewards/TangleMetrics.sol";

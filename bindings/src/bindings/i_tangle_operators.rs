@@ -4,7 +4,7 @@
 ```solidity
 library Types {
     struct OperatorPreferences { bytes ecdsaPublicKey; string rpcAddress; }
-    struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active; bool online; }
+    struct OperatorRegistration { uint64 registeredAt; }
 }
 ```*/
 #[allow(
@@ -241,19 +241,13 @@ struct OperatorPreferences { bytes ecdsaPublicKey; string rpcAddress; }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active; bool online; }
+struct OperatorRegistration { uint64 registeredAt; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct OperatorRegistration {
         #[allow(missing_docs)]
         pub registeredAt: u64,
-        #[allow(missing_docs)]
-        pub updatedAt: u64,
-        #[allow(missing_docs)]
-        pub active: bool,
-        #[allow(missing_docs)]
-        pub online: bool,
     }
     #[allow(
         non_camel_case_types,
@@ -265,14 +259,9 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
         #[allow(dead_code)]
-        type UnderlyingSolTuple<'a> = (
-            alloy::sol_types::sol_data::Uint<64>,
-            alloy::sol_types::sol_data::Uint<64>,
-            alloy::sol_types::sol_data::Bool,
-            alloy::sol_types::sol_data::Bool,
-        );
+        type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
         #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = (u64, u64, bool, bool);
+        type UnderlyingRustTuple<'a> = (u64,);
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
         fn _type_assertion(
@@ -288,19 +277,14 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
         #[doc(hidden)]
         impl ::core::convert::From<OperatorRegistration> for UnderlyingRustTuple<'_> {
             fn from(value: OperatorRegistration) -> Self {
-                (value.registeredAt, value.updatedAt, value.active, value.online)
+                (value.registeredAt,)
             }
         }
         #[automatically_derived]
         #[doc(hidden)]
         impl ::core::convert::From<UnderlyingRustTuple<'_>> for OperatorRegistration {
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                Self {
-                    registeredAt: tuple.0,
-                    updatedAt: tuple.1,
-                    active: tuple.2,
-                    online: tuple.3,
-                }
+                Self { registeredAt: tuple.0 }
             }
         }
         #[automatically_derived]
@@ -315,15 +299,6 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::tokenize(&self.registeredAt),
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.updatedAt),
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
-                        &self.active,
-                    ),
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
-                        &self.online,
-                    ),
                 )
             }
             #[inline]
@@ -398,7 +373,7 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "OperatorRegistration(uint64 registeredAt,uint64 updatedAt,bool active,bool online)",
+                    "OperatorRegistration(uint64 registeredAt)",
                 )
             }
             #[inline]
@@ -413,25 +388,11 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
             }
             #[inline]
             fn eip712_encode_data(&self) -> alloy_sol_types::private::Vec<u8> {
-                [
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.registeredAt)
-                        .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.updatedAt)
-                        .0,
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.active,
-                        )
-                        .0,
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.online,
-                        )
-                        .0,
-                ]
-                    .concat()
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::SolType>::eip712_data_word(&self.registeredAt)
+                    .0
+                    .to_vec()
             }
         }
         #[automatically_derived]
@@ -443,17 +404,6 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
                         64,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.registeredAt,
-                    )
-                    + <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.updatedAt,
-                    )
-                    + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.active,
-                    )
-                    + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.online,
                     )
             }
             #[inline]
@@ -468,20 +418,6 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
                     64,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.registeredAt,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.updatedAt,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.active,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.online,
                     out,
                 );
             }
@@ -629,9 +565,6 @@ library Types {
     }
     struct OperatorRegistration {
         uint64 registeredAt;
-        uint64 updatedAt;
-        bool active;
-        bool online;
     }
 }
 
@@ -741,21 +674,6 @@ interface ITangleOperators {
             "name": "registeredAt",
             "type": "uint64",
             "internalType": "uint64"
-          },
-          {
-            "name": "updatedAt",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "active",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "online",
-            "type": "bool",
-            "internalType": "bool"
           }
         ]
       }

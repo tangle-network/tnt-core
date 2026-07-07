@@ -41,8 +41,6 @@ abstract contract ServicesLifecycle is Base {
         uint256 escrowBalance
     );
     event OperatorJoinedService(uint64 indexed serviceId, address indexed operator, uint16 exposureBps);
-    event OperatorSecurityCommitmentsStored(uint64 indexed serviceId, address indexed operator, uint256 count);
-    event OperatorSecurityCommitmentsCleared(uint64 indexed serviceId, address indexed operator, uint256 count);
     event OperatorSecurityCommitment(
         uint64 indexed serviceId, address indexed operator, uint8 assetKind, address asset, uint16 exposureBps
     );
@@ -281,7 +279,6 @@ abstract contract ServicesLifecycle is Base {
                 }
             }
             delete _serviceSecurityCommitments[serviceId][msg.sender];
-            emit OperatorSecurityCommitmentsCleared(serviceId, msg.sender, priorCount);
         }
 
         for (uint256 i = 0; i < commitments.length; i++) {
@@ -297,7 +294,6 @@ abstract contract ServicesLifecycle is Base {
                 commitments[i].exposureBps
             );
         }
-        emit OperatorSecurityCommitmentsStored(serviceId, msg.sender, commitments.length);
 
         _validateJoinRequirements(serviceId, bp);
         _finalizeJoin(serviceId, exposureBps, svc, bp);
@@ -609,39 +605,6 @@ abstract contract ServicesLifecycle is Base {
     function getExitConfig(uint64 serviceId) external view returns (Types.ExitConfig memory) {
         Types.Service storage svc = _services[serviceId];
         return _getExitConfig(svc.blueprintId, serviceId);
-    }
-
-    /// @notice Check if operator can schedule exit now
-    function canScheduleExit(
-        uint64 serviceId,
-        address operator
-    )
-        external
-        view
-        returns (bool canExit, string memory reason)
-    {
-        Types.Service storage svc = _services[serviceId];
-        if (svc.membership != Types.MembershipModel.Dynamic) {
-            return (false, "Not dynamic membership");
-        }
-
-        Types.ServiceOperator storage opData = _serviceOperators[serviceId][operator];
-        if (!opData.active) {
-            return (false, "Not in service");
-        }
-
-        Types.ExitRequest storage exitReq = _exitRequests[serviceId][operator];
-        if (exitReq.pending) {
-            return (false, "Exit already scheduled");
-        }
-
-        Types.ExitConfig memory exitConfig = _getExitConfig(svc.blueprintId, serviceId);
-        uint64 minCommitmentEnd = opData.joinedAt + exitConfig.minCommitmentDuration;
-        if (block.timestamp < minCommitmentEnd) {
-            return (false, "Minimum commitment not met");
-        }
-
-        return (true, "");
     }
 
     /// @notice Validate security commitments

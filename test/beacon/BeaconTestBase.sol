@@ -5,7 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { ValidatorPod } from "../../src/beacon/ValidatorPod.sol";
 import { ValidatorPodManager } from "../../src/beacon/ValidatorPodManager.sol";
 import { ValidatorTypes } from "../../src/beacon/ValidatorTypes.sol";
-import { MockBeaconOracle } from "../../src/beacon/BeaconRootReceiver.sol";
+import { MockBeaconOracle } from "../mocks/MockBeaconOracle.sol";
 
 /// @title BeaconTestBase
 /// @notice Base test contract for beacon chain staking tests

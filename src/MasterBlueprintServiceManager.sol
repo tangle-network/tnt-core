@@ -17,21 +17,6 @@ import { Types } from "./libraries/Types.sol";
 contract MasterBlueprintServiceManager is IMasterBlueprintServiceManager, AccessControl {
     bytes32 public constant TANGLE_ROLE = keccak256("TANGLE_ROLE");
 
-    struct BlueprintRecord {
-        address owner;
-        uint64 recordedAt;
-        // Digest of the ABI-encoded definition. The full bytes are emitted in
-        // BlueprintDefinitionRecorded (the authoritative indexer event) rather
-        // than SSTORE'd; this contract only ever emits — never reads the blob.
-        bytes32 definitionHash;
-    }
-
-    /// @notice blueprintId => record
-    mapping(uint64 => BlueprintRecord) private _records;
-
-
-
-
     constructor(address admin, address initialTangle) {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         if (initialTangle != address(0)) {
@@ -58,9 +43,6 @@ contract MasterBlueprintServiceManager is IMasterBlueprintServiceManager, Access
         override
         onlyRole(TANGLE_ROLE)
     {
-        _records[blueprintId] = BlueprintRecord({
-            owner: owner, recordedAt: uint64(block.timestamp), definitionHash: keccak256(encodedDefinition)
-        });
         emit BlueprintDefinitionRecorded(blueprintId, owner, encodedDefinition);
     }
 
@@ -88,10 +70,5 @@ contract MasterBlueprintServiceManager is IMasterBlueprintServiceManager, Access
         onlyRole(TANGLE_ROLE)
     {
         emit OperatorBinaryAckRecorded(serviceId, versionId, operator);
-    }
-
-    /// @notice Fetch stored blueprint metadata
-    function getBlueprintRecord(uint64 blueprintId) external view returns (BlueprintRecord memory) {
-        return _records[blueprintId];
     }
 }
