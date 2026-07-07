@@ -190,6 +190,24 @@ abstract contract Slashing is Base {
 
         bool isAdmin = hasRole(SLASH_ADMIN_ROLE, msg.sender);
 
+        // Defense-in-depth: hoist the two cheap storage-only guards ABOVE the blueprint-manager
+        // staticcall block below so a griefer cannot force the (gas-capped, external) staticcalls
+        // before these local checks reject. These MIRROR the authoritative guards inside
+        // `SlashingLib.disputeSlash` (which still run before any state change), so the happy path
+        // is unchanged — a Pending, in-window proposal passes both here and there identically.
+        // The SlashNotFound guard preserves the library's exact revert ordering
+        // (SlashNotFound → SlashNotPending → DisputeWindowPassed) for a nonexistent slash, so no
+        // caller observes a different revert reason than before.
+        if (proposal.operator == address(0)) {
+            revert Errors.SlashNotFound(slashId);
+        }
+        if (proposal.status != SlashingLib.SlashStatus.Pending) {
+            revert Errors.SlashNotPending(slashId);
+        }
+        if (block.timestamp >= uint256(proposal.executeAfter) + SlashingLib.TIMESTAMP_BUFFER) {
+            revert Errors.DisputeWindowPassed(slashId);
+        }
+
         // A blueprint can designate a custom dispute resolver via its BSM `queryDisputeOrigin`
         // hook (symmetric to `querySlashingOrigin` gating proposals).
         //

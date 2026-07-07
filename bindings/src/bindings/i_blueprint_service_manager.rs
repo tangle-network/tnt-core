@@ -3,7 +3,7 @@
 
 ```solidity
 library Types {
-    struct BinaryVersion { uint64 versionId; bytes32 sha256Hash; bytes32 attestationHash; uint64 publishedAt; bool deprecated; }
+    struct BinaryVersion { uint64 versionId; uint64 publishedAt; bool deprecated; bytes32 sha256Hash; bytes32 attestationHash; }
 }
 ```*/
 #[allow(
@@ -19,7 +19,7 @@ pub mod Types {
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct BinaryVersion { uint64 versionId; bytes32 sha256Hash; bytes32 attestationHash; uint64 publishedAt; bool deprecated; }
+struct BinaryVersion { uint64 versionId; uint64 publishedAt; bool deprecated; bytes32 sha256Hash; bytes32 attestationHash; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -27,13 +27,13 @@ struct BinaryVersion { uint64 versionId; bytes32 sha256Hash; bytes32 attestation
         #[allow(missing_docs)]
         pub versionId: u64,
         #[allow(missing_docs)]
-        pub sha256Hash: alloy::sol_types::private::FixedBytes<32>,
-        #[allow(missing_docs)]
-        pub attestationHash: alloy::sol_types::private::FixedBytes<32>,
-        #[allow(missing_docs)]
         pub publishedAt: u64,
         #[allow(missing_docs)]
         pub deprecated: bool,
+        #[allow(missing_docs)]
+        pub sha256Hash: alloy::sol_types::private::FixedBytes<32>,
+        #[allow(missing_docs)]
+        pub attestationHash: alloy::sol_types::private::FixedBytes<32>,
     }
     #[allow(
         non_camel_case_types,
@@ -47,18 +47,18 @@ struct BinaryVersion { uint64 versionId; bytes32 sha256Hash; bytes32 attestation
         #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::Uint<64>,
-            alloy::sol_types::sol_data::FixedBytes<32>,
-            alloy::sol_types::sol_data::FixedBytes<32>,
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Bool,
+            alloy::sol_types::sol_data::FixedBytes<32>,
+            alloy::sol_types::sol_data::FixedBytes<32>,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
             u64,
-            alloy::sol_types::private::FixedBytes<32>,
-            alloy::sol_types::private::FixedBytes<32>,
             u64,
             bool,
+            alloy::sol_types::private::FixedBytes<32>,
+            alloy::sol_types::private::FixedBytes<32>,
         );
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
@@ -77,10 +77,10 @@ struct BinaryVersion { uint64 versionId; bytes32 sha256Hash; bytes32 attestation
             fn from(value: BinaryVersion) -> Self {
                 (
                     value.versionId,
-                    value.sha256Hash,
-                    value.attestationHash,
                     value.publishedAt,
                     value.deprecated,
+                    value.sha256Hash,
+                    value.attestationHash,
                 )
             }
         }
@@ -90,10 +90,10 @@ struct BinaryVersion { uint64 versionId; bytes32 sha256Hash; bytes32 attestation
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self {
                     versionId: tuple.0,
-                    sha256Hash: tuple.1,
-                    attestationHash: tuple.2,
-                    publishedAt: tuple.3,
-                    deprecated: tuple.4,
+                    publishedAt: tuple.1,
+                    deprecated: tuple.2,
+                    sha256Hash: tuple.3,
+                    attestationHash: tuple.4,
                 }
             }
         }
@@ -109,18 +109,18 @@ struct BinaryVersion { uint64 versionId; bytes32 sha256Hash; bytes32 attestation
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::tokenize(&self.versionId),
-                    <alloy::sol_types::sol_data::FixedBytes<
-                        32,
-                    > as alloy_sol_types::SolType>::tokenize(&self.sha256Hash),
-                    <alloy::sol_types::sol_data::FixedBytes<
-                        32,
-                    > as alloy_sol_types::SolType>::tokenize(&self.attestationHash),
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::tokenize(&self.publishedAt),
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
                         &self.deprecated,
                     ),
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self.sha256Hash),
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self.attestationHash),
                 )
             }
             #[inline]
@@ -195,7 +195,7 @@ struct BinaryVersion { uint64 versionId; bytes32 sha256Hash; bytes32 attestation
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "BinaryVersion(uint64 versionId,bytes32 sha256Hash,bytes32 attestationHash,uint64 publishedAt,bool deprecated)",
+                    "BinaryVersion(uint64 versionId,uint64 publishedAt,bool deprecated,bytes32 sha256Hash,bytes32 attestationHash)",
                 )
             }
             #[inline]
@@ -215,6 +215,14 @@ struct BinaryVersion { uint64 versionId; bytes32 sha256Hash; bytes32 attestation
                         64,
                     > as alloy_sol_types::SolType>::eip712_data_word(&self.versionId)
                         .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.publishedAt)
+                        .0,
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.deprecated,
+                        )
+                        .0,
                     <alloy::sol_types::sol_data::FixedBytes<
                         32,
                     > as alloy_sol_types::SolType>::eip712_data_word(&self.sha256Hash)
@@ -223,14 +231,6 @@ struct BinaryVersion { uint64 versionId; bytes32 sha256Hash; bytes32 attestation
                         32,
                     > as alloy_sol_types::SolType>::eip712_data_word(
                             &self.attestationHash,
-                        )
-                        .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.publishedAt)
-                        .0,
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.deprecated,
                         )
                         .0,
                 ]
@@ -247,6 +247,14 @@ struct BinaryVersion { uint64 versionId; bytes32 sha256Hash; bytes32 attestation
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.versionId,
                     )
+                    + <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.publishedAt,
+                    )
+                    + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.deprecated,
+                    )
                     + <alloy::sol_types::sol_data::FixedBytes<
                         32,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
@@ -256,14 +264,6 @@ struct BinaryVersion { uint64 versionId; bytes32 sha256Hash; bytes32 attestation
                         32,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.attestationHash,
-                    )
-                    + <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.publishedAt,
-                    )
-                    + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.deprecated,
                     )
             }
             #[inline]
@@ -280,6 +280,16 @@ struct BinaryVersion { uint64 versionId; bytes32 sha256Hash; bytes32 attestation
                     &rust.versionId,
                     out,
                 );
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.publishedAt,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.deprecated,
+                    out,
+                );
                 <alloy::sol_types::sol_data::FixedBytes<
                     32,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
@@ -290,16 +300,6 @@ struct BinaryVersion { uint64 versionId; bytes32 sha256Hash; bytes32 attestation
                     32,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.attestationHash,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.publishedAt,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.deprecated,
                     out,
                 );
             }
@@ -443,10 +443,10 @@ Generated by the following Solidity interface...
 library Types {
     struct BinaryVersion {
         uint64 versionId;
-        bytes32 sha256Hash;
-        bytes32 attestationHash;
         uint64 publishedAt;
         bool deprecated;
+        bytes32 sha256Hash;
+        bytes32 attestationHash;
     }
 }
 
@@ -877,16 +877,6 @@ interface IBlueprintServiceManager {
             "internalType": "uint64"
           },
           {
-            "name": "sha256Hash",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "attestationHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
             "name": "publishedAt",
             "type": "uint64",
             "internalType": "uint64"
@@ -895,6 +885,16 @@ interface IBlueprintServiceManager {
             "name": "deprecated",
             "type": "bool",
             "internalType": "bool"
+          },
+          {
+            "name": "sha256Hash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "attestationHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
           }
         ]
       },
@@ -3920,7 +3920,7 @@ function onApprove(address operator, uint64 requestId, uint8 stakingPercent) ext
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `onBinaryVersionPublished(uint64,(uint64,bytes32,bytes32,uint64,bool),string)` and selector `0x292c9e1c`.
+    /**Function with signature `onBinaryVersionPublished(uint64,(uint64,uint64,bool,bytes32,bytes32),string)` and selector `0x15034413`.
 ```solidity
 function onBinaryVersionPublished(uint64 blueprintId, Types.BinaryVersion memory version, string memory binaryUri) external;
 ```*/
@@ -3934,7 +3934,7 @@ function onBinaryVersionPublished(uint64 blueprintId, Types.BinaryVersion memory
         #[allow(missing_docs)]
         pub binaryUri: alloy::sol_types::private::String,
     }
-    ///Container type for the return parameters of the [`onBinaryVersionPublished(uint64,(uint64,bytes32,bytes32,uint64,bool),string)`](onBinaryVersionPublishedCall) function.
+    ///Container type for the return parameters of the [`onBinaryVersionPublished(uint64,(uint64,uint64,bool,bytes32,bytes32),string)`](onBinaryVersionPublishedCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct onBinaryVersionPublishedReturn {}
@@ -4050,8 +4050,8 @@ function onBinaryVersionPublished(uint64 blueprintId, Types.BinaryVersion memory
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "onBinaryVersionPublished(uint64,(uint64,bytes32,bytes32,uint64,bool),string)";
-            const SELECTOR: [u8; 4] = [41u8, 44u8, 158u8, 28u8];
+            const SIGNATURE: &'static str = "onBinaryVersionPublished(uint64,(uint64,uint64,bool,bytes32,bytes32),string)";
+            const SELECTOR: [u8; 4] = [21u8, 3u8, 68u8, 19u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -7952,11 +7952,11 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
             [8u8, 129u8, 137u8, 143u8],
             [11u8, 101u8, 53u8, 215u8],
             [20u8, 180u8, 223u8, 76u8],
+            [21u8, 3u8, 68u8, 19u8],
             [21u8, 26u8, 69u8, 118u8],
             [21u8, 139u8, 178u8, 235u8],
             [25u8, 237u8, 91u8, 178u8],
             [37u8, 252u8, 198u8, 78u8],
-            [41u8, 44u8, 158u8, 28u8],
             [63u8, 218u8, 223u8, 204u8],
             [76u8, 68u8, 62u8, 4u8],
             [84u8, 64u8, 102u8, 44u8],
@@ -7992,11 +7992,11 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
             ::core::stringify!(onUnappliedSlash),
             ::core::stringify!(onBlueprintCreated),
             ::core::stringify!(queryDisputeOrigin),
+            ::core::stringify!(onBinaryVersionPublished),
             ::core::stringify!(onUnregister),
             ::core::stringify!(onAggregatedResult),
             ::core::stringify!(requiresAggregation),
             ::core::stringify!(getAggregationThreshold),
-            ::core::stringify!(onBinaryVersionPublished),
             ::core::stringify!(getSlashingWindow),
             ::core::stringify!(getRequiredResultCount),
             ::core::stringify!(onExitCanceled),
@@ -8032,11 +8032,11 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
             <onUnappliedSlashCall as alloy_sol_types::SolCall>::SIGNATURE,
             <onBlueprintCreatedCall as alloy_sol_types::SolCall>::SIGNATURE,
             <queryDisputeOriginCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <onBinaryVersionPublishedCall as alloy_sol_types::SolCall>::SIGNATURE,
             <onUnregisterCall as alloy_sol_types::SolCall>::SIGNATURE,
             <onAggregatedResultCall as alloy_sol_types::SolCall>::SIGNATURE,
             <requiresAggregationCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getAggregationThresholdCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <onBinaryVersionPublishedCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashingWindowCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getRequiredResultCountCall as alloy_sol_types::SolCall>::SIGNATURE,
             <onExitCanceledCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -8274,6 +8274,17 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                     queryDisputeOrigin
                 },
                 {
+                    fn onBinaryVersionPublished(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IBlueprintServiceManagerCalls> {
+                        <onBinaryVersionPublishedCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IBlueprintServiceManagerCalls::onBinaryVersionPublished)
+                    }
+                    onBinaryVersionPublished
+                },
+                {
                     fn onUnregister(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IBlueprintServiceManagerCalls> {
@@ -8316,17 +8327,6 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                             .map(IBlueprintServiceManagerCalls::getAggregationThreshold)
                     }
                     getAggregationThreshold
-                },
-                {
-                    fn onBinaryVersionPublished(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IBlueprintServiceManagerCalls> {
-                        <onBinaryVersionPublishedCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(IBlueprintServiceManagerCalls::onBinaryVersionPublished)
-                    }
-                    onBinaryVersionPublished
                 },
                 {
                     fn getSlashingWindow(
@@ -8695,6 +8695,17 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                     queryDisputeOrigin
                 },
                 {
+                    fn onBinaryVersionPublished(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IBlueprintServiceManagerCalls> {
+                        <onBinaryVersionPublishedCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IBlueprintServiceManagerCalls::onBinaryVersionPublished)
+                    }
+                    onBinaryVersionPublished
+                },
+                {
                     fn onUnregister(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IBlueprintServiceManagerCalls> {
@@ -8737,17 +8748,6 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                             .map(IBlueprintServiceManagerCalls::getAggregationThreshold)
                     }
                     getAggregationThreshold
-                },
-                {
-                    fn onBinaryVersionPublished(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IBlueprintServiceManagerCalls> {
-                        <onBinaryVersionPublishedCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(IBlueprintServiceManagerCalls::onBinaryVersionPublished)
-                    }
-                    onBinaryVersionPublished
                 },
                 {
                     fn getSlashingWindow(

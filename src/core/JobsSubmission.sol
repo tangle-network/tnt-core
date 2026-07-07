@@ -79,9 +79,12 @@ abstract contract JobsSubmission is Base {
 
         (Types.Service storage svc, Types.Blueprint storage bp) = _loadServiceAndBlueprint(serviceId);
 
-        for (uint256 i = 0; i < callIds.length; i++) {
+        for (uint256 i = 0; i < callIds.length;) {
             Types.JobCall storage job = _getJobCall(serviceId, callIds[i]);
             _processResultSubmission(serviceId, callIds[i], outputs[i], svc, job, bp);
+            unchecked {
+                ++i;
+            }
         }
     }
 

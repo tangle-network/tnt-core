@@ -187,35 +187,45 @@ contract StreamingPaymentManager is
     function _drip(uint64 serviceId, address operator) internal returns (uint256 dripped) {
         StreamingPayment storage p = streamingPayments[serviceId][operator];
 
-        if (p.totalAmount == 0) return 0;
-        if (p.distributed >= p.totalAmount) return 0;
-        if (block.timestamp <= p.startTime) return 0;
+        // Cache the struct fields read multiple times into memory locals (each is a warm/cold
+        // SLOAD otherwise). Semantics are preserved: none of these fields is mutated between the
+        // reads below, and the only writes (`distributed`, `lastDripTime`) happen after all reads.
+        uint256 totalAmount = p.totalAmount;
+        uint256 distributed = p.distributed;
+        uint64 startTime = p.startTime;
+        uint64 endTime = p.endTime;
+        uint64 lastDripTime = p.lastDripTime;
+
+        if (totalAmount == 0) return 0;
+        if (distributed >= totalAmount) return 0;
+        if (block.timestamp <= startTime) return 0;
 
         uint64 currentTime = uint64(block.timestamp);
-        if (currentTime > p.endTime) {
-            currentTime = p.endTime;
+        if (currentTime > endTime) {
+            currentTime = endTime;
         }
 
-        if (currentTime <= p.lastDripTime) return 0;
+        if (currentTime <= lastDripTime) return 0;
 
-        uint256 elapsed = currentTime - p.lastDripTime;
-        uint256 duration = p.endTime - p.startTime;
-        uint256 remaining = p.totalAmount - p.distributed;
+        uint256 elapsed = currentTime - lastDripTime;
+        uint256 duration = endTime - startTime;
+        uint256 remaining = totalAmount - distributed;
 
-        uint256 chunk = (p.totalAmount * elapsed) / duration;
+        uint256 chunk = (totalAmount * elapsed) / duration;
         if (chunk > remaining) {
             chunk = remaining;
         }
         if (chunk == 0) return 0;
 
-        p.distributed += chunk;
+        uint256 newDistributed = distributed + chunk;
+        p.distributed = newDistributed;
         p.lastDripTime = currentTime;
 
-        emit StreamingDrip(serviceId, operator, chunk, p.distributed);
+        emit StreamingDrip(serviceId, operator, chunk, newDistributed);
 
-        if (p.distributed >= p.totalAmount) {
+        if (newDistributed >= totalAmount) {
             _removeActiveStream(operator, serviceId);
-            emit StreamingPaymentCompleted(serviceId, operator, p.totalAmount);
+            emit StreamingPaymentCompleted(serviceId, operator, totalAmount);
         }
 
         return chunk;
@@ -275,19 +285,28 @@ contract StreamingPaymentManager is
         amounts = new uint256[](len);
 
         // Iterate backwards to handle removals safely
-        for (uint256 i = len; i > 0; i--) {
+        for (uint256 i = len; i > 0;) {
             uint256 idx = i - 1;
             uint64 svcId = streams[idx];
             StreamingPayment storage p = streamingPayments[svcId][operator];
 
+            // Cache `paymentToken` once: `_drip` never writes this field, so the value read here
+            // is identical to a re-read after the drip (removes the second SLOAD at the transfer).
+            address token = p.paymentToken;
             serviceIds[idx] = svcId;
             blueprintIds[idx] = p.blueprintId;
-            paymentTokens[idx] = p.paymentToken;
-            amounts[idx] = _drip(svcId, operator);
+            paymentTokens[idx] = token;
+            uint256 amt = _drip(svcId, operator);
+            amounts[idx] = amt;
 
             // Transfer dripped tokens to distributor
-            if (amounts[idx] > 0) {
-                _transferPayment(payable(msg.sender), p.paymentToken, amounts[idx]);
+            if (amt > 0) {
+                _transferPayment(payable(msg.sender), token, amt);
+            }
+
+            // `i` decrements from `len` to 1; the loop guard (`i > 0`) proves no underflow.
+            unchecked {
+                --i;
             }
         }
     }

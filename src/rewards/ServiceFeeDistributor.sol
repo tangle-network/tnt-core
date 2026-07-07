@@ -393,35 +393,55 @@ contract ServiceFeeDistributor is
         _harvestAllTokens(delegator, operator, assetHash, 2);
 
         uint64[] storage existing = _fixedBlueprints[delegator][operator][assetHash];
-        for (uint256 i = 0; i < existing.length; i++) {
+        // `_totalFixedScoreByAsset[operator][assetHash]` is one slot re-touched every iteration;
+        // load once, apply the identical saturating subtraction in memory, store once after the
+        // loop. Each step reads exactly what the previous wrote, so the stored result is identical.
+        uint256 curTotalByAsset = _totalFixedScoreByAsset[operator][assetHash];
+        uint256 existingLen = existing.length;
+        for (uint256 i = 0; i < existingLen;) {
             uint64 bpId = existing[i];
             uint256 oldScore = _positionFixedScore[delegator][operator][assetHash][bpId];
-            if (oldScore == 0) continue;
-            uint256 cur = totalFixedScore[operator][bpId][assetHash];
-            totalFixedScore[operator][bpId][assetHash] = oldScore > cur ? 0 : cur - oldScore;
-            uint256 curTotalByAsset = _totalFixedScoreByAsset[operator][assetHash];
-            _totalFixedScoreByAsset[operator][assetHash] = oldScore > curTotalByAsset ? 0 : curTotalByAsset - oldScore;
-            _positionFixedScore[delegator][operator][assetHash][bpId] = 0;
+            if (oldScore != 0) {
+                uint256 cur = totalFixedScore[operator][bpId][assetHash];
+                totalFixedScore[operator][bpId][assetHash] = oldScore > cur ? 0 : cur - oldScore;
+                curTotalByAsset = oldScore > curTotalByAsset ? 0 : curTotalByAsset - oldScore;
+                _positionFixedScore[delegator][operator][assetHash][bpId] = 0;
+            }
+            unchecked {
+                ++i;
+            }
         }
+        _totalFixedScoreByAsset[operator][assetHash] = curTotalByAsset;
 
         uint256 totalAmount = 0;
-        for (uint256 i = 0; i < blueprintAmounts.length; i++) {
+        uint256 amountsLen = blueprintAmounts.length;
+        for (uint256 i = 0; i < amountsLen;) {
             totalAmount += blueprintAmounts[i];
+            unchecked {
+                ++i;
+            }
         }
 
         uint256 userScore = _positionScore[delegator][operator][assetHash];
         if (totalAmount > 0 && userScore > 0) {
             uint256 remainingScore = userScore;
-            for (uint256 i = 0; i < blueprintIds.length; i++) {
+            uint256 idsLen = blueprintIds.length;
+            // Accumulate the single `_totalFixedScoreByAsset` slot in memory, store once at the end.
+            uint256 acc = _totalFixedScoreByAsset[operator][assetHash];
+            for (uint256 i = 0; i < idsLen;) {
                 uint64 bpId = blueprintIds[i];
                 uint256 scoreForBlueprint =
-                    i == blueprintIds.length - 1 ? remainingScore : (userScore * blueprintAmounts[i]) / totalAmount;
+                    i == idsLen - 1 ? remainingScore : (userScore * blueprintAmounts[i]) / totalAmount;
                 remainingScore = remainingScore > scoreForBlueprint ? remainingScore - scoreForBlueprint : 0;
 
                 _positionFixedScore[delegator][operator][assetHash][bpId] = scoreForBlueprint;
                 totalFixedScore[operator][bpId][assetHash] += scoreForBlueprint;
-                _totalFixedScoreByAsset[operator][assetHash] += scoreForBlueprint;
+                acc += scoreForBlueprint;
+                unchecked {
+                    ++i;
+                }
             }
+            _totalFixedScoreByAsset[operator][assetHash] = acc;
         }
 
         _setFixedBlueprints(delegator, operator, assetHash, blueprintIds);
@@ -1044,20 +1064,32 @@ contract ServiceFeeDistributor is
             // operator/blueprint totals by the removed amount.
             uint64[] storage bps = _fixedBlueprints[delegator][operator][assetHash];
             uint256 newAggregate = 0;
-            for (uint256 i = 0; i < bps.length; i++) {
+            // `_totalFixedScoreByAsset[operator][assetHash]` is the same slot every iteration;
+            // load once, apply the identical saturating subtraction in memory, store once. Each
+            // iteration reads exactly what the previous wrote, so intermediate and final values
+            // match the per-iteration SSTORE/SLOAD version byte-for-byte. `bps` is a de-duplicated
+            // set (see `_setFixedBlueprints`), so `totalFixedScore[...][bpId]` is a distinct slot
+            // per iteration and stays inline.
+            uint256 cfa = _totalFixedScoreByAsset[operator][assetHash];
+            uint256 bpsLen = bps.length;
+            for (uint256 i = 0; i < bpsLen;) {
                 uint64 bpId = bps[i];
                 uint256 bScore = _positionFixedScore[delegator][operator][assetHash][bpId];
-                if (bScore == 0) continue;
-                uint256 bNew = (bScore * principal) / score; // rounds down toward base
-                uint256 bDelta = bScore - bNew;
-                _positionFixedScore[delegator][operator][assetHash][bpId] = bNew;
+                if (bScore != 0) {
+                    uint256 bNew = (bScore * principal) / score; // rounds down toward base
+                    uint256 bDelta = bScore - bNew;
+                    _positionFixedScore[delegator][operator][assetHash][bpId] = bNew;
 
-                uint256 cf = totalFixedScore[operator][bpId][assetHash];
-                totalFixedScore[operator][bpId][assetHash] = bDelta > cf ? 0 : cf - bDelta;
-                uint256 cfa = _totalFixedScoreByAsset[operator][assetHash];
-                _totalFixedScoreByAsset[operator][assetHash] = bDelta > cfa ? 0 : cfa - bDelta;
-                newAggregate += bNew;
+                    uint256 cf = totalFixedScore[operator][bpId][assetHash];
+                    totalFixedScore[operator][bpId][assetHash] = bDelta > cf ? 0 : cf - bDelta;
+                    cfa = bDelta > cfa ? 0 : cfa - bDelta;
+                    newAggregate += bNew;
+                }
+                unchecked {
+                    ++i;
+                }
             }
+            _totalFixedScoreByAsset[operator][assetHash] = cfa;
             _positionScore[delegator][operator][assetHash] = newAggregate;
         }
 
@@ -1127,22 +1159,31 @@ contract ServiceFeeDistributor is
         if (scoreDelta == 0 || amount == 0) return;
 
         uint256 totalAmount = 0;
-        for (uint256 i = 0; i < blueprintAmounts.length; i++) {
+        uint256 amountsLen = blueprintAmounts.length;
+        for (uint256 i = 0; i < amountsLen;) {
             totalAmount += blueprintAmounts[i];
+            unchecked {
+                ++i;
+            }
         }
         if (totalAmount == 0) return;
 
         uint256 remainingScore = scoreDelta;
-        for (uint256 i = 0; i < blueprintIds.length; i++) {
+        uint256 idsLen = blueprintIds.length;
+        // `_totalFixedScoreByAsset[operator][assetHash]` is one slot mutated every iteration
+        // (same read-modify-write in either branch); load once, mutate in memory, store once.
+        // Each step observes exactly what the previous wrote, so the result is identical.
+        uint256 byAssetAcc = _totalFixedScoreByAsset[operator][assetHash];
+        for (uint256 i = 0; i < idsLen;) {
             uint64 bpId = blueprintIds[i];
             uint256 scoreForBlueprint =
-                i == blueprintIds.length - 1 ? remainingScore : (scoreDelta * blueprintAmounts[i]) / totalAmount;
+                i == idsLen - 1 ? remainingScore : (scoreDelta * blueprintAmounts[i]) / totalAmount;
             remainingScore = remainingScore > scoreForBlueprint ? remainingScore - scoreForBlueprint : 0;
 
             if (isIncrease) {
                 _positionFixedScore[delegator][operator][assetHash][bpId] += scoreForBlueprint;
                 totalFixedScore[operator][bpId][assetHash] += scoreForBlueprint;
-                _totalFixedScoreByAsset[operator][assetHash] += scoreForBlueprint;
+                byAssetAcc += scoreForBlueprint;
             } else {
                 uint256 currentScore = _positionFixedScore[delegator][operator][assetHash][bpId];
                 uint256 dec = scoreForBlueprint > currentScore ? currentScore : scoreForBlueprint;
@@ -1150,10 +1191,13 @@ contract ServiceFeeDistributor is
 
                 uint256 curTotal = totalFixedScore[operator][bpId][assetHash];
                 totalFixedScore[operator][bpId][assetHash] = dec > curTotal ? 0 : curTotal - dec;
-                uint256 curTotalByAsset = _totalFixedScoreByAsset[operator][assetHash];
-                _totalFixedScoreByAsset[operator][assetHash] = dec > curTotalByAsset ? 0 : curTotalByAsset - dec;
+                byAssetAcc = dec > byAssetAcc ? 0 : byAssetAcc - dec;
+            }
+            unchecked {
+                ++i;
             }
         }
+        _totalFixedScoreByAsset[operator][assetHash] = byAssetAcc;
     }
 
     /// @dev Updates all reward debts to current accumulator state after a score change.

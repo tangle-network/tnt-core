@@ -110,10 +110,13 @@ abstract contract JobsRFQ is Base {
 
         // Record quoted operators and their prices
         address[] memory quotedOperators = new address[](quotes.length);
-        for (uint256 i = 0; i < quotes.length; i++) {
+        for (uint256 i = 0; i < quotes.length;) {
             _jobQuotedOperators[serviceId][callId].add(quotes[i].operator);
             _jobQuotedPrices[serviceId][callId][quotes[i].operator] = quotes[i].details.price;
             quotedOperators[i] = quotes[i].operator;
+            unchecked {
+                ++i;
+            }
         }
 
         // Store only the input hash (reuse the keccak already computed at line 86 for quote
@@ -144,7 +147,11 @@ abstract contract JobsRFQ is Base {
         private
         returns (uint256 totalPrice)
     {
-        for (uint256 i = 0; i < quotes.length; i++) {
+        // Per-service field is invariant across the per-quote loop (the service is not
+        // mutated within this call); hoist the storage read out of the loop.
+        uint8 svcConfidentiality = uint8(_services[serviceId].confidentiality);
+
+        for (uint256 i = 0; i < quotes.length;) {
             Types.SignedJobQuote calldata quote = quotes[i];
 
             // Validate quote matches this job
@@ -154,14 +161,17 @@ abstract contract JobsRFQ is Base {
             if (quote.details.jobIndex != jobIndex) {
                 revert Errors.JobQuoteJobIndexMismatch(jobIndex, quote.details.jobIndex);
             }
-            if (quote.details.confidentiality != uint8(_services[serviceId].confidentiality)) {
+            if (quote.details.confidentiality != svcConfidentiality) {
                 revert Errors.InvalidQuoteSignature(quote.operator);
             }
 
             // Check for duplicate operators
-            for (uint256 j = 0; j < i; j++) {
+            for (uint256 j = 0; j < i;) {
                 if (quotes[j].operator == quote.operator) {
                     revert Errors.DuplicateOperatorQuote(quote.operator);
+                }
+                unchecked {
+                    ++j;
                 }
             }
 
@@ -186,6 +196,10 @@ abstract contract JobsRFQ is Base {
             );
 
             totalPrice += quote.details.price;
+
+            unchecked {
+                ++i;
+            }
         }
     }
 
