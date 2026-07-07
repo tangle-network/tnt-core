@@ -93,7 +93,7 @@ contract RewardVaultsMedLowTest is Test {
         // Decay applied: locker boosted score collapsed to base == raw stake.
         (uint256 lockerStakeAfter, uint256 lockerScoreAfter,, uint256 expiryAfter,) = _debt(LOCKER);
         assertEq(lockerScoreAfter, lockerStakeAfter, "decay: boosted score back to base");
-        assertEq(lockerScoreAfter, 1000 ether, "decay: base == raw stake");
+        assertEq(lockerScoreAfter, STAKE, "decay: base == raw stake");
         assertEq(expiryAfter, 0, "decay: lock metadata cleared");
 
         // Pool total score is now 1000 (locker, decayed) + 1000 (plain) = 2000.
@@ -110,6 +110,145 @@ contract RewardVaultsMedLowTest is Test {
         assertApproxEqAbs(
             lockerE2, plainE2New, 1e6, "epoch2: expired locker == unlocked peer (no lingering boost)"
         );
+    }
+
+    /// @notice FIX (#199): a third party (keeper / diluted co-delegator) can permissionlessly collapse
+    ///         an IDLE locker's expired boost via settleExpiredLock — the locker never transacts again.
+    ///         Before the fix the boost was only collapsible by the locker's OWN claim/stake/unstake, so
+    ///         an idle locker kept siphoning the boosted share of every epoch forever, diluting peers.
+    function test_ExpiredLockCollapsibleByThirdParty_stopsIdleDilution() public {
+        vault.recordDelegate(LOCKER, OPERATOR, ASSET, STAKE, LOCK_6MO_BPS);
+        vault.recordDelegate(PLAIN, OPERATOR, ASSET, STAKE, 0);
+        (,,, uint256 lockExpiry,) = _debt(LOCKER);
+
+        // Warp past expiry. The locker goes IDLE — never claims, stakes, or unstakes again.
+        vm.warp(lockExpiry + 1);
+
+        // The pool still carries the stale 1.6x boost (2600) until someone collapses it.
+        (, uint256 poolBefore,) = vault.operatorPools(ASSET, OPERATOR);
+        assertEq(poolBefore, 2600 ether, "stale boost still in pool pre-poke");
+
+        // ── THIRD PARTY (no role, not the locker) permissionlessly pokes the expired lock. ──
+        vm.prank(GRIEFER);
+        vault.settleExpiredLock(ASSET, LOCKER, OPERATOR);
+
+        // Boost collapsed to base without the locker ever acting.
+        (uint256 stakeAfter, uint256 scoreAfter,, uint256 expiryAfter,) = _debt(LOCKER);
+        assertEq(scoreAfter, stakeAfter, "poke: idle locker's boost collapsed to base");
+        assertEq(scoreAfter, STAKE, "poke: base == raw stake");
+        assertEq(expiryAfter, 0, "poke: lock metadata cleared");
+        (, uint256 poolAfter,) = vault.operatorPools(ASSET, OPERATOR);
+        assertEq(poolAfter, 2000 ether, "poke: pool total no longer carries the stale boost");
+
+        // ── Future epoch now splits 50/50: the idle locker no longer dilutes the honest peer. ──
+        vault.distributeRewards(ASSET, OPERATOR, REWARD);
+        uint256 lockerPending = vault.pendingDelegatorRewards(ASSET, LOCKER, OPERATOR);
+        uint256 plainPending = vault.pendingDelegatorRewards(ASSET, PLAIN, OPERATOR);
+        assertApproxEqAbs(lockerPending, REWARD / 2, 1e6, "post-poke: idle locker earns only base share");
+        assertApproxEqAbs(lockerPending, plainPending, 1e6, "post-poke: no dilution - locker == plain peer");
+    }
+
+    /// @notice settleExpiredLock is a safe no-op while the lock is still ACTIVE — a third party cannot
+    ///         use it to strip a delegator's live, still-earned boost.
+    function test_SettleExpiredLock_noopWhileLockActive() public {
+        vault.recordDelegate(LOCKER, OPERATOR, ASSET, STAKE, LOCK_6MO_BPS);
+        (,,, uint256 lockExpiry,) = _debt(LOCKER);
+        assertGt(lockExpiry, block.timestamp, "precondition: lock active");
+
+        vm.prank(GRIEFER);
+        vault.settleExpiredLock(ASSET, LOCKER, OPERATOR);
+
+        (, uint256 scoreAfter,, uint256 expiryAfter,) = _debt(LOCKER);
+        assertEq(scoreAfter, 1600 ether, "active lock: boost intact after no-op poke");
+        assertEq(expiryAfter, lockExpiry, "active lock: expiry unchanged");
+    }
+
+    /// @notice The bool return reports whether a decay actually happened, so a keeper learns the
+    ///         poke's effect without re-reading storage (review finding: silent no-op).
+    function test_SettleExpiredLock_returnsAppliedFlag() public {
+        vault.recordDelegate(LOCKER, OPERATOR, ASSET, STAKE, LOCK_6MO_BPS);
+        (,,, uint256 lockExpiry,) = _debt(LOCKER);
+
+        assertFalse(vault.settleExpiredLock(ASSET, LOCKER, OPERATOR), "active lock: no decay -> false");
+
+        vm.warp(lockExpiry); // decay fires at >= lockExpiry
+        assertTrue(vault.settleExpiredLock(ASSET, LOCKER, OPERATOR), "expired boost: decay applied -> true");
+
+        assertFalse(vault.settleExpiredLock(ASSET, LOCKER, OPERATOR), "already collapsed: nothing to decay -> false");
+    }
+
+    /// @notice Poking a never-delegated (asset, delegator, operator) tuple is a safe no-op: returns
+    ///         false, reverts nothing, mutates nothing — exercises the cheap short-circuit (no pool
+    ///         SLOAD) added for the 'lock absent' path (review finding: untested no-op path).
+    function test_SettleExpiredLock_noopLockAbsent() public {
+        address NOBODY = address(0xDEAD);
+        vm.prank(GRIEFER);
+        assertFalse(vault.settleExpiredLock(ASSET, NOBODY, OPERATOR), "absent position: no-op -> false");
+
+        (uint256 stake, uint256 score,, uint256 expiry,) = _debt(NOBODY);
+        assertEq(stake, 0, "absent: no stake");
+        assertEq(score, 0, "absent: no score");
+        assertEq(expiry, 0, "absent: no lock");
+    }
+
+    /// @notice An unlocked position already at base weight decays to nothing: no-op even after a long
+    ///         warp (review finding: 'already at base weight' path untested).
+    function test_SettleExpiredLock_noopAlreadyAtBase() public {
+        vault.recordDelegate(PLAIN, OPERATOR, ASSET, STAKE, 0); // no lock -> already base
+        vm.warp(block.timestamp + 400 days);
+
+        assertFalse(vault.settleExpiredLock(ASSET, PLAIN, OPERATOR), "unlocked base position: no-op -> false");
+        (uint256 stake, uint256 score,,,) = _debt(PLAIN);
+        assertEq(score, stake, "still at base weight");
+    }
+
+    /// @notice Repeated pokes after expiry are idempotent: the first collapses the boost, every
+    ///         subsequent poke is a no-op with score pinned at base (review finding: idempotency untested).
+    function test_SettleExpiredLock_idempotent() public {
+        vault.recordDelegate(LOCKER, OPERATOR, ASSET, STAKE, LOCK_6MO_BPS);
+        (,,, uint256 lockExpiry,) = _debt(LOCKER);
+        vm.warp(lockExpiry + 1);
+
+        assertTrue(vault.settleExpiredLock(ASSET, LOCKER, OPERATOR), "first poke decays");
+        (uint256 s1, uint256 sc1,, uint256 e1,) = _debt(LOCKER);
+        assertEq(sc1, STAKE, "collapsed to base == raw stake");
+        assertEq(e1, 0, "lock cleared");
+
+        for (uint256 i = 0; i < 3; i++) {
+            assertFalse(vault.settleExpiredLock(ASSET, LOCKER, OPERATOR), "repeat poke: no-op");
+        }
+        (uint256 s2, uint256 sc2,, uint256 e2,) = _debt(LOCKER);
+        assertEq(sc2, sc1, "score stable across repeated pokes");
+        assertEq(s2, s1, "stake stable");
+        assertEq(e2, 0, "lock stays cleared");
+    }
+
+    /// @notice Fuzz the poke across the expiry boundary [lockExpiry-2 .. +200d]: it decays IFF the
+    ///         lock has reached expiry, lands the position at base, and is idempotent on a second
+    ///         call at every sampled timestamp (review finding: no expiry-boundary fuzz; CLAUDE.md
+    ///         requires fuzz for financial-weight logic).
+    function testFuzz_SettleExpiredLock_expiryBoundary(uint256 tsOffset) public {
+        vault.recordDelegate(LOCKER, OPERATOR, ASSET, STAKE, LOCK_6MO_BPS);
+        (,,, uint256 lockExpiry,) = _debt(LOCKER);
+
+        uint256 ts = bound(tsOffset, lockExpiry - 2, lockExpiry + 200 days);
+        vm.warp(ts);
+
+        bool applied = vault.settleExpiredLock(ASSET, LOCKER, OPERATOR);
+        bool shouldDecay = ts >= lockExpiry; // boosted lock present -> decays at/after expiry
+        assertEq(applied, shouldDecay, "decays iff timestamp reached expiry");
+
+        (uint256 stake, uint256 score,, uint256 expiry,) = _debt(LOCKER);
+        if (shouldDecay) {
+            assertEq(score, stake, "post-expiry: score at base");
+            assertEq(score, STAKE, "post-expiry: base == raw stake");
+            assertEq(expiry, 0, "post-expiry: lock cleared");
+        } else {
+            assertEq(score, (STAKE * LOCK_6MO_BPS) / 10_000, "pre-expiry: boost intact");
+            assertGt(expiry, 0, "pre-expiry: lock still set");
+        }
+
+        assertFalse(vault.settleExpiredLock(ASSET, LOCKER, OPERATOR), "second poke: idempotent no-op at any ts");
     }
 
     /// @notice A pure view (pendingDelegatorRewards) must report decay-aware accrual:
