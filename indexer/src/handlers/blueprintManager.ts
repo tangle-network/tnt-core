@@ -1,5 +1,5 @@
 import { indexer } from "envio";
-import type { BinaryVersion, BlueprintDefinition } from "envio";
+import type { BinaryVersion, BinaryVersionAttestation, BlueprintDefinition } from "envio";
 import { decodeBlueprintDefinition } from "../lib/blueprintDefinition";
 import {
   getEventId,
@@ -9,7 +9,17 @@ import {
   normalizeAddress,
   toBigInt,
   toHexString,
+  toNumber,
 } from "../lib/handlerUtils";
+
+// Types.AttestationKind — append-only on-chain enum. Keep in sync with
+// src/libraries/Types.sol; unknown ordinals fall through to UNKNOWN so a new
+// on-chain variant never breaks indexing.
+const ATTESTATION_KINDS = ["AUDIT", "FUZZ", "FORMAL", "BUG_BOUNTY", "SELF"] as const;
+const mapAttestationKind = (value: bigint | number | undefined | null): string => {
+  const numeric = typeof value === "bigint" ? Number(value) : value ?? -1;
+  return ATTESTATION_KINDS[numeric] ?? "UNKNOWN";
+};
 import { pointsContext } from "../points/participation";
 import { awardDeveloperBlueprint } from "../points/awards";
 
@@ -83,4 +93,49 @@ indexer.onEvent({ contract: "MasterBlueprintServiceManager", event: "BinaryVersi
     txHash: getTxHash(event),
   } as BinaryVersion;
   context.BinaryVersion.set(version);
+});
+
+indexer.onEvent({ contract: "MasterBlueprintServiceManager", event: "BinaryVersionAttested" }, async ({ event, context }) => {
+  const blueprintId = toBigInt(event.params.blueprintId);
+  const versionId = toBigInt(event.params.versionId);
+  const attestationId = toBigInt(event.params.attestationId);
+  const attestation: BinaryVersionAttestation = {
+    id: `${blueprintId}-${versionId}-${attestationId}`,
+    // reportUri lives only in this event on 0.19+ (dropped from the on-chain
+    // struct), so the indexer is the sole source of it for the dapp.
+    binaryVersion_id: `${blueprintId}-${versionId}`,
+    blueprintId,
+    versionId,
+    attestationId,
+    attester: normalizeAddress(event.params.attester),
+    kind: mapAttestationKind(event.params.kind),
+    severityFound: toNumber(event.params.severityFound),
+    reportUri: event.params.reportUri,
+    revoked: false,
+    revocationReasonUri: undefined,
+    attestedAt: getTimestamp(event),
+    revokedAt: undefined,
+    txHash: getTxHash(event),
+  } as BinaryVersionAttestation;
+  context.BinaryVersionAttestation.set(attestation);
+});
+
+indexer.onEvent({ contract: "MasterBlueprintServiceManager", event: "BinaryVersionAttestationRevoked" }, async ({ event, context }) => {
+  const blueprintId = toBigInt(event.params.blueprintId);
+  const versionId = toBigInt(event.params.versionId);
+  const attestationId = toBigInt(event.params.attestationId);
+  const id = `${blueprintId}-${versionId}-${attestationId}`;
+  const existing = await context.BinaryVersionAttestation.get(id);
+  if (!existing) {
+    // Revocation without a prior attest row is only possible if the attest
+    // event was missed (reorg/gap); log rather than silently drop the reason.
+    context.log.error(`BinaryVersionAttestationRevoked for unknown attestation ${id} (missing BinaryVersionAttested?)`);
+    return;
+  }
+  context.BinaryVersionAttestation.set({
+    ...existing,
+    revoked: true,
+    revocationReasonUri: event.params.reasonUri,
+    revokedAt: getTimestamp(event),
+  });
 });

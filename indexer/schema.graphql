@@ -192,6 +192,34 @@ type BinaryVersion {
   binaryUri: String!
   recordedAt: BigInt!
   txHash: String!
+  attestations: [BinaryVersionAttestation!]! @derivedFrom(field: "binaryVersion")
+}
+
+"""
+Permissionless attestation against a specific binary version (0.19+).
+`reportUri` is event-only on-chain (dropped from the Attestation struct), so
+the indexer is the sole source of it. Rows are append-only; revocation flips
+`revoked` and records the reason/timestamp rather than deleting the row.
+"""
+type BinaryVersionAttestation {
+  "blueprintId-versionId-attestationId"
+  id: ID!
+  "Link to the attested BinaryVersion (id = blueprintId-versionId). Null if the version was never recorded on-chain."
+  binaryVersion: BinaryVersion
+  blueprintId: BigInt!
+  versionId: BigInt!
+  attestationId: BigInt!
+  attester: String!
+  "AttestationKind: AUDIT | FUZZ | FORMAL | BUG_BOUNTY | SELF (UNKNOWN if the on-chain enum adds a value the indexer hasn't mapped)."
+  kind: String!
+  "CVSS-style worst severity discovered, in [0,5]: 0=none 1=info 2=low 3=med 4=high 5=critical."
+  severityFound: Int!
+  reportUri: String!
+  revoked: Boolean!
+  revocationReasonUri: String
+  attestedAt: BigInt!
+  revokedAt: BigInt
+  txHash: String!
 }
 
 type ValidatorPod {
