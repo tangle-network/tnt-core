@@ -1206,14 +1206,13 @@ contract ServiceFeeDistributor is
             uint64[] memory serviceIds,
             uint64[] memory blueprintIds,
             address[] memory paymentTokens,
-            uint256[] memory amounts,
-            uint256[] memory durations
+            uint256[] memory amounts
         ) = streamingManager.dripOperatorStreams(operator);
 
         // Distribute each dripped chunk using current scores
         for (uint256 i = 0; i < serviceIds.length; i++) {
             if (amounts[i] > 0) {
-                _distributeChunk(serviceIds[i], blueprintIds[i], operator, paymentTokens[i], amounts[i], durations[i]);
+                _distributeChunk(serviceIds[i], blueprintIds[i], operator, paymentTokens[i], amounts[i]);
             }
         }
     }
@@ -1225,13 +1224,12 @@ contract ServiceFeeDistributor is
         uint64 blueprintId,
         address operator,
         address paymentToken,
-        uint256 amount,
-        uint256 /* durationSeconds */
+        uint256 amount
     )
         internal
     {
         // Streaming chunks distribute with the exact same score-weighted split as an
-        // immediate payment; `durationSeconds` is not needed once the chunk amount is known.
+        // immediate payment; the drip duration is not needed once the chunk amount is known.
         _distributeImmediate(serviceId, blueprintId, operator, paymentToken, amount);
     }
 
@@ -1240,11 +1238,11 @@ contract ServiceFeeDistributor is
     function drip(uint64 serviceId, address operator) external nonReentrant {
         if (address(streamingManager) == address(0)) return;
 
-        (uint256 amount, uint256 durationSeconds, uint64 blueprintId, address paymentToken) =
+        (uint256 amount, uint64 blueprintId, address paymentToken) =
             streamingManager.dripAndGetChunk(serviceId, operator);
 
         if (amount > 0) {
-            _distributeChunk(serviceId, blueprintId, operator, paymentToken, amount, durationSeconds);
+            _distributeChunk(serviceId, blueprintId, operator, paymentToken, amount);
         }
     }
 

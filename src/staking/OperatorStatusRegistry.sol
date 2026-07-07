@@ -177,7 +177,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
 
     /// @notice Restricts calls to operators registered for the given service
     modifier onlyRegisteredOperator(uint64 serviceId) {
-        require(_registeredOperators[serviceId].contains(msg.sender), "Not registered operator");
+        if (!_registeredOperators[serviceId].contains(msg.sender)) revert NotRegisteredOperator();
         _;
     }
 
@@ -230,6 +230,47 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     event OperatorRegistered(uint64 indexed serviceId, address indexed operator);
 
     event OperatorDeregistered(uint64 indexed serviceId, address indexed operator);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ERRORS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Caller is not a registered operator for the service.
+    error NotRegisteredOperator();
+    /// @notice Recovered heartbeat signer does not match the caller.
+    error InvalidSignature();
+    /// @notice Operation not allowed while the operator is slashed.
+    error OperatorSlashed();
+    /// @notice Function is restricted to internal (self) calls.
+    error InternalOnly();
+    /// @notice Caller is neither Tangle core nor the service owner.
+    error NotAuthorized();
+    /// @notice Heartbeat interval below the enforced minimum.
+    error IntervalTooShort();
+    /// @notice maxMissed must be at least 1.
+    error InvalidMaxMissed();
+    /// @notice Caller is not the Tangle core contract.
+    error OnlyTangleCore();
+    /// @notice Entity is already registered.
+    error AlreadyRegistered();
+    /// @notice Zero address supplied where a non-zero address is required.
+    error ZeroAddress();
+    /// @notice Entity is not registered.
+    error NotRegistered();
+    /// @notice Caller is not the service owner.
+    error NotServiceOwner();
+    /// @notice Metric name exceeds the maximum allowed length.
+    error NameTooLong();
+    /// @notice minValue/maxValue bounds are inconsistent.
+    error InvalidBounds();
+    /// @notice Number of metric definitions exceeds the cap.
+    error TooManyDefinitions();
+    /// @notice Operator does not meet removal eligibility criteria.
+    error OperatorNotEligibleForRemoval();
+    /// @notice Caller is not the configured slashing oracle.
+    error NotSlashingOracle();
+    /// @notice Operator is not tracked for the service.
+    error OperatorUnknown();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE
@@ -335,7 +376,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash));
 
         address signer = digest.recover(signature);
-        require(signer == msg.sender, "Invalid signature");
+        if (signer != msg.sender) revert InvalidSignature();
 
         _processHeartbeat(serviceId, blueprintId, msg.sender, statusCode, metrics);
     }
@@ -369,7 +410,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         HeartbeatConfig memory config = _getConfig(serviceId);
 
         // Slashed operators cannot recover via heartbeat
-        require(state.status != StatusCode.Slashed, "Operator is slashed");
+        if (state.status == StatusCode.Slashed) revert OperatorSlashed();
 
         // Track operator in the all-operators set
         _allOperators[serviceId].add(operator);
@@ -460,7 +501,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     )
         external
     {
-        require(msg.sender == address(this), "Internal only");
+        if (msg.sender != address(this)) revert InternalOnly();
 
         MetricDefinition[] storage definitions = serviceMetrics[serviceId];
 
@@ -616,7 +657,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
 
         StatusCode oldStatus = state.status;
         if (oldStatus == StatusCode.Slashed) {
-            revert("Cannot go offline while slashed");
+            revert OperatorSlashed();
         }
 
         state.status = StatusCode.Exiting;
@@ -633,7 +674,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
 
         StatusCode oldStatus = state.status;
         if (oldStatus == StatusCode.Slashed) {
-            revert("Cannot go online while slashed");
+            revert OperatorSlashed();
         }
         // Only transition from Offline or Exiting states; no-op if already online
         if (oldStatus == StatusCode.Healthy || oldStatus == StatusCode.Degraded) {
@@ -658,10 +699,10 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     /// @param interval Heartbeat interval in seconds
     /// @param maxMissed Max missed heartbeats before offline
     function configureHeartbeat(uint64 serviceId, uint64 interval, uint8 maxMissed) external {
-        require(msg.sender == tangleCore || msg.sender == serviceOwners[serviceId], "Not authorized");
+        if (msg.sender != tangleCore && msg.sender != serviceOwners[serviceId]) revert NotAuthorized();
 
-        require(interval >= 60, "Interval too short"); // Minimum 1 minute
-        require(maxMissed >= 1, "Max missed must be >= 1");
+        if (interval < 60) revert IntervalTooShort(); // Minimum 1 minute
+        if (maxMissed < 1) revert InvalidMaxMissed();
 
         heartbeatConfigs[serviceId] = HeartbeatConfig({
             interval: interval, maxMissed: maxMissed, customMetrics: heartbeatConfigs[serviceId].customMetrics
@@ -673,8 +714,8 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     /// @notice Register service owner
     /// @dev Only callable by the Tangle core contract
     function registerServiceOwner(uint64 serviceId, address owner) external {
-        require(msg.sender == tangleCore, "Only Tangle core");
-        require(serviceOwners[serviceId] == address(0), "Already registered");
+        if (msg.sender != tangleCore) revert OnlyTangleCore();
+        if (serviceOwners[serviceId] != address(0)) revert AlreadyRegistered();
         serviceOwners[serviceId] = owner;
     }
 
@@ -682,9 +723,9 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     /// @dev Only callable by Tangle core — operator assignment is determined by the
     ///      service lifecycle (request → approve → activate), not by service owners.
     function registerOperator(uint64 serviceId, address operator) external override {
-        require(msg.sender == tangleCore, "Only Tangle core");
-        require(operator != address(0), "Zero address");
-        require(_registeredOperators[serviceId].add(operator), "Already registered");
+        if (msg.sender != tangleCore) revert OnlyTangleCore();
+        if (operator == address(0)) revert ZeroAddress();
+        if (!_registeredOperators[serviceId].add(operator)) revert AlreadyRegistered();
         // Reset all per-(serviceId, operator) heartbeat / metrics state on (re-)register.
         // Without this, an operator who deregistered and re-registers carries stale
         // `lastHeartbeat`, `consecutiveBeats`, `missedBeats`, `lastMetricsHash` from
@@ -701,8 +742,8 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     /// @dev Only callable by Tangle core. Does not clear operator state
     ///      so historical data (last heartbeat, metrics) remains queryable.
     function deregisterOperator(uint64 serviceId, address operator) external override {
-        require(msg.sender == tangleCore, "Only Tangle core");
-        require(_registeredOperators[serviceId].remove(operator), "Not registered");
+        if (msg.sender != tangleCore) revert OnlyTangleCore();
+        if (!_registeredOperators[serviceId].remove(operator)) revert NotRegistered();
         _onlineOperators[serviceId].remove(operator);
         emit OperatorDeregistered(serviceId, operator);
     }
@@ -714,7 +755,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
 
     /// @notice Enable custom metrics for a service
     function enableCustomMetrics(uint64 serviceId, bool enabled) external override {
-        require(msg.sender == serviceOwners[serviceId], "Not service owner");
+        if (msg.sender != serviceOwners[serviceId]) revert NotServiceOwner();
         heartbeatConfigs[serviceId].customMetrics = enabled;
     }
 
@@ -735,10 +776,10 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         external
         override
     {
-        require(msg.sender == serviceOwners[serviceId], "Not service owner");
-        require(bytes(name).length <= MAX_METRIC_NAME_LENGTH, "Name too long");
-        require(maxValue >= minValue, "Invalid bounds");
-        require(serviceMetrics[serviceId].length < MAX_METRIC_DEFINITIONS, "Too many definitions");
+        if (msg.sender != serviceOwners[serviceId]) revert NotServiceOwner();
+        if (bytes(name).length > MAX_METRIC_NAME_LENGTH) revert NameTooLong();
+        if (maxValue < minValue) revert InvalidBounds();
+        if (serviceMetrics[serviceId].length >= MAX_METRIC_DEFINITIONS) revert TooManyDefinitions();
 
         serviceMetrics[serviceId].push(
             MetricDefinition({ name: name, minValue: minValue, maxValue: maxValue, required: required })
@@ -747,12 +788,12 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
 
     /// @notice Batch set metric definitions for a service (replaces existing)
     function setMetricDefinitions(uint64 serviceId, MetricDefinition[] calldata definitions) external override {
-        require(msg.sender == serviceOwners[serviceId], "Not service owner");
-        require(definitions.length <= MAX_METRIC_DEFINITIONS, "Too many definitions");
+        if (msg.sender != serviceOwners[serviceId]) revert NotServiceOwner();
+        if (definitions.length > MAX_METRIC_DEFINITIONS) revert TooManyDefinitions();
         delete serviceMetrics[serviceId];
         for (uint256 i = 0; i < definitions.length; i++) {
-            require(bytes(definitions[i].name).length <= MAX_METRIC_NAME_LENGTH, "Name too long");
-            require(definitions[i].maxValue >= definitions[i].minValue, "Invalid bounds");
+            if (bytes(definitions[i].name).length > MAX_METRIC_NAME_LENGTH) revert NameTooLong();
+            if (definitions[i].maxValue < definitions[i].minValue) revert InvalidBounds();
             serviceMetrics[serviceId].push(definitions[i]);
         }
     }
@@ -953,7 +994,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     /// @dev Only callable by service owner or contract owner. Operator must be Slashed or have
     ///      been offline beyond 10x the heartbeat threshold to prevent premature removal.
     function removeInactiveOperator(uint64 serviceId, address operator) external {
-        require(msg.sender == serviceOwners[serviceId] || msg.sender == owner(), "Not authorized");
+        if (msg.sender != serviceOwners[serviceId] && msg.sender != owner()) revert NotAuthorized();
 
         OperatorState memory state = operatorStates[serviceId][operator];
 
@@ -961,10 +1002,9 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         if (state.status != StatusCode.Slashed) {
             HeartbeatConfig memory config = _getConfig(serviceId);
             uint256 longInactiveThreshold = uint256(config.interval) * uint256(config.maxMissed) * 10;
-            require(
-                state.lastHeartbeat > 0 && block.timestamp - state.lastHeartbeat >= longInactiveThreshold,
-                "Operator not eligible for removal"
-            );
+            if (!(state.lastHeartbeat > 0 && block.timestamp - state.lastHeartbeat >= longInactiveThreshold)) {
+                revert OperatorNotEligibleForRemoval();
+            }
         }
 
         _allOperators[serviceId].remove(operator);
@@ -978,10 +1018,10 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
 
     /// @notice Report an operator for slashing (called by slashing oracle)
     function reportForSlashing(uint64 serviceId, address operator, string calldata reason) external override {
-        require(msg.sender == slashingOracle, "Not slashing oracle");
+        if (msg.sender != slashingOracle) revert NotSlashingOracle();
         // Allow slashing deregistered operators to prevent slash-immunity via deregistration race.
         // The oracle is trusted (governance-set), so no registration gate needed.
-        require(_allOperators[serviceId].contains(operator), "Operator unknown");
+        if (!_allOperators[serviceId].contains(operator)) revert OperatorUnknown();
 
         OperatorState storage state = operatorStates[serviceId][operator];
         state.status = StatusCode.Slashed;

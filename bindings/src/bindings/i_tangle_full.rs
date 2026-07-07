@@ -474,7 +474,7 @@ See the [wrapper's documentation](`PaymentLibInstance`) for more details.*/
 library SlashingLib {
     type SlashStatus is uint8;
     struct SlashConfig { uint64 disputeWindow; bool instantSlashEnabled; uint16 maxSlashBps; uint64 disputeResolutionDeadline; uint256 disputeBond; uint16 maxPendingSlashesPerOperator; }
-    struct SlashProposal { uint64 serviceId; address operator; address proposer; uint16 slashBps; uint16 effectiveSlashBps; bytes32 evidence; uint64 proposedAt; uint64 executeAfter; SlashStatus status; address disputer; uint256 disputeBond; uint64 disputedAt; uint64 disputeDeadline; }
+    struct SlashProposal { uint64 serviceId; address operator; address proposer; uint16 slashBps; uint16 effectiveSlashBps; bytes32 evidence; uint64 executeAfter; SlashStatus status; address disputer; uint256 disputeBond; uint64 disputeDeadline; }
 }
 ```*/
 #[allow(
@@ -959,7 +959,7 @@ struct SlashConfig { uint64 disputeWindow; bool instantSlashEnabled; uint16 maxS
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct SlashProposal { uint64 serviceId; address operator; address proposer; uint16 slashBps; uint16 effectiveSlashBps; bytes32 evidence; uint64 proposedAt; uint64 executeAfter; SlashStatus status; address disputer; uint256 disputeBond; uint64 disputedAt; uint64 disputeDeadline; }
+struct SlashProposal { uint64 serviceId; address operator; address proposer; uint16 slashBps; uint16 effectiveSlashBps; bytes32 evidence; uint64 executeAfter; SlashStatus status; address disputer; uint256 disputeBond; uint64 disputeDeadline; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -977,8 +977,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
         #[allow(missing_docs)]
         pub evidence: alloy::sol_types::private::FixedBytes<32>,
         #[allow(missing_docs)]
-        pub proposedAt: u64,
-        #[allow(missing_docs)]
         pub executeAfter: u64,
         #[allow(missing_docs)]
         pub status: <SlashStatus as alloy::sol_types::SolType>::RustType,
@@ -986,8 +984,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
         pub disputer: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub disputeBond: alloy::sol_types::private::primitives::aliases::U256,
-        #[allow(missing_docs)]
-        pub disputedAt: u64,
         #[allow(missing_docs)]
         pub disputeDeadline: u64,
     }
@@ -1009,11 +1005,9 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
             alloy::sol_types::sol_data::Uint<16>,
             alloy::sol_types::sol_data::FixedBytes<32>,
             alloy::sol_types::sol_data::Uint<64>,
-            alloy::sol_types::sol_data::Uint<64>,
             SlashStatus,
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Uint<256>,
-            alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Uint<64>,
         );
         #[doc(hidden)]
@@ -1025,11 +1019,9 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
             u16,
             alloy::sol_types::private::FixedBytes<32>,
             u64,
-            u64,
             <SlashStatus as alloy::sol_types::SolType>::RustType,
             alloy::sol_types::private::Address,
             alloy::sol_types::private::primitives::aliases::U256,
-            u64,
             u64,
         );
         #[cfg(test)]
@@ -1054,12 +1046,10 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     value.slashBps,
                     value.effectiveSlashBps,
                     value.evidence,
-                    value.proposedAt,
                     value.executeAfter,
                     value.status,
                     value.disputer,
                     value.disputeBond,
-                    value.disputedAt,
                     value.disputeDeadline,
                 )
             }
@@ -1075,13 +1065,11 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     slashBps: tuple.3,
                     effectiveSlashBps: tuple.4,
                     evidence: tuple.5,
-                    proposedAt: tuple.6,
-                    executeAfter: tuple.7,
-                    status: tuple.8,
-                    disputer: tuple.9,
-                    disputeBond: tuple.10,
-                    disputedAt: tuple.11,
-                    disputeDeadline: tuple.12,
+                    executeAfter: tuple.6,
+                    status: tuple.7,
+                    disputer: tuple.8,
+                    disputeBond: tuple.9,
+                    disputeDeadline: tuple.10,
                 }
             }
         }
@@ -1114,9 +1102,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     > as alloy_sol_types::SolType>::tokenize(&self.evidence),
                     <alloy::sol_types::sol_data::Uint<
                         64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.proposedAt),
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
                     > as alloy_sol_types::SolType>::tokenize(&self.executeAfter),
                     <SlashStatus as alloy_sol_types::SolType>::tokenize(&self.status),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
@@ -1125,9 +1110,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.disputeBond),
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.disputedAt),
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::tokenize(&self.disputeDeadline),
@@ -1205,7 +1187,7 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "SlashProposal(uint64 serviceId,address operator,address proposer,uint16 slashBps,uint16 effectiveSlashBps,bytes32 evidence,uint64 proposedAt,uint64 executeAfter,uint8 status,address disputer,uint256 disputeBond,uint64 disputedAt,uint64 disputeDeadline)",
+                    "SlashProposal(uint64 serviceId,address operator,address proposer,uint16 slashBps,uint16 effectiveSlashBps,bytes32 evidence,uint64 executeAfter,uint8 status,address disputer,uint256 disputeBond,uint64 disputeDeadline)",
                 )
             }
             #[inline]
@@ -1249,10 +1231,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                         .0,
                     <alloy::sol_types::sol_data::Uint<
                         64,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.proposedAt)
-                        .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
                     > as alloy_sol_types::SolType>::eip712_data_word(&self.executeAfter)
                         .0,
                     <SlashStatus as alloy_sol_types::SolType>::eip712_data_word(
@@ -1266,10 +1244,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::eip712_data_word(&self.disputeBond)
-                        .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.disputedAt)
                         .0,
                     <alloy::sol_types::sol_data::Uint<
                         64,
@@ -1315,11 +1289,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     + <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.proposedAt,
-                    )
-                    + <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.executeAfter,
                     )
                     + <SlashStatus as alloy_sol_types::EventTopic>::topic_preimage_length(
@@ -1332,11 +1301,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                         256,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.disputeBond,
-                    )
-                    + <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.disputedAt,
                     )
                     + <alloy::sol_types::sol_data::Uint<
                         64,
@@ -1387,12 +1351,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                 <alloy::sol_types::sol_data::Uint<
                     64,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.proposedAt,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.executeAfter,
                     out,
                 );
@@ -1408,12 +1366,6 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     256,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.disputeBond,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.disputedAt,
                     out,
                 );
                 <alloy::sol_types::sol_data::Uint<
@@ -1595,7 +1547,7 @@ library Types {
     struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; uint8 confidentiality; bytes32 inputsHash; }
     struct NativeSource { BlueprintFetcherKind fetcher; string artifactUri; string entrypoint; }
     struct OperatorPreferences { bytes ecdsaPublicKey; string rpcAddress; }
-    struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active; bool online; }
+    struct OperatorRegistration { uint64 registeredAt; }
     struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBps; uint16 stakerBps; uint16 keeperBps; }
     struct QuoteDetails { address requester; uint64 blueprintId; uint64 ttlBlocks; uint256 totalCost; uint64 timestamp; uint64 expiry; ConfidentialityPolicy confidentiality; QuoteOperation operation; uint64 serviceId; AssetSecurityCommitment[] securityCommitments; ResourceCommitment[] resourceCommitments; }
     struct ResourceCommitment { uint8 kind; uint64 count; }
@@ -8758,19 +8710,13 @@ struct OperatorPreferences { bytes ecdsaPublicKey; string rpcAddress; }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active; bool online; }
+struct OperatorRegistration { uint64 registeredAt; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct OperatorRegistration {
         #[allow(missing_docs)]
         pub registeredAt: u64,
-        #[allow(missing_docs)]
-        pub updatedAt: u64,
-        #[allow(missing_docs)]
-        pub active: bool,
-        #[allow(missing_docs)]
-        pub online: bool,
     }
     #[allow(
         non_camel_case_types,
@@ -8782,14 +8728,9 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
         use alloy::sol_types as alloy_sol_types;
         #[doc(hidden)]
         #[allow(dead_code)]
-        type UnderlyingSolTuple<'a> = (
-            alloy::sol_types::sol_data::Uint<64>,
-            alloy::sol_types::sol_data::Uint<64>,
-            alloy::sol_types::sol_data::Bool,
-            alloy::sol_types::sol_data::Bool,
-        );
+        type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
         #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = (u64, u64, bool, bool);
+        type UnderlyingRustTuple<'a> = (u64,);
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
         fn _type_assertion(
@@ -8805,19 +8746,14 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
         #[doc(hidden)]
         impl ::core::convert::From<OperatorRegistration> for UnderlyingRustTuple<'_> {
             fn from(value: OperatorRegistration) -> Self {
-                (value.registeredAt, value.updatedAt, value.active, value.online)
+                (value.registeredAt,)
             }
         }
         #[automatically_derived]
         #[doc(hidden)]
         impl ::core::convert::From<UnderlyingRustTuple<'_>> for OperatorRegistration {
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                Self {
-                    registeredAt: tuple.0,
-                    updatedAt: tuple.1,
-                    active: tuple.2,
-                    online: tuple.3,
-                }
+                Self { registeredAt: tuple.0 }
             }
         }
         #[automatically_derived]
@@ -8832,15 +8768,6 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::tokenize(&self.registeredAt),
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.updatedAt),
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
-                        &self.active,
-                    ),
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
-                        &self.online,
-                    ),
                 )
             }
             #[inline]
@@ -8915,7 +8842,7 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "OperatorRegistration(uint64 registeredAt,uint64 updatedAt,bool active,bool online)",
+                    "OperatorRegistration(uint64 registeredAt)",
                 )
             }
             #[inline]
@@ -8930,25 +8857,11 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
             }
             #[inline]
             fn eip712_encode_data(&self) -> alloy_sol_types::private::Vec<u8> {
-                [
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.registeredAt)
-                        .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.updatedAt)
-                        .0,
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.active,
-                        )
-                        .0,
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.online,
-                        )
-                        .0,
-                ]
-                    .concat()
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::SolType>::eip712_data_word(&self.registeredAt)
+                    .0
+                    .to_vec()
             }
         }
         #[automatically_derived]
@@ -8960,17 +8873,6 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
                         64,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.registeredAt,
-                    )
-                    + <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.updatedAt,
-                    )
-                    + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.active,
-                    )
-                    + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.online,
                     )
             }
             #[inline]
@@ -8985,20 +8887,6 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
                     64,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.registeredAt,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.updatedAt,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.active,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.online,
                     out,
                 );
             }
@@ -12635,12 +12523,10 @@ library SlashingLib {
         uint16 slashBps;
         uint16 effectiveSlashBps;
         bytes32 evidence;
-        uint64 proposedAt;
         uint64 executeAfter;
         SlashStatus status;
         address disputer;
         uint256 disputeBond;
-        uint64 disputedAt;
         uint64 disputeDeadline;
     }
 }
@@ -12788,9 +12674,6 @@ library Types {
     }
     struct OperatorRegistration {
         uint64 registeredAt;
-        uint64 updatedAt;
-        bool active;
-        bool online;
     }
     struct PaymentSplit {
         uint16 developerBps;
@@ -12932,7 +12815,6 @@ interface ITangleFull {
     function blueprintOperatorCount(uint64 blueprintId) external view returns (uint256);
     function blueprintSourcesHash(uint64 blueprintId) external view returns (bytes32);
     function blueprintSupportedMemberships(uint64 blueprintId) external view returns (Types.MembershipModel[] memory memberships);
-    function canScheduleExit(uint64 serviceId, address operator) external view returns (bool canExit, string memory reason);
     function cancelBlueprintTransfer(uint64 blueprintId) external;
     function cancelExit(uint64 serviceId) external;
     function cancelSlash(uint64 slashId, string memory reason) external;
@@ -13438,35 +13320,6 @@ interface ITangleFull {
         "name": "memberships",
         "type": "uint8[]",
         "internalType": "enum Types.MembershipModel[]"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "canScheduleExit",
-    "inputs": [
-      {
-        "name": "serviceId",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "operator",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "canExit",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
-        "name": "reason",
-        "type": "string",
-        "internalType": "string"
       }
     ],
     "stateMutability": "view"
@@ -15183,21 +15036,6 @@ interface ITangleFull {
             "name": "registeredAt",
             "type": "uint64",
             "internalType": "uint64"
-          },
-          {
-            "name": "updatedAt",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "active",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "online",
-            "type": "bool",
-            "internalType": "bool"
           }
         ]
       }
@@ -15855,11 +15693,6 @@ interface ITangleFull {
             "internalType": "bytes32"
           },
           {
-            "name": "proposedAt",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
             "name": "executeAfter",
             "type": "uint64",
             "internalType": "uint64"
@@ -15878,11 +15711,6 @@ interface ITangleFull {
             "name": "disputeBond",
             "type": "uint256",
             "internalType": "uint256"
-          },
-          {
-            "name": "disputedAt",
-            "type": "uint64",
-            "internalType": "uint64"
           },
           {
             "name": "disputeDeadline",
@@ -25316,189 +25144,6 @@ function blueprintSupportedMemberships(uint64 blueprintId) external view returns
                         let r: blueprintSupportedMembershipsReturn = r.into();
                         r.memberships
                     })
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `canScheduleExit(uint64,address)` and selector `0x27b37565`.
-```solidity
-function canScheduleExit(uint64 serviceId, address operator) external view returns (bool canExit, string memory reason);
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct canScheduleExitCall {
-        #[allow(missing_docs)]
-        pub serviceId: u64,
-        #[allow(missing_docs)]
-        pub operator: alloy::sol_types::private::Address,
-    }
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`canScheduleExit(uint64,address)`](canScheduleExitCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct canScheduleExitReturn {
-        #[allow(missing_docs)]
-        pub canExit: bool,
-        #[allow(missing_docs)]
-        pub reason: alloy::sol_types::private::String,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Address,
-            );
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (u64, alloy::sol_types::private::Address);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<canScheduleExitCall> for UnderlyingRustTuple<'_> {
-                fn from(value: canScheduleExitCall) -> Self {
-                    (value.serviceId, value.operator)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for canScheduleExitCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        serviceId: tuple.0,
-                        operator: tuple.1,
-                    }
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (
-                alloy::sol_types::sol_data::Bool,
-                alloy::sol_types::sol_data::String,
-            );
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (bool, alloy::sol_types::private::String);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<canScheduleExitReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: canScheduleExitReturn) -> Self {
-                    (value.canExit, value.reason)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for canScheduleExitReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        canExit: tuple.0,
-                        reason: tuple.1,
-                    }
-                }
-            }
-        }
-        impl canScheduleExitReturn {
-            fn _tokenize(
-                &self,
-            ) -> <canScheduleExitCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
-                        &self.canExit,
-                    ),
-                    <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
-                        &self.reason,
-                    ),
-                )
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for canScheduleExitCall {
-            type Parameters<'a> = (
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Address,
-            );
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = canScheduleExitReturn;
-            type ReturnTuple<'a> = (
-                alloy::sol_types::sol_data::Bool,
-                alloy::sol_types::sol_data::String,
-            );
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "canScheduleExit(uint64,address)";
-            const SELECTOR: [u8; 4] = [39u8, 179u8, 117u8, 101u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.operator,
-                    ),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                canScheduleExitReturn::_tokenize(ret)
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(Into::into)
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
             }
         }
     };
@@ -45502,8 +45147,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
         #[allow(missing_docs)]
         blueprintSupportedMemberships(blueprintSupportedMembershipsCall),
         #[allow(missing_docs)]
-        canScheduleExit(canScheduleExitCall),
-        #[allow(missing_docs)]
         cancelBlueprintTransfer(cancelBlueprintTransferCall),
         #[allow(missing_docs)]
         cancelExit(cancelExitCall),
@@ -45777,7 +45420,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             [37u8, 216u8, 15u8, 125u8],
             [38u8, 48u8, 193u8, 47u8],
             [38u8, 201u8, 136u8, 123u8],
-            [39u8, 179u8, 117u8, 101u8],
             [43u8, 157u8, 167u8, 26u8],
             [45u8, 7u8, 230u8, 85u8],
             [45u8, 174u8, 24u8, 133u8],
@@ -45918,7 +45560,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             ::core::stringify!(withdrawRemainingEscrowTo),
             ::core::stringify!(priceOracle),
             ::core::stringify!(mbsmRegistry),
-            ::core::stringify!(canScheduleExit),
             ::core::stringify!(joinService),
             ::core::stringify!(submitResult),
             ::core::stringify!(metricsRecorder),
@@ -46059,7 +45700,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             <withdrawRemainingEscrowToCall as alloy_sol_types::SolCall>::SIGNATURE,
             <priceOracleCall as alloy_sol_types::SolCall>::SIGNATURE,
             <mbsmRegistryCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <canScheduleExitCall as alloy_sol_types::SolCall>::SIGNATURE,
             <joinServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <submitResultCall as alloy_sol_types::SolCall>::SIGNATURE,
             <metricsRecorderCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -46204,7 +45844,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
     impl alloy_sol_types::SolInterface for ITangleFullCalls {
         const NAME: &'static str = "ITangleFullCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 138usize;
+        const COUNT: usize = 137usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -46249,9 +45889,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 }
                 Self::blueprintSupportedMemberships(_) => {
                     <blueprintSupportedMembershipsCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::canScheduleExit(_) => {
-                    <canScheduleExitCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::cancelBlueprintTransfer(_) => {
                     <cancelBlueprintTransferCall as alloy_sol_types::SolCall>::SELECTOR
@@ -46841,17 +46478,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                             .map(ITangleFullCalls::mbsmRegistry)
                     }
                     mbsmRegistry
-                },
-                {
-                    fn canScheduleExit(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <canScheduleExitCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleFullCalls::canScheduleExit)
-                    }
-                    canScheduleExit
                 },
                 {
                     fn joinService(
@@ -48367,17 +47993,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                     mbsmRegistry
                 },
                 {
-                    fn canScheduleExit(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <canScheduleExitCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleFullCalls::canScheduleExit)
-                    }
-                    canScheduleExit
-                },
-                {
                     fn joinService(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -49757,11 +49372,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                         inner,
                     )
                 }
-                Self::canScheduleExit(inner) => {
-                    <canScheduleExitCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
                 Self::cancelBlueprintTransfer(inner) => {
                     <cancelBlueprintTransferCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -50442,12 +50052,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 }
                 Self::blueprintSupportedMemberships(inner) => {
                     <blueprintSupportedMembershipsCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::canScheduleExit(inner) => {
-                    <canScheduleExitCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -52354,19 +51958,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             self.call_builder(
                 &blueprintSupportedMembershipsCall {
                     blueprintId,
-                },
-            )
-        }
-        ///Creates a new call builder for the [`canScheduleExit`] function.
-        pub fn canScheduleExit(
-            &self,
-            serviceId: u64,
-            operator: alloy::sol_types::private::Address,
-        ) -> alloy_contract::SolCallBuilder<&P, canScheduleExitCall, N> {
-            self.call_builder(
-                &canScheduleExitCall {
-                    serviceId,
-                    operator,
                 },
             )
         }

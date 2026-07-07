@@ -751,9 +751,7 @@ abstract contract DelegationManagerLib is OperatorManager {
 
     /// @notice Get operator's total stake for the bond asset (self + delegated)
     function _getOperatorTotalStake(address operator) internal view returns (uint256) {
-        bytes32 bondHash = _operatorBondToken == address(0)
-            ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
-            : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
+        bytes32 bondHash = _getOperatorBondAssetHash();
         return _operatorMetadata[operator].stake + _getOperatorDelegatedStakeForAsset(operator, bondHash);
     }
 

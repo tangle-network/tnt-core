@@ -312,15 +312,6 @@ interface ITangleServices {
     /// @notice Get exit configuration for a service
     function getExitConfig(uint64 serviceId) external view returns (Types.ExitConfig memory);
 
-    /// @notice Check if operator can schedule exit now
-    function canScheduleExit(
-        uint64 serviceId,
-        address operator
-    )
-        external
-        view
-        returns (bool canExit, string memory reason);
-
     /// @notice Get persisted security commitments for an active service by operator
     function getServiceSecurityCommitments(
         uint64 serviceId,

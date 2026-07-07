@@ -285,7 +285,7 @@ abstract contract DepositManager is DelegationStorage {
     function _transferAsset(Types.Asset memory asset, address to, uint256 amount) internal {
         if (asset.kind == Types.AssetKind.Native) {
             (bool success,) = to.call{ value: amount }("");
-            require(success, "Native transfer failed");
+            if (!success) revert DelegationErrors.TransferFailed();
         } else {
             address adapter = _assetAdapters[asset.token];
             if (adapter != address(0)) {

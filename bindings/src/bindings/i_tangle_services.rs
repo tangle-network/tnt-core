@@ -5833,7 +5833,6 @@ interface ITangleServices {
     function billSubscription(uint64 serviceId) external;
     function billSubscriptionBatch(uint64[] memory serviceIds) external returns (uint256 totalBilled, uint256 billedCount);
     function blsPopMessage(address operator, uint256[4] memory blsPubkey) external view returns (bytes memory);
-    function canScheduleExit(uint64 serviceId, address operator) external view returns (bool canExit, string memory reason);
     function cancelExit(uint64 serviceId) external;
     function createServiceFromQuotes(uint64 blueprintId, Types.SignedQuote[] memory quotes, bytes memory config, address[] memory permittedCallers, uint64 ttl) external payable returns (uint64 serviceId);
     function executeExit(uint64 serviceId) external;
@@ -6044,35 +6043,6 @@ interface ITangleServices {
         "name": "",
         "type": "bytes",
         "internalType": "bytes"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "canScheduleExit",
-    "inputs": [
-      {
-        "name": "serviceId",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "operator",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "canExit",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
-        "name": "reason",
-        "type": "string",
-        "internalType": "string"
       }
     ],
     "stateMutability": "view"
@@ -10022,189 +9992,6 @@ function blsPopMessage(address operator, uint256[4] memory blsPubkey) external v
                         let r: blsPopMessageReturn = r.into();
                         r._0
                     })
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `canScheduleExit(uint64,address)` and selector `0x27b37565`.
-```solidity
-function canScheduleExit(uint64 serviceId, address operator) external view returns (bool canExit, string memory reason);
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct canScheduleExitCall {
-        #[allow(missing_docs)]
-        pub serviceId: u64,
-        #[allow(missing_docs)]
-        pub operator: alloy::sol_types::private::Address,
-    }
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`canScheduleExit(uint64,address)`](canScheduleExitCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct canScheduleExitReturn {
-        #[allow(missing_docs)]
-        pub canExit: bool,
-        #[allow(missing_docs)]
-        pub reason: alloy::sol_types::private::String,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Address,
-            );
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (u64, alloy::sol_types::private::Address);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<canScheduleExitCall> for UnderlyingRustTuple<'_> {
-                fn from(value: canScheduleExitCall) -> Self {
-                    (value.serviceId, value.operator)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for canScheduleExitCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        serviceId: tuple.0,
-                        operator: tuple.1,
-                    }
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (
-                alloy::sol_types::sol_data::Bool,
-                alloy::sol_types::sol_data::String,
-            );
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (bool, alloy::sol_types::private::String);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<canScheduleExitReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: canScheduleExitReturn) -> Self {
-                    (value.canExit, value.reason)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for canScheduleExitReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        canExit: tuple.0,
-                        reason: tuple.1,
-                    }
-                }
-            }
-        }
-        impl canScheduleExitReturn {
-            fn _tokenize(
-                &self,
-            ) -> <canScheduleExitCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
-                        &self.canExit,
-                    ),
-                    <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
-                        &self.reason,
-                    ),
-                )
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for canScheduleExitCall {
-            type Parameters<'a> = (
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Address,
-            );
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = canScheduleExitReturn;
-            type ReturnTuple<'a> = (
-                alloy::sol_types::sol_data::Bool,
-                alloy::sol_types::sol_data::String,
-            );
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "canScheduleExit(uint64,address)";
-            const SELECTOR: [u8; 4] = [39u8, 179u8, 117u8, 101u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.operator,
-                    ),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                canScheduleExitReturn::_tokenize(ret)
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(Into::into)
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
             }
         }
     };
@@ -17439,8 +17226,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
         #[allow(missing_docs)]
         blsPopMessage(blsPopMessageCall),
         #[allow(missing_docs)]
-        canScheduleExit(canScheduleExitCall),
-        #[allow(missing_docs)]
         cancelExit(cancelExitCall),
         #[allow(missing_docs)]
         createServiceFromQuotes(createServiceFromQuotesCall),
@@ -17539,7 +17324,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             [6u8, 35u8, 117u8, 38u8],
             [19u8, 211u8, 106u8, 102u8],
             [37u8, 216u8, 15u8, 125u8],
-            [39u8, 179u8, 117u8, 101u8],
             [43u8, 157u8, 167u8, 26u8],
             [46u8, 194u8, 189u8, 3u8],
             [47u8, 70u8, 39u8, 159u8],
@@ -17591,7 +17375,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             ::core::stringify!(serviceCount),
             ::core::stringify!(terminateServiceForNonPayment),
             ::core::stringify!(withdrawRemainingEscrowTo),
-            ::core::stringify!(canScheduleExit),
             ::core::stringify!(joinService),
             ::core::stringify!(isPermittedCaller),
             ::core::stringify!(isServiceActive),
@@ -17643,7 +17426,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             <serviceCountCall as alloy_sol_types::SolCall>::SIGNATURE,
             <terminateServiceForNonPaymentCall as alloy_sol_types::SolCall>::SIGNATURE,
             <withdrawRemainingEscrowToCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <canScheduleExitCall as alloy_sol_types::SolCall>::SIGNATURE,
             <joinServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <isPermittedCallerCall as alloy_sol_types::SolCall>::SIGNATURE,
             <isServiceActiveCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -17714,7 +17496,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
     impl alloy_sol_types::SolInterface for ITangleServicesCalls {
         const NAME: &'static str = "ITangleServicesCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 49usize;
+        const COUNT: usize = 48usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -17732,9 +17514,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 }
                 Self::blsPopMessage(_) => {
                     <blsPopMessageCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::canScheduleExit(_) => {
-                    <canScheduleExitCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::cancelExit(_) => {
                     <cancelExitCall as alloy_sol_types::SolCall>::SELECTOR
@@ -17929,17 +17708,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                             .map(ITangleServicesCalls::withdrawRemainingEscrowTo)
                     }
                     withdrawRemainingEscrowTo
-                },
-                {
-                    fn canScheduleExit(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleServicesCalls> {
-                        <canScheduleExitCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleServicesCalls::canScheduleExit)
-                    }
-                    canScheduleExit
                 },
                 {
                     fn joinService(
@@ -18494,17 +18262,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                     withdrawRemainingEscrowTo
                 },
                 {
-                    fn canScheduleExit(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleServicesCalls> {
-                        <canScheduleExitCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleServicesCalls::canScheduleExit)
-                    }
-                    canScheduleExit
-                },
-                {
                     fn joinService(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleServicesCalls> {
@@ -19031,11 +18788,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                         inner,
                     )
                 }
-                Self::canScheduleExit(inner) => {
-                    <canScheduleExitCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
                 Self::cancelExit(inner) => {
                     <cancelExitCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
@@ -19276,12 +19028,6 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 }
                 Self::blsPopMessage(inner) => {
                     <blsPopMessageCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::canScheduleExit(inner) => {
-                    <canScheduleExitCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -20060,19 +19806,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                 &blsPopMessageCall {
                     operator,
                     blsPubkey,
-                },
-            )
-        }
-        ///Creates a new call builder for the [`canScheduleExit`] function.
-        pub fn canScheduleExit(
-            &self,
-            serviceId: u64,
-            operator: alloy::sol_types::private::Address,
-        ) -> alloy_contract::SolCallBuilder<&P, canScheduleExitCall, N> {
-            self.call_builder(
-                &canScheduleExitCall {
-                    serviceId,
-                    operator,
                 },
             )
         }

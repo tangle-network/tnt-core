@@ -27,10 +27,7 @@ abstract contract QuotesCreate is Base {
     }
 
     // ServiceActivated event inherited from Base.sol
-
-    event ResourcesCommitted(
-        uint64 indexed serviceId, address indexed operator, Types.ResourceCommitment[] commitments
-    );
+    // ResourcesCommitted event inherited from Base.sol
 
     // ═══════════════════════════════════════════════════════════════════════════
     // RFQ SERVICE CREATION

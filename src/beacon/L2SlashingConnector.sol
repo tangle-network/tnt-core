@@ -50,6 +50,14 @@ contract L2SlashingConnector {
     ///      baseline. We fail-closed BEFORE mutating state so the same delta stays
     ///      re-propagable once the operator regains slashable L2 stake.
     error NothingToSlash(address pod, uint256 destinationChainId);
+    /// @dev Caller is not the contract owner (replaces the old "Only owner" string revert).
+    error NotOwner();
+    /// @dev Paired input arrays have differing lengths (batch propagate / batch register).
+    error LengthMismatch();
+    /// @dev Native-asset refund/sweep call to the caller failed.
+    error RefundFailed();
+    /// @dev A self-call-only entrypoint was invoked by an external caller.
+    error InternalOnly();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -164,7 +172,7 @@ contract L2SlashingConnector {
     }
 
     function _onlyOwner() internal view {
-        require(msg.sender == owner, "Only owner");
+        if (msg.sender != owner) revert NotOwner();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -215,7 +223,7 @@ contract L2SlashingConnector {
         payable
         onlySlashingOracle
     {
-        require(pods.length == newSlashingFactors.length, "Length mismatch");
+        if (pods.length != newSlashingFactors.length) revert LengthMismatch();
 
         uint256 baseline = address(this).balance - msg.value;
 
@@ -234,7 +242,7 @@ contract L2SlashingConnector {
         uint256 leftover = address(this).balance - baseline;
         if (leftover > 0) {
             (bool success,) = msg.sender.call{ value: leftover }("");
-            require(success, "Refund failed");
+            if (!success) revert RefundFailed();
         }
     }
 
@@ -247,7 +255,7 @@ contract L2SlashingConnector {
         external
         payable
     {
-        require(msg.sender == address(this), "Internal only");
+        if (msg.sender != address(this)) revert InternalOnly();
         _propagateBeaconSlashing(pod, newSlashingFactor, destinationChainId);
     }
 
@@ -353,7 +361,7 @@ contract L2SlashingConnector {
         // Refund excess
         if (msg.value > fee) {
             (bool success,) = msg.sender.call{ value: msg.value - fee }("");
-            require(success, "Refund failed");
+            if (!success) revert RefundFailed();
         }
 
         emit BeaconSlashingPropagated(pod, lastFactor, newSlashingFactor, l2SlashAmount, messageId);
@@ -492,7 +500,7 @@ contract L2SlashingConnector {
 
     /// @notice Batch register pod to operator mappings
     function batchRegisterPodOperators(address[] calldata pods, address[] calldata operators) external onlyOwner {
-        require(pods.length == operators.length, "Length mismatch");
+        if (pods.length != operators.length) revert LengthMismatch();
         for (uint256 i = 0; i < pods.length; i++) {
             _validatePodOperator(pods[i], operators[i]);
             podOperator[pods[i]] = operators[i];

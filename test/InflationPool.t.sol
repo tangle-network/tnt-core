@@ -143,12 +143,21 @@ contract InflationPoolTest is Test {
         pool.fund(0);
     }
 
-    function test_FundingHistory() public view {
-        assertEq(pool.fundingHistoryCount(), 1);
+    function test_FundingHistory() public {
+        // Funding is recorded via the PoolFunded event (funder, amount, newBalance),
+        // no longer as on-chain history. Assert the event carries the funder/amount
+        // and that the balance reflects the deposit.
+        uint256 fundAmount = 100_000 ether;
 
-        InflationPool.FundingRecord memory record = pool.getFundingRecord(0);
-        assertEq(record.amount, POOL_FUNDING);
-        assertEq(record.funder, admin);
+        vm.startPrank(admin);
+        tnt.approve(address(pool), fundAmount);
+        vm.expectEmit(true, false, false, true, address(pool));
+        emit InflationPool.PoolFunded(admin, fundAmount, POOL_FUNDING + fundAmount);
+        pool.fund(fundAmount);
+        vm.stopPrank();
+
+        assertEq(pool.poolBalance(), POOL_FUNDING + fundAmount);
+        assertEq(pool.totalFunded(), POOL_FUNDING + fundAmount);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -610,19 +619,16 @@ contract InflationPoolTest is Test {
     // VIEW FUNCTION TESTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function test_BlocksUntilNextEpoch() public view {
-        uint256 secondsUntil = pool.blocksUntilNextEpoch();
+    function test_SecondsUntilNextEpoch() public view {
+        uint256 secondsUntil = pool.secondsUntilNextEpoch();
         assertGt(secondsUntil, 0);
         assertLe(secondsUntil, EPOCH_LENGTH);
-
-        assertEq(secondsUntil, pool.secondsUntilNextEpoch());
     }
 
     function test_SecondsUntilNextEpoch_ZeroWhenReady() public {
         InflationPool.EpochData memory epoch = pool.getEpoch(pool.currentEpoch());
         vm.warp(epoch.endTimestamp);
         assertEq(pool.secondsUntilNextEpoch(), 0);
-        assertEq(pool.blocksUntilNextEpoch(), 0);
     }
 
     function test_IsEpochReady() public {

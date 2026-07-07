@@ -255,9 +255,7 @@ abstract contract RewardsManager is DelegationManagerLib {
 
     /// @notice Get operator reward pool info
     function _getOperatorRewardPool(address operator) internal view returns (Types.OperatorRewardPool memory) {
-        bytes32 bondHash = _operatorBondToken == address(0)
-            ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
-            : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
+        bytes32 bondHash = _getOperatorBondAssetHash();
         return _rewardPools[operator][bondHash];
     }
 

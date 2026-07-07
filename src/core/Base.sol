@@ -62,6 +62,12 @@ abstract contract Base is
     /// @param registry The new registry address
     event MBSMRegistryUpdated(address indexed registry);
 
+    /// @notice Emitted when an operator commits per-asset resources to a service (request, quote,
+    ///         or extension). Declared once here and shared by the services/quotes mixins.
+    event ResourcesCommitted(
+        uint64 indexed serviceId, address indexed operator, Types.ResourceCommitment[] commitments
+    );
+
     /// @notice Emitted when a best-effort blueprint-manager hook reverted or ran out of
     ///         the capped gas stipend. Observable so off-chain monitors can detect a
     ///         misbehaving BSM without halting the protocol path.

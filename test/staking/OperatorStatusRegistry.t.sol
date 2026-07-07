@@ -114,7 +114,7 @@ contract OperatorStatusRegistryTest is Test {
     function test_submitHeartbeat_InvalidSignatureReverts() public {
         bytes memory signature = abi.encodePacked(bytes32(uint256(1)), bytes32(uint256(2)), uint8(27));
         vm.prank(operatorAddr);
-        vm.expectRevert("Invalid signature");
+        vm.expectRevert(OperatorStatusRegistry.InvalidSignature.selector);
         registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 0, "", uint64(block.timestamp), signature);
     }
 
@@ -158,7 +158,7 @@ contract OperatorStatusRegistryTest is Test {
     }
 
     function test_configureHeartbeat_AuthorizationPaths() public {
-        vm.expectRevert("Not authorized");
+        vm.expectRevert(OperatorStatusRegistry.NotAuthorized.selector);
         registry.configureHeartbeat(SERVICE_ID, 300, 3);
 
         vm.prank(tangle);
@@ -169,17 +169,17 @@ contract OperatorStatusRegistryTest is Test {
     }
 
     function test_registerServiceOwner_OnlyTangle() public {
-        vm.expectRevert("Only Tangle core");
+        vm.expectRevert(OperatorStatusRegistry.OnlyTangleCore.selector);
         registry.registerServiceOwner(2, serviceOwner);
     }
 
     function test_enableCustomMetrics_NotOwnerReverts() public {
-        vm.expectRevert("Not service owner");
+        vm.expectRevert(OperatorStatusRegistry.NotServiceOwner.selector);
         registry.enableCustomMetrics(SERVICE_ID, true);
     }
 
     function test_addMetricDefinition_NotOwnerReverts() public {
-        vm.expectRevert("Not service owner");
+        vm.expectRevert(OperatorStatusRegistry.NotServiceOwner.selector);
         registry.addMetricDefinition(SERVICE_ID, "latency", 0, 100, true);
     }
 
@@ -211,7 +211,7 @@ contract OperatorStatusRegistryTest is Test {
     }
 
     function test_reportForSlashing_NotOracleReverts() public {
-        vm.expectRevert("Not slashing oracle");
+        vm.expectRevert(OperatorStatusRegistry.NotSlashingOracle.selector);
         registry.reportForSlashing(SERVICE_ID, operatorAddr, "bad");
     }
 
@@ -263,7 +263,7 @@ contract OperatorStatusRegistryTest is Test {
         registry.reportForSlashing(SERVICE_ID, operatorAddr, "slash");
 
         vm.startPrank(operatorAddr);
-        vm.expectRevert("Cannot go offline while slashed");
+        vm.expectRevert(OperatorStatusRegistry.OperatorSlashed.selector);
         registry.goOffline(SERVICE_ID);
         vm.stopPrank();
     }
@@ -314,7 +314,7 @@ contract OperatorStatusRegistryTest is Test {
         IOperatorStatusRegistry.MetricDefinition[] memory defs = new IOperatorStatusRegistry.MetricDefinition[](1);
         defs[0] = IOperatorStatusRegistry.MetricDefinition("bad", 100, 0, true); // maxValue < minValue
         vm.prank(serviceOwner);
-        vm.expectRevert("Invalid bounds");
+        vm.expectRevert(OperatorStatusRegistry.InvalidBounds.selector);
         registry.setMetricDefinitions(SERVICE_ID, defs);
     }
 
@@ -469,7 +469,7 @@ contract OperatorStatusRegistryTest is Test {
 
     function test_addMetricDefinition_InvalidBoundsReverts() public {
         vm.prank(serviceOwner);
-        vm.expectRevert("Invalid bounds");
+        vm.expectRevert(OperatorStatusRegistry.InvalidBounds.selector);
         registry.addMetricDefinition(SERVICE_ID, "bad_metric", 100, 0, true);
     }
 
@@ -480,7 +480,7 @@ contract OperatorStatusRegistryTest is Test {
             registry.addMetricDefinition(SERVICE_ID, string(abi.encodePacked("m", i)), 0, 100, false);
         }
         // 51st should fail
-        vm.expectRevert("Too many definitions");
+        vm.expectRevert(OperatorStatusRegistry.TooManyDefinitions.selector);
         registry.addMetricDefinition(SERVICE_ID, "overflow", 0, 100, false);
         vm.stopPrank();
     }
@@ -491,7 +491,7 @@ contract OperatorStatusRegistryTest is Test {
             defs[i] = IOperatorStatusRegistry.MetricDefinition("x", 0, 100, false);
         }
         vm.prank(serviceOwner);
-        vm.expectRevert("Too many definitions");
+        vm.expectRevert(OperatorStatusRegistry.TooManyDefinitions.selector);
         registry.setMetricDefinitions(SERVICE_ID, defs);
     }
 
@@ -534,7 +534,7 @@ contract OperatorStatusRegistryTest is Test {
         registry.setSlashingOracle(slashingOracle);
 
         vm.prank(slashingOracle);
-        vm.expectRevert("Operator unknown");
+        vm.expectRevert(OperatorStatusRegistry.OperatorUnknown.selector);
         registry.reportForSlashing(SERVICE_ID, makeAddr("unknown"), "slash");
     }
 
@@ -571,7 +571,7 @@ contract OperatorStatusRegistryTest is Test {
 
         // Can't remove active operator
         vm.prank(serviceOwner);
-        vm.expectRevert("Operator not eligible for removal");
+        vm.expectRevert(OperatorStatusRegistry.OperatorNotEligibleForRemoval.selector);
         registry.removeInactiveOperator(SERVICE_ID, operatorAddr);
 
         // Warp past 10x threshold (interval=120, maxMissed=2, 10x = 2400s)
@@ -623,7 +623,7 @@ contract OperatorStatusRegistryTest is Test {
 
         // Slashed operator cannot submit heartbeat
         vm.prank(operatorAddr);
-        vm.expectRevert("Operator is slashed");
+        vm.expectRevert(OperatorStatusRegistry.OperatorSlashed.selector);
         registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
     }
 
@@ -634,21 +634,21 @@ contract OperatorStatusRegistryTest is Test {
     function test_unregisteredOperator_CannotHeartbeat() public {
         address rando = makeAddr("rando");
         vm.prank(rando);
-        vm.expectRevert("Not registered operator");
+        vm.expectRevert(OperatorStatusRegistry.NotRegisteredOperator.selector);
         registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
     }
 
     function test_unregisteredOperator_CannotGoOnline() public {
         address rando = makeAddr("rando");
         vm.prank(rando);
-        vm.expectRevert("Not registered operator");
+        vm.expectRevert(OperatorStatusRegistry.NotRegisteredOperator.selector);
         registry.goOnline(SERVICE_ID);
     }
 
     function test_unregisteredOperator_CannotGoOffline() public {
         address rando = makeAddr("rando");
         vm.prank(rando);
-        vm.expectRevert("Not registered operator");
+        vm.expectRevert(OperatorStatusRegistry.NotRegisteredOperator.selector);
         registry.goOffline(SERVICE_ID);
     }
 
@@ -658,12 +658,12 @@ contract OperatorStatusRegistryTest is Test {
 
         // Random address cannot register
         vm.prank(rando);
-        vm.expectRevert("Only Tangle core");
+        vm.expectRevert(OperatorStatusRegistry.OnlyTangleCore.selector);
         registry.registerOperator(SERVICE_ID, newOp);
 
         // Service owner cannot register either — operator set comes from service lifecycle
         vm.prank(serviceOwner);
-        vm.expectRevert("Only Tangle core");
+        vm.expectRevert(OperatorStatusRegistry.OnlyTangleCore.selector);
         registry.registerOperator(SERVICE_ID, newOp);
 
         // Only Tangle core can register
@@ -674,7 +674,7 @@ contract OperatorStatusRegistryTest is Test {
 
     function test_registerOperator_DuplicateReverts() public {
         vm.prank(tangle);
-        vm.expectRevert("Already registered");
+        vm.expectRevert(OperatorStatusRegistry.AlreadyRegistered.selector);
         registry.registerOperator(SERVICE_ID, operatorAddr); // already registered in setUp
     }
 
@@ -685,19 +685,19 @@ contract OperatorStatusRegistryTest is Test {
 
         // Deregistered operator cannot heartbeat
         vm.prank(operatorAddr);
-        vm.expectRevert("Not registered operator");
+        vm.expectRevert(OperatorStatusRegistry.NotRegisteredOperator.selector);
         registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
     }
 
     function test_deregisterOperator_OnlyTangleCore() public {
         vm.prank(serviceOwner);
-        vm.expectRevert("Only Tangle core");
+        vm.expectRevert(OperatorStatusRegistry.OnlyTangleCore.selector);
         registry.deregisterOperator(SERVICE_ID, operatorAddr);
     }
 
     function test_deregisterOperator_NotRegisteredReverts() public {
         vm.prank(tangle);
-        vm.expectRevert("Not registered");
+        vm.expectRevert(OperatorStatusRegistry.NotRegistered.selector);
         registry.deregisterOperator(SERVICE_ID, makeAddr("never_registered"));
     }
 
@@ -724,7 +724,7 @@ contract OperatorStatusRegistryTest is Test {
         // Sign with statusCode=0, submit with statusCode=1 => should fail
         bytes memory signature = _signHeartbeat(0, "");
         vm.prank(operatorAddr);
-        vm.expectRevert("Invalid signature");
+        vm.expectRevert(OperatorStatusRegistry.InvalidSignature.selector);
         registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 1, "", uint64(block.timestamp), signature);
 
         // Sign with correct statusCode=1, submit with statusCode=1 => should pass
@@ -740,7 +740,7 @@ contract OperatorStatusRegistryTest is Test {
 
     function test_configureHeartbeat_PhantomServiceReverts() public {
         // Service 999 has no registered owner; should fail for random callers
-        vm.expectRevert("Not authorized");
+        vm.expectRevert(OperatorStatusRegistry.NotAuthorized.selector);
         registry.configureHeartbeat(999, 300, 3);
     }
 
@@ -845,7 +845,7 @@ contract OperatorStatusRegistryTest is Test {
         }
 
         vm.prank(serviceOwner);
-        vm.expectRevert("Name too long");
+        vm.expectRevert(OperatorStatusRegistry.NameTooLong.selector);
         registry.addMetricDefinition(SERVICE_ID, string(longName), 0, 100, false);
     }
 

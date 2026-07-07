@@ -32,7 +32,6 @@ contract OperatorLifecycleTest is BaseTest {
 
         Types.OperatorRegistration memory reg = tangle.getOperatorRegistration(blueprintId, operator1);
         assertEq(reg.registeredAt, block.timestamp);
-        assertTrue(reg.active);
     }
 
     function test_RegisterOperator_RevertNotStaked() public {
@@ -109,7 +108,7 @@ contract OperatorLifecycleTest is BaseTest {
         tangle.unregisterOperator(blueprintId);
 
         Types.OperatorRegistration memory reg = tangle.getOperatorRegistration(blueprintId, operator1);
-        assertEq(reg.active, false);
+        assertEq(reg.registeredAt, 0, "registration cleared on unregister");
     }
 
     function test_UnregisterOperator_RevertNotRegistered() public {
@@ -144,7 +143,7 @@ contract OperatorLifecycleTest is BaseTest {
         tangle.unregisterOperator(blueprintId);
 
         Types.OperatorRegistration memory reg = tangle.getOperatorRegistration(blueprintId, operator1);
-        assertEq(reg.active, false);
+        assertEq(reg.registeredAt, 0, "registration cleared on unregister");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -641,9 +640,9 @@ contract OperatorLifecycleTest is BaseTest {
         Types.OperatorRegistration memory reg2 = tangle.getOperatorRegistration(bp2, operator1);
         Types.OperatorRegistration memory reg3 = tangle.getOperatorRegistration(bp3, operator1);
 
-        assertTrue(reg1.active);
-        assertTrue(reg2.active);
-        assertTrue(reg3.active);
+        assertTrue(reg1.registeredAt > 0);
+        assertTrue(reg2.registeredAt > 0);
+        assertTrue(reg3.registeredAt > 0);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

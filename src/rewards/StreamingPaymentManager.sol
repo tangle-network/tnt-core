@@ -34,11 +34,11 @@ contract StreamingPaymentManager is
     /// @notice ServiceFeeDistributor that receives dripped chunks
     address public distributor;
 
-    /// @notice Streaming payment for a service
+    /// @notice Streaming payment for a service.
+    /// @dev `serviceId`/`operator` are the mapping keys (see `streamingPayments`), so they are
+    ///      not duplicated in the struct; callers pass them explicitly and the getter echoes them.
     struct StreamingPayment {
-        uint64 serviceId;
         uint64 blueprintId;
-        address operator;
         address paymentToken;
         uint256 totalAmount;
         uint256 distributed;
@@ -157,9 +157,7 @@ contract StreamingPaymentManager is
 
         // Create new stream
         streamingPayments[serviceId][operator] = StreamingPayment({
-            serviceId: serviceId,
             blueprintId: blueprintId,
-            operator: operator,
             paymentToken: paymentToken,
             totalAmount: amount,
             distributed: 0,
@@ -185,30 +183,30 @@ contract StreamingPaymentManager is
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Drip pending payment chunk from a streaming payment
-    /// @return dripped The amount dripped, durationSeconds The time period covered
-    function _drip(uint64 serviceId, address operator) internal returns (uint256 dripped, uint256 durationSeconds) {
+    /// @return dripped The amount dripped
+    function _drip(uint64 serviceId, address operator) internal returns (uint256 dripped) {
         StreamingPayment storage p = streamingPayments[serviceId][operator];
 
-        if (p.totalAmount == 0) return (0, 0);
-        if (p.distributed >= p.totalAmount) return (0, 0);
-        if (block.timestamp <= p.startTime) return (0, 0);
+        if (p.totalAmount == 0) return 0;
+        if (p.distributed >= p.totalAmount) return 0;
+        if (block.timestamp <= p.startTime) return 0;
 
         uint64 currentTime = uint64(block.timestamp);
         if (currentTime > p.endTime) {
             currentTime = p.endTime;
         }
 
-        if (currentTime <= p.lastDripTime) return (0, 0);
+        if (currentTime <= p.lastDripTime) return 0;
 
-        durationSeconds = currentTime - p.lastDripTime;
+        uint256 elapsed = currentTime - p.lastDripTime;
         uint256 duration = p.endTime - p.startTime;
         uint256 remaining = p.totalAmount - p.distributed;
 
-        uint256 chunk = (p.totalAmount * durationSeconds) / duration;
+        uint256 chunk = (p.totalAmount * elapsed) / duration;
         if (chunk > remaining) {
             chunk = remaining;
         }
-        if (chunk == 0) return (0, 0);
+        if (chunk == 0) return 0;
 
         p.distributed += chunk;
         p.lastDripTime = currentTime;
@@ -220,7 +218,7 @@ contract StreamingPaymentManager is
             emit StreamingPaymentCompleted(serviceId, operator, p.totalAmount);
         }
 
-        return (chunk, durationSeconds);
+        return chunk;
     }
 
     /// @notice Drip a specific stream and return chunk info for distribution.
@@ -238,12 +236,12 @@ contract StreamingPaymentManager is
         override
         onlyRole(DISTRIBUTOR_ROLE)
         nonReentrant
-        returns (uint256 amount, uint256 durationSeconds, uint64 blueprintId, address paymentToken)
+        returns (uint256 amount, uint64 blueprintId, address paymentToken)
     {
         StreamingPayment storage p = streamingPayments[serviceId][operator];
         blueprintId = p.blueprintId;
         paymentToken = p.paymentToken;
-        (amount, durationSeconds) = _drip(serviceId, operator);
+        amount = _drip(serviceId, operator);
 
         // Transfer dripped tokens to distributor for score-based distribution
         if (amount > 0) {
@@ -254,7 +252,7 @@ contract StreamingPaymentManager is
     /// @notice Drip all active streams for an operator.
     /// @dev `nonReentrant` mutex prevents `dripOperatorStreams` and `dripAndGetChunk`
     ///      from executing in the same transaction. Without it, two distributor calls
-    ///      in the same block would each compute the same `durationSeconds` and pay
+    ///      in the same block would each compute the same elapsed-time window and pay
     ///      the chunk twice.
     function dripOperatorStreams(address operator)
         external
@@ -265,8 +263,7 @@ contract StreamingPaymentManager is
             uint64[] memory serviceIds,
             uint64[] memory blueprintIds,
             address[] memory paymentTokens,
-            uint256[] memory amounts,
-            uint256[] memory durations
+            uint256[] memory amounts
         )
     {
         uint64[] storage streams = _operatorActiveStreams[operator];
@@ -276,7 +273,6 @@ contract StreamingPaymentManager is
         blueprintIds = new uint64[](len);
         paymentTokens = new address[](len);
         amounts = new uint256[](len);
-        durations = new uint256[](len);
 
         // Iterate backwards to handle removals safely
         for (uint256 i = len; i > 0; i--) {
@@ -287,7 +283,7 @@ contract StreamingPaymentManager is
             serviceIds[idx] = svcId;
             blueprintIds[idx] = p.blueprintId;
             paymentTokens[idx] = p.paymentToken;
-            (amounts[idx], durations[idx]) = _drip(svcId, operator);
+            amounts[idx] = _drip(svcId, operator);
 
             // Transfer dripped tokens to distributor
             if (amounts[idx] > 0) {
@@ -318,7 +314,7 @@ contract StreamingPaymentManager is
             // payment that must be forwarded to the distributor for score-based payout —
             // otherwise `_drip()` would mark it `distributed` while the tokens stay locked
             // here, and it would also be excluded from the `remaining` refund below.
-            (uint256 dripped,) = _drip(serviceId, operator);
+            uint256 dripped = _drip(serviceId, operator);
             if (dripped > 0) {
                 _transferPayment(payable(distributor), p.paymentToken, dripped);
             }
@@ -344,7 +340,7 @@ contract StreamingPaymentManager is
         if (msg.sender != tangle && msg.sender != distributor) revert NotAuthorized();
         StreamingPayment storage p = streamingPayments[serviceId][operator];
         address paymentToken = p.paymentToken;
-        (uint256 dripped,) = _drip(serviceId, operator);
+        uint256 dripped = _drip(serviceId, operator);
         if (dripped > 0) {
             _transferPayment(payable(distributor), paymentToken, dripped);
         }
@@ -378,10 +374,11 @@ contract StreamingPaymentManager is
         )
     {
         StreamingPayment storage p = streamingPayments[serviceId][operator];
+        // `serviceId`/`operator` are the mapping keys, echoed back so the ABI is unchanged.
         return (
-            p.serviceId,
+            serviceId,
             p.blueprintId,
-            p.operator,
+            operator,
             p.paymentToken,
             p.totalAmount,
             p.distributed,

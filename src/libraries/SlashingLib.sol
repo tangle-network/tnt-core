@@ -50,7 +50,9 @@ library SlashingLib {
         uint16 slashBps; // Original slash percentage (bps)
         uint16 effectiveSlashBps; // Slash percentage after exposure scaling
         bytes32 evidence; // Evidence hash (IPFS or other)
-        uint64 proposedAt; // When slash was proposed
+        // proposal timestamp is not stored: it is reconstructable off-chain as
+        // `executeAfter - disputeWindow` and from the `SlashProposed` event's block.
+        // No on-chain path reads it (isExecutable uses executeAfter / disputeDeadline).
         uint64 executeAfter; // When slash can be executed
         SlashStatus status; // Current status
         // Address that posted the dispute bond. address(0) when undisputed.
@@ -58,8 +60,9 @@ library SlashingLib {
         // Native-asset bond locked when the slash was disputed. Refunded on cancel,
         // forfeit to treasury when the dispute auto-fails or the slash executes.
         uint256 disputeBond;
-        // Timestamp the dispute was raised (0 when undisputed).
-        uint64 disputedAt;
+        // The dispute timestamp is not stored: it is reconstructable off-chain from the
+        // `SlashDisputed` event's block. No on-chain path reads it (isExecutable uses
+        // disputeDeadline, which is snapshotted independently below).
         // Snapshot of `config.disputeResolutionDeadline` at the moment the dispute was
         // raised. Stored on the proposal so that admin shrinking the live config later
         // cannot retroactively shorten an already-disputed slash's review window.
@@ -277,12 +280,10 @@ library SlashingLib {
             slashBps: slashBps,
             effectiveSlashBps: effectiveSlashBps,
             evidence: evidence,
-            proposedAt: uint64(block.timestamp),
             executeAfter: executeAfter,
             status: SlashStatus.Pending,
             disputer: address(0),
             disputeBond: 0,
-            disputedAt: 0,
             disputeDeadline: 0
         });
 
@@ -330,7 +331,6 @@ library SlashingLib {
         proposal.status = SlashStatus.Disputed;
         proposal.disputer = disputer;
         proposal.disputeBond = bondPosted;
-        proposal.disputedAt = uint64(block.timestamp);
         proposal.disputeDeadline = uint64(block.timestamp) + config.disputeResolutionDeadline;
 
         emit SlashDisputed(slashId, disputer, reason);

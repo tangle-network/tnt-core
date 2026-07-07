@@ -402,11 +402,14 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
             tangle.setSlashConfig(window, false, 10_000, 14 days, 0, 32);
 
             // Verify by creating slash
+            uint256 proposedAt = block.timestamp;
             vm.prank(user1);
             uint64 slashId = tangle.proposeSlash(serviceId, operator1, 10, keccak256("test"));
 
+            // proposedAt is no longer stored; the proposal was created this block, so
+            // executeAfter must equal (current block timestamp + window).
             SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
-            assertEq(proposal.executeAfter, proposal.proposedAt + window, "Dispute window not applied correctly");
+            assertEq(proposal.executeAfter, proposedAt + window, "Dispute window not applied correctly");
         }
     }
 

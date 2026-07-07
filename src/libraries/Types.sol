@@ -233,10 +233,9 @@ library Types {
 
     /// @notice Operator registration status for a specific blueprint
     struct OperatorRegistration {
-        uint64 registeredAt; // 0 if not registered
-        uint64 updatedAt; // Last preference update
-        bool active; // Can be deactivated
-        bool online; // Available for new services
+        uint64 registeredAt; // 0 if not registered. The only on-chain-read field (existence check).
+        // updatedAt/active/online were write-only on-chain and were dropped; last-update time is
+        // available off-chain from OperatorRegistered/OperatorPreferencesUpdated events.
     }
 
     /// @notice Operator preferences including gossip network identity
@@ -584,12 +583,6 @@ library Types {
         uint256 stake;
         uint256 totalDelegated;
         // Individual delegations stored separately
-    }
-
-    /// @notice Delegator status
-    enum DelegatorStatus {
-        Active,
-        LeavingScheduled
     }
 
     /// @notice Per-operator reward pool (share-based accounting for O(1) slashing)

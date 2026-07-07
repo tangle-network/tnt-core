@@ -14,10 +14,6 @@ import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 abstract contract QuotesExtend is Base {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    event ResourcesCommitted(
-        uint64 indexed serviceId, address indexed operator, Types.ResourceCommitment[] commitments
-    );
-
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE EXTENSION
     // ═══════════════════════════════════════════════════════════════════════════

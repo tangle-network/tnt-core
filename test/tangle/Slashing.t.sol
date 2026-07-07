@@ -126,7 +126,8 @@ contract SlashingTest is BaseTest {
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
-        assertEq(proposal.proposedAt, proposalTime);
+        // proposedAt is no longer stored; reconstruct it as executeAfter - disputeWindow.
+        assertEq(proposal.executeAfter - 7 days, proposalTime);
         assertEq(proposal.executeAfter, proposalTime + 7 days); // Default dispute window
     }
 

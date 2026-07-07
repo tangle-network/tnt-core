@@ -318,9 +318,8 @@ abstract contract Operators is Base {
         _operatorPreferences[blueprintId][msg.sender] =
             Types.OperatorPreferences({ ecdsaPublicKey: operatorKey, rpcAddress: "" });
 
-        _operatorRegistrations[blueprintId][msg.sender] = Types.OperatorRegistration({
-            registeredAt: uint64(block.timestamp), updatedAt: uint64(block.timestamp), active: true, online: true
-        });
+        _operatorRegistrations[blueprintId][msg.sender] =
+            Types.OperatorRegistration({ registeredAt: uint64(block.timestamp) });
 
         _blueprintOperatorKeys[blueprintId][keyHash] = msg.sender;
         _operatorBlueprintCounts[msg.sender] = currentCount + 1;
@@ -415,8 +414,6 @@ abstract contract Operators is Base {
         // operator's endpoint on every update: a key-only update that omitted it would
         // otherwise broadcast an empty endpoint and break gossip reachability. Require it.
         if (bytes(rpcAddress).length == 0) revert Errors.OperatorRpcAddressRequired();
-
-        reg.updatedAt = uint64(block.timestamp);
 
         Types.OperatorPreferences storage prefs = _operatorPreferences[blueprintId][msg.sender];
         bytes32 currentHash;

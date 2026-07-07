@@ -57,9 +57,6 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     /// @notice Seconds per year for budgeting and funding periods.
     uint256 public constant SECONDS_PER_YEAR = 365 days;
 
-    /// @notice Unused constant (kept for tooling parity): blocks per year (assuming ~12s blocks).
-    uint256 public constant BLOCKS_PER_YEAR = 2_628_000;
-
     // ═══════════════════════════════════════════════════════════════════════════
     // TYPES
     // ═══════════════════════════════════════════════════════════════════════════
@@ -84,14 +81,6 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         uint256 developersDistributed;
         uint256 stakersDistributed;
         bool distributed;
-    }
-
-    /// @notice Funding event data
-    struct FundingRecord {
-        uint256 amount;
-        uint256 timestamp;
-        uint256 blockNumber;
-        address funder;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -158,9 +147,6 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     address[] public trackedDevelopers;
     mapping(address => bool) public isTrackedDeveloper;
 
-    /// @notice Funding history
-    FundingRecord[] public fundingHistory;
-
     /// @notice Total ever funded to this pool
     uint256 public totalFunded;
 
@@ -191,9 +177,6 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     ///      forward — the only effect of the historical undercount is a slightly larger early
     ///      budget, never an over-spend, because the budget is still clamped to `poolBalance()`.)
     uint256 public pendingRewardsLiability;
-
-    /// @notice Reserved for storage compatibility (unused after timestamp migration).
-    uint256 public blocksPerYear;
 
     /// @notice Funding period duration in seconds (defaults to 365 days).
     uint256 public fundingPeriodSeconds;
@@ -314,7 +297,6 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         currentEpoch = 1;
         fundingPeriodStartTimestamp = block.timestamp;
         fundingPeriodSeconds = SECONDS_PER_YEAR;
-        blocksPerYear = BLOCKS_PER_YEAR; // reserved
 
         // Set default minimum stake duration
         minStakeEpochs = MIN_STAKE_DURATION_DEFAULT;
@@ -353,11 +335,8 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         periodBudget += amount;
         totalFunded += amount;
 
-        // Record funding
-        fundingHistory.push(
-            FundingRecord({ amount: amount, timestamp: block.timestamp, blockNumber: block.number, funder: msg.sender })
-        );
-
+        // The PoolFunded event log carries the funder, amount, and block timestamp; no
+        // on-chain funding history is retained (indexers reconstruct it from the event).
         emit PoolFunded(msg.sender, amount, poolBalance());
     }
 
@@ -1278,11 +1257,6 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     }
 
     /// @notice Get seconds until next epoch distribution
-    function blocksUntilNextEpoch() external view returns (uint256) {
-        return secondsUntilNextEpoch();
-    }
-
-    /// @notice Get seconds until next epoch distribution
     function secondsUntilNextEpoch() public view returns (uint256) {
         EpochData storage epoch = epochs[currentEpoch];
         if (block.timestamp >= epoch.endTimestamp) return 0;
@@ -1325,16 +1299,6 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         return epochs[epochNumber];
     }
 
-    /// @notice Get funding history count
-    function fundingHistoryCount() external view returns (uint256) {
-        return fundingHistory.length;
-    }
-
-    /// @notice Get funding record at index
-    function getFundingRecord(uint256 index) external view returns (FundingRecord memory) {
-        return fundingHistory[index];
-    }
-
     // ═══════════════════════════════════════════════════════════════════════════
     // INTERNAL HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1358,6 +1322,8 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
 
     /// @dev Reserved storage slots for future upgrades (Round 2 storage F-3).
     ///      Decremented from 50 → 49 when `operatorStatusSource` was appended above, then
-    ///      49 → 48 when `pendingRewardsLiability` was appended.
-    uint256[48] private __gap;
+    ///      49 → 48 when `pendingRewardsLiability` was appended, then grown 48 → 50 when the
+    ///      unused `blocksPerYear` slot and the `fundingHistory` dynamic-array slot were removed
+    ///      (protocol not live; no storage-layout constraint).
+    uint256[50] private __gap;
 }
