@@ -145,9 +145,13 @@ type Blueprint {
   "Pending owner set by BlueprintTransferProposed; cleared on transfer/cancel."
   pendingOwner: String
   pendingTransferAt: BigInt
-  "Hash of the blueprint binary sources, last set by BlueprintSourcesUpdated."
+  "Number of binary sources in the latest set (from BlueprintSourcesRecorded)."
   sourceCount: BigInt
   sourcesUpdatedAt: BigInt
+  "keccak256(abi.encode(sources)) anchor from the latest BlueprintSourcesRecorded — matches the on-chain blueprintSourcesHash and what operators ack."
+  sourcesHash: String
+  "Full binary source set, JSON-encoded, from the latest BlueprintSourcesRecorded. Sources are no longer stored on-chain; the cold-start manager reconstructs them from here."
+  sources: String
   services: [Service!]! @derivedFrom(field: "blueprint")
   paymentDistributions: [PaymentDistribution!]! @derivedFrom(field: "blueprint")
   developerPayments: [DeveloperPayment!]! @derivedFrom(field: "blueprint")

@@ -430,14 +430,23 @@ indexer.onEvent({ contract: "Tangle", event: "BlueprintTransferCancelled" }, asy
   });
 });
 
-indexer.onEvent({ contract: "Tangle", event: "BlueprintSourcesUpdated" }, async ({ event, context }) => {
+indexer.onEvent({ contract: "Tangle", event: "BlueprintSourcesRecorded" }, async ({ event, context }) => {
   const timestamp = getTimestamp(event);
   const id = toBigInt(event.params.blueprintId).toString();
   const existing = await context.Blueprint.get(id);
   if (!existing) return;
+  const sources = event.params.sources as readonly unknown[];
+  // Sources are no longer stored on-chain; materialize the full set (JSON) + hash from the event
+  // so the cold-start manager can reconstruct binaries without an on-chain read. Re-fires the whole
+  // array on every repoint, so this always reflects the latest set.
+  const sourcesJson = JSON.stringify(sources, (_key, value) =>
+    typeof value === "bigint" ? value.toString() : value,
+  );
   context.Blueprint.set({
     ...existing,
-    sourceCount: toBigInt(event.params.sourceCount),
+    sourceCount: BigInt(sources.length),
+    sourcesHash: event.params.sourcesHash,
+    sources: sourcesJson,
     sourcesUpdatedAt: timestamp,
     updatedAt: timestamp,
   });
