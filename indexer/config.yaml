@@ -82,6 +82,8 @@ chains:
         events:
           - event: BlueprintDefinitionRecorded(uint64 indexed blueprintId, address indexed owner, bytes encodedDefinition)
           - event: BinaryVersionRecorded(uint64 indexed blueprintId, uint64 indexed versionId, bytes32 sha256Hash, string binaryUri)
+          - event: BinaryVersionAttested(uint64 indexed blueprintId, uint64 indexed versionId, uint64 attestationId, address indexed attester, uint8 kind, uint8 severityFound, string reportUri)
+          - event: BinaryVersionAttestationRevoked(uint64 indexed blueprintId, uint64 indexed versionId, uint64 attestationId, string reasonUri)
       - name: MultiAssetDelegation
         address:
           - "0xfeb417fc6d343e0fc88ec9fdb8294bf84d69f0ca"
