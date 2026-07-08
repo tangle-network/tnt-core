@@ -870,6 +870,15 @@ contract FullDeploy is DeployV2 {
         console2.log("Deployed InflationPool:", proxy);
     }
 
+    /// @notice FullDeploy owns the ServiceFeeDistributor lifecycle end-to-end: it deploys
+    ///         the proxy in `run()` (via `_deployServiceFeeDistributorProxy`), wires it into
+    ///         Tangle/staking/inflation-pool/streaming-manager, hands off its roles, and
+    ///         records it in the manifest. Suppressing the inherited `_deployCore` deploy
+    ///         keeps the impl a single CREATE instead of an orphaned duplicate.
+    function _deploysServiceFeeDistributorExternally() internal view override returns (bool) {
+        return true;
+    }
+
     function _deployServiceFeeDistributorProxy(
         address admin,
         address staking,
