@@ -37,6 +37,7 @@ import { TangleSlashingFacet } from "../src/facets/tangle/TangleSlashingFacet.so
 import { StakingOperatorsFacet } from "../src/facets/staking/StakingOperatorsFacet.sol";
 import { StakingDepositsFacet } from "../src/facets/staking/StakingDepositsFacet.sol";
 import { StakingDelegationsFacet } from "../src/facets/staking/StakingDelegationsFacet.sol";
+import { StakingUnstakeWithdrawFacet } from "../src/facets/staking/StakingUnstakeWithdrawFacet.sol";
 import { StakingSlashingFacet } from "../src/facets/staking/StakingSlashingFacet.sol";
 import { StakingAssetsFacet } from "../src/facets/staking/StakingAssetsFacet.sol";
 import { StakingViewsFacet } from "../src/facets/staking/StakingViewsFacet.sol";
@@ -293,7 +294,16 @@ contract DeployV2 is DeployScriptBase {
 
         _ensureTntToken(bootstrapAdmin);
         _configureTntDefaults(tangleProxy, stakingProxy);
-        _configureServiceFeeDistributor(bootstrapAdmin, stakingProxy, tangleProxy);
+        // Subclasses that own the ServiceFeeDistributor lifecycle end-to-end
+        // (FullDeploy deploys + wires + hands off + records it in the manifest)
+        // suppress this inherited deploy so the impl is created exactly once.
+        // Without the guard the base path deploys+wires instance A here and the
+        // subclass deploys+wires instance B in its own run(), overwriting the
+        // pointers and orphaning A (a wasted ~26.7M-gas CREATE). The standalone
+        // DeployV2.run() path leaves this false and still gets its SFD here.
+        if (!_deploysServiceFeeDistributorExternally()) {
+            _configureServiceFeeDistributor(bootstrapAdmin, stakingProxy, tangleProxy);
+        }
 
         if (broadcast) {
             vm.stopBroadcast();
@@ -342,6 +352,14 @@ contract DeployV2 is DeployScriptBase {
             tangle.setTntPaymentDiscountBps(uint16(discountBps));
             console2.log("Configured TNT payment discount bps:", discountBps);
         }
+    }
+
+    /// @notice Whether a subclass deploys and wires the ServiceFeeDistributor itself.
+    /// @dev When true, `_deployCore` skips the inherited `_configureServiceFeeDistributor`
+    ///      so the distributor impl is created exactly once. Base `DeployV2.run()` keeps
+    ///      this false and deploys the distributor inside `_deployCore` as before.
+    function _deploysServiceFeeDistributorExternally() internal view virtual returns (bool) {
+        return false;
     }
 
     function _configureServiceFeeDistributor(address admin, address stakingProxy, address tangleProxy) internal {
@@ -459,6 +477,7 @@ contract DeployV2 is DeployScriptBase {
         router.registerFacet(address(new StakingOperatorsFacet()));
         router.registerFacet(address(new StakingDepositsFacet()));
         router.registerFacet(address(new StakingDelegationsFacet()));
+        router.registerFacet(address(new StakingUnstakeWithdrawFacet()));
         router.registerFacet(address(new StakingSlashingFacet()));
         router.registerFacet(address(new StakingAssetsFacet()));
         router.registerFacet(address(new StakingViewsFacet()));

@@ -421,50 +421,6 @@ abstract contract PaymentsBilling is PaymentsCore {
         // or folds into the operator pool.
     }
 
-    /// @notice Recover a subscription's activation-time billing scale (USD vs raw).
-    /// @dev The denominator (`subscriptionBaselineStake`) was pinned at activation in one
-    ///      of two scales and can never change for the life of the service. We read that
-    ///      decision from durable state rather than the mutable `_priceOracle`: a non-zero
-    ///      `_baselinePriceByOpAsset` on any seeded (op, asset) is written ONLY when an
-    ///      oracle was configured at seeding time (`_snapshotBaselinePrice` /
-    ///      `_snapshotJoinPrice` early-return on a zero oracle), so its presence is a
-    ///      permanent witness that the baseline was pinned in USD scale. Returning the
-    ///      activation-time mode here keeps every bill's numerator in the same scale as
-    ///      its denominator even after `setPriceOracle` is toggled mid-subscription.
-    /// @return true iff this subscription's baseline was pinned in USD scale.
-    function _subscriptionPinnedInUsd(
-        uint64 serviceId,
-        address[] memory operators,
-        Types.Asset memory bondAsset
-    )
-        internal
-        view
-        returns (bool)
-    {
-        bytes32 bondAssetHash = keccak256(abi.encode(bondAsset.kind, bondAsset.token));
-        uint256 n = operators.length;
-        for (uint256 i = 0; i < n;) {
-            address op = operators[i];
-            Types.AssetSecurityCommitment[] storage commitments = _serviceSecurityCommitments[serviceId][op];
-            uint256 m = commitments.length;
-            if (m == 0) {
-                if (_baselinePriceByOpAsset[serviceId][op][bondAssetHash] != 0) return true;
-            } else {
-                for (uint256 j = 0; j < m;) {
-                    bytes32 assetHash = keccak256(abi.encode(commitments[j].asset.kind, commitments[j].asset.token));
-                    if (_baselinePriceByOpAsset[serviceId][op][assetHash] != 0) return true;
-                    unchecked {
-                        ++j;
-                    }
-                }
-            }
-            unchecked {
-                ++i;
-            }
-        }
-        return false;
-    }
-
     /// @notice Resolve the per-period bill adjustment from the blueprint's manager hook.
     /// @dev Best-effort with a hard gas cap (the manager hook gas budget). Any revert /
     ///      out-of-range return / zero manager yields a full-bill (10_000 bps) result.

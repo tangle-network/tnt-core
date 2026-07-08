@@ -30,6 +30,7 @@ import { TangleSlashingFacet } from "../../src/facets/tangle/TangleSlashingFacet
 import { StakingOperatorsFacet } from "../../src/facets/staking/StakingOperatorsFacet.sol";
 import { StakingDepositsFacet } from "../../src/facets/staking/StakingDepositsFacet.sol";
 import { StakingDelegationsFacet } from "../../src/facets/staking/StakingDelegationsFacet.sol";
+import { StakingUnstakeWithdrawFacet } from "../../src/facets/staking/StakingUnstakeWithdrawFacet.sol";
 import { StakingSlashingFacet } from "../../src/facets/staking/StakingSlashingFacet.sol";
 import { StakingAssetsFacet } from "../../src/facets/staking/StakingAssetsFacet.sol";
 import { StakingViewsFacet } from "../../src/facets/staking/StakingViewsFacet.sol";
@@ -173,6 +174,7 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
         router.registerFacet(address(new StakingOperatorsFacet()));
         router.registerFacet(address(new StakingDepositsFacet()));
         router.registerFacet(address(new StakingDelegationsFacet()));
+        router.registerFacet(address(new StakingUnstakeWithdrawFacet()));
         router.registerFacet(address(new StakingSlashingFacet()));
         router.registerFacet(address(new StakingAssetsFacet()));
         router.registerFacet(address(new StakingViewsFacet()));

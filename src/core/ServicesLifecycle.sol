@@ -728,6 +728,26 @@ abstract contract ServicesLifecycle is Base {
         Types.AssetSecurityCommitment[] storage joinerCommitments = _serviceSecurityCommitments[serviceId][msg.sender];
         uint256 commitmentCount = joinerCommitments.length;
         address oracleAddr = _priceOracle;
+
+        // A new operator joining during an admin oracle-off window (`oracleAddr == 0`) gets
+        // NO join-time snapshot from `_snapshotJoinPrice`. If the subscription was ALREADY
+        // pinned in USD at activation, the bill-time fail-closed branch (PaymentsBilling)
+        // zeroes any leg that is USD-pinned yet has no snapshot and no live oracle — which
+        // would strip this legitimate joiner's pay. Seed the identity sentinel (1 ether)
+        // for the joiner so their leg routes through the `snapshot != 0` identity branch
+        // (contribution * 1e18 / 1e18 = raw) instead of the zero branch, mirroring how a
+        // reverting / disabled oracle is already seeded below and in PaymentsDistribution.
+        // Gate strictly on the service already being USD-pinned: `_baselinePriceByOpAsset`
+        // is the durable witness for `_subscriptionPinnedInUsd`, so seeding a snapshot on a
+        // genuinely oracle-off / non-USD service would corrupt that witness and silently
+        // flip the whole service into USD scale. The O(n) pinned check only runs on the
+        // oracle-off path — when a live oracle exists, `_snapshotJoinPrice` seeds directly.
+        bool seedIdentityWhenPinned = false;
+        if (oracleAddr == address(0)) {
+            seedIdentityWhenPinned =
+                _subscriptionPinnedInUsd(serviceId, _serviceOperatorSet[serviceId].values(), _bondAssetForBilling());
+        }
+
         if (commitmentCount == 0) {
             // Fallback: single bond-asset cursor (matches `_initSubscriptionBaseline`).
             Types.Asset memory bondAsset = _bondAssetForBilling();
@@ -735,7 +755,7 @@ abstract contract ServicesLifecycle is Base {
             (uint256 cumOpAtJoin,,) = _staking.getCumStakeSeconds(msg.sender, bondAsset);
             _twapCursorByOpAsset[serviceId][msg.sender][assetHash] = cumOpAtJoin == 0 ? 1 : cumOpAtJoin;
             address token = bondAsset.kind == Types.AssetKind.Native ? address(0) : bondAsset.token;
-            _snapshotJoinPrice(serviceId, msg.sender, assetHash, oracleAddr, token);
+            _snapshotJoinPrice(serviceId, msg.sender, assetHash, oracleAddr, token, seedIdentityWhenPinned);
         } else {
             for (uint256 k = 0; k < commitmentCount;) {
                 Types.AssetSecurityCommitment storage c = joinerCommitments[k];
@@ -743,7 +763,7 @@ abstract contract ServicesLifecycle is Base {
                 (uint256 cumOpAtJoin,,) = _staking.getCumStakeSeconds(msg.sender, c.asset);
                 _twapCursorByOpAsset[serviceId][msg.sender][assetHash] = cumOpAtJoin == 0 ? 1 : cumOpAtJoin;
                 address token = c.asset.kind == Types.AssetKind.Native ? address(0) : c.asset.token;
-                _snapshotJoinPrice(serviceId, msg.sender, assetHash, oracleAddr, token);
+                _snapshotJoinPrice(serviceId, msg.sender, assetHash, oracleAddr, token, seedIdentityWhenPinned);
                 unchecked {
                     ++k;
                 }
@@ -771,17 +791,30 @@ abstract contract ServicesLifecycle is Base {
     ///      absence cannot game the rejoin). A reverting / disabled oracle stores the
     ///      identity scale (1 ether), which the bill-time formula treats as raw
     ///      token-second weighting for that (op, asset).
+    /// @param seedIdentityWhenOracleOff When true and no oracle is configured, seed the
+    ///        identity sentinel (1 ether) instead of skipping. The caller sets this ONLY
+    ///        when the subscription is already USD-pinned (`_subscriptionPinnedInUsd`), so
+    ///        an operator joining during an admin oracle-off window is billed at identity
+    ///        scale rather than being zeroed by the bill-time fail-closed branch. When the
+    ///        service is NOT USD-pinned the caller passes false, so a non-USD leg gets no
+    ///        snapshot and the `_subscriptionPinnedInUsd` witness stays uncorrupted.
     function _snapshotJoinPrice(
         uint64 serviceId,
         address op,
         bytes32 assetHash,
         address oracleAddr,
-        address token
+        address token,
+        bool seedIdentityWhenOracleOff
     )
         internal
     {
-        if (oracleAddr == address(0)) return;
         if (_baselinePriceByOpAsset[serviceId][op][assetHash] != 0) return;
+        if (oracleAddr == address(0)) {
+            if (seedIdentityWhenOracleOff) {
+                _baselinePriceByOpAsset[serviceId][op][assetHash] = 1 ether;
+            }
+            return;
+        }
         uint256 priceUsd = _safeToUSDView(oracleAddr, token, 1 ether);
         _baselinePriceByOpAsset[serviceId][op][assetHash] = priceUsd == 0 ? 1 ether : priceUsd;
     }

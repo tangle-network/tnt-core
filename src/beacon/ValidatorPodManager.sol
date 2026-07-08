@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import { IBeaconOracle } from "./IBeaconOracle.sol";
 import { ValidatorPod } from "./ValidatorPod.sol";
+import { ValidatorPodManagerLib } from "./ValidatorPodManagerLib.sol";
 import { IStaking } from "../interfaces/IStaking.sol";
 import { Types } from "../libraries/Types.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -295,6 +296,24 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // DELEGATECALL-LINKED LIBRARY BINDING
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice A {ValidatorPodManagerLib.Layout} pointer overlaying this contract's storage at slot 0.
+    /// @dev This contract's storage is the sequential layout `Ownable._owner` (slot 0),
+    ///      `ReentrancyGuard._status` (slot 1), then this contract's own variables (slots 2..) in
+    ///      declared order. `ValidatorPodManagerLib.Layout` mirrors that exact order, so a Layout based
+    ///      at slot 0 aliases the same storage the manager reads/writes directly. The heavy
+    ///      `completeUndelegation`/`_slash` bodies live in the library (linked by DELEGATECALL) so they
+    ///      run in this contract's context — storage, `msg.sender`, and events are unchanged — while
+    ///      their code no longer counts against this contract's runtime bytecode.
+    function _layout() private pure returns (ValidatorPodManagerLib.Layout storage $) {
+        assembly {
+            $.slot := 0
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // POD MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -526,51 +545,9 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     /// @param operator The operator to delegate to
     /// @param amount Amount to delegate (in wei)
     function delegateTo(address operator, uint256 amount) external nonReentrant {
-        if (!_operators[operator]) revert NotOperator();
-        if (amount == 0) revert ZeroAmount();
-
-        // Only beacon shares that are neither already queued for withdrawal nor already
-        // locked behind another delegation may back a new delegation. Enforcing this in
-        // share space (the canonical custody unit) — instead of trusting the conservative
-        // asset counter alone — closes the double-count where shares queued for withdrawal
-        // were delegated again, then withdrawn for real, leaving a phantom delegation.
-        // INVARIANT: _shares[d] >= queuedShares[d] + delegatedShares[d] after this call.
-        BeaconPool storage beaconPool = _pools[msg.sender];
-        uint256 ownerShares = _shares[msg.sender];
-        uint256 lockedShares = queuedShares[msg.sender] + delegatedShares[msg.sender];
-        uint256 freeShares = ownerShares > lockedShares ? ownerShares - lockedShares : 0;
-        uint256 freeAssets = _convertToAssets(beaconPool, freeShares);
-        if (freeAssets < amount) {
-            revert InsufficientShares();
-        }
-
-        // Lock the beacon shares that collateralize this delegation, at the current pool rate.
-        // Over-delegation is already prevented by the `freeAssets < amount` gate above; this
-        // escrow is what `completeUndelegation` later releases (surviving) and burns (slashed).
-        // Floor a non-zero delegation to at least one share and clamp to the free shares so
-        // the no-double-spend INVARIANT (_shares >= queued + delegated) can never be violated.
-        uint256 escrowShares = _convertToShares(beaconPool, amount);
-        if (escrowShares == 0) escrowShares = 1;
-        if (escrowShares > freeShares) escrowShares = freeShares;
-
-        DelegationPool storage pool = _operatorDelegationPools[operator];
-        uint256 mintedShares = _convertDelegationToShares(pool, amount);
-        if (mintedShares == 0) revert ZeroShares();
-
-        pool.totalAssets += amount;
-        pool.totalShares += mintedShares;
-        _delegationShares[msg.sender][operator] += mintedShares;
-
-        // Lock the collateralizing beacon shares.
-        delegatedShares[msg.sender] += escrowShares;
-        _delegatorOperatorEscrowShares[msg.sender][operator] += escrowShares;
-
-        // Maintain the aggregate counter and its per-operator partition in lockstep so
-        // the INVARIANT (aggregate == Σ per-operator) holds.
-        delegatorTotalDelegated[msg.sender] += amount;
-        _delegatorOperatorDelegated[msg.sender][operator] += amount;
-
-        emit Delegated(msg.sender, operator, amount);
+        // Body lives in {ValidatorPodManagerLib.delegateTo}, linked by DELEGATECALL so it runs in this
+        // contract's context (storage, msg.sender, events). Behavior unchanged; `nonReentrant` guards here.
+        ValidatorPodManagerLib.delegateTo(_layout(), operator, amount);
     }
 
     /// @notice Queue an undelegation from an operator.
@@ -588,28 +565,9 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
         nonReentrant
         returns (bytes32 undelegationRoot)
     {
-        if (amount == 0) revert ZeroAmount();
-
-        uint256 currentDelegation =
-            _convertDelegationToAssets(_operatorDelegationPools[operator], _delegationShares[msg.sender][operator]);
-        uint256 alreadyQueued = queuedUndelegations[msg.sender][operator];
-
-        if (currentDelegation < alreadyQueued + amount) revert InsufficientShares();
-
-        uint256 nonce = undelegationNonce[msg.sender]++;
-        undelegationRoot = keccak256(abi.encodePacked(msg.sender, operator, amount, block.number, nonce));
-
-        pendingUndelegations[undelegationRoot] = Undelegation({
-            delegator: msg.sender,
-            operator: operator,
-            amount: amount,
-            startBlock: uint32(block.number),
-            completed: false
-        });
-
-        queuedUndelegations[msg.sender][operator] += amount;
-
-        emit UndelegationQueued(undelegationRoot, msg.sender, operator, amount);
+        // Body lives in {ValidatorPodManagerLib.queueUndelegation}, linked by DELEGATECALL so it runs in
+        // this contract's context (storage, msg.sender, events). Behavior unchanged; `nonReentrant` guards.
+        return ValidatorPodManagerLib.queueUndelegation(_layout(), operator, amount);
     }
 
     /// @notice Complete a pending undelegation after delay period.
@@ -619,143 +577,10 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     ///      burns all of the delegator's remaining shares for this operator and
     ///      transfers what is available.
     function completeUndelegation(bytes32 undelegationRoot) external nonReentrant {
-        Undelegation storage undelegation = pendingUndelegations[undelegationRoot];
-
-        if (undelegation.delegator != msg.sender) revert UndelegationNotFound();
-        if (undelegation.completed) revert UndelegationAlreadyCompleted();
-
-        if (block.number < undelegation.startBlock + withdrawalDelayBlocks) {
-            revert UndelegationNotReady();
-        }
-
-        undelegation.completed = true;
-
-        address operator = undelegation.operator;
-        uint256 amount = undelegation.amount;
-
-        queuedUndelegations[msg.sender][operator] -= amount;
-
-        DelegationPool storage pool = _operatorDelegationPools[operator];
-        uint256 ownerShares = _delegationShares[msg.sender][operator];
-        uint256 liveAssets = _convertDelegationToAssets(pool, ownerShares);
-
-        uint256 realizedAssets;
-        uint256 sharesBurned;
-        if (liveAssets <= amount) {
-            // Slashed below the requested amount: realize whatever is left and zero out.
-            realizedAssets = liveAssets;
-            sharesBurned = ownerShares;
-        } else {
-            realizedAssets = amount;
-            sharesBurned = _convertDelegationToShares(pool, amount);
-            if (sharesBurned > ownerShares) sharesBurned = ownerShares;
-        }
-
-        uint256 remainingShares = ownerShares - sharesBurned;
-        _delegationShares[msg.sender][operator] = remainingShares;
-        pool.totalShares -= sharesBurned;
-        // Share→asset conversion can round a hair above the pool's tracked assets
-        // (e.g. live valuation 16.5e18+dust vs totalAssets 16.5e18 when this delegator
-        // holds all shares post-slash). Clamp so the decrement — and the realized payout —
-        // never exceed the pool, which would underflow and re-brick the very withdrawal
-        // this path exists to unblock.
-        if (realizedAssets > pool.totalAssets) realizedAssets = pool.totalAssets;
-        pool.totalAssets -= realizedAssets;
-
-        // Pay down the deposit-accounted counters. The counter is asset-denominated
-        // against the *deposited* principal, not the slashed live valuation, so we must
-        // NOT decrement by `realizedAssets` (which can be below the deposited amount
-        // after a slash) — doing so would leave a permanent residue that can never reach
-        // 0 and would brick `queueWithdrawal` forever.
-        //
-        // When this fully unwinds the delegator's position with this operator
-        // (remainingShares == 0), clear the ENTIRE per-operator deposited commitment from
-        // both counters — that residue is exactly the value lost to slashing and is no
-        // longer recoverable, so it must not keep blocking withdrawals.
-        //
-        // On a partial undelegation (remainingShares > 0), decrement by the requested
-        // `amount`. Since `queueUndelegation` bounds `amount` by the live valuation,
-        // `amount <= depositedForOperator`, so this can never underflow the per-operator
-        // entry; we clamp defensively regardless. This preserves the
-        // INVARIANT (aggregate == Σ per-operator) on every path.
-        uint256 depositedForOperator = _delegatorOperatorDelegated[msg.sender][operator];
-        uint256 counterDelta;
-        if (remainingShares == 0) {
-            counterDelta = depositedForOperator;
-        } else {
-            counterDelta = amount <= depositedForOperator ? amount : depositedForOperator;
-        }
-
-        _delegatorOperatorDelegated[msg.sender][operator] = depositedForOperator - counterDelta;
-
-        uint256 counter = delegatorTotalDelegated[msg.sender];
-        delegatorTotalDelegated[msg.sender] = counter >= counterDelta ? counter - counterDelta : 0;
-
-        // Reconcile the escrowed beacon shares behind this delegation. The portion of the
-        // escrow covered by this unwind is proportional to the delegation-pool shares burned.
-        // Of that covered escrow, the delegator only KEEPS the slash-adjusted fraction
-        // (realized value / deposited value); the slashed remainder is BURNED from their
-        // beacon pool so the principal lost to slashing can never be withdrawn. This is what
-        // makes a service slash punitive: without it the delegator releases their full escrow
-        // and withdraws 100% of beacon principal regardless of the slash.
-        // INVARIANT after release+burn: a delegator's withdrawable beacon principal reflects
-        // every slash that hit the operators they delegated to.
-        uint256 escrowForOperator = _delegatorOperatorEscrowShares[msg.sender][operator];
-        if (escrowForOperator > 0) {
-            uint256 escrowCovered;
-            if (remainingShares == 0) {
-                // Full unwind of this operator: reconcile the entire escrow.
-                escrowCovered = escrowForOperator;
-            } else {
-                // Partial unwind: cover escrow proportional to delegation shares burned.
-                escrowCovered = escrowForOperator.mulDiv(sharesBurned, ownerShares, Math.Rounding.Floor);
-                if (escrowCovered > escrowForOperator) escrowCovered = escrowForOperator;
-            }
-
-            // Surviving (releasable) escrow = covered * realized / depositedCovered.
-            // depositedCovered is the deposit-accounted value of the portion being unwound.
-            uint256 depositedCovered = counterDelta;
-            uint256 escrowToRelease;
-            if (depositedCovered == 0 || realizedAssets >= depositedCovered) {
-                // No value lost on the covered portion: release all covered escrow.
-                escrowToRelease = escrowCovered;
-            } else {
-                escrowToRelease = escrowCovered.mulDiv(realizedAssets, depositedCovered, Math.Rounding.Floor);
-            }
-            uint256 escrowToBurn = escrowCovered - escrowToRelease;
-
-            // Unlock the covered escrow from the delegation locks.
-            _delegatorOperatorEscrowShares[msg.sender][operator] = escrowForOperator - escrowCovered;
-            uint256 locked = delegatedShares[msg.sender];
-            delegatedShares[msg.sender] = locked >= escrowCovered ? locked - escrowCovered : 0;
-
-            // Burn the slashed portion out of the delegator's beacon pool: destroy the
-            // shares and the principal they represent so they are never withdrawable.
-            if (escrowToBurn > 0) {
-                BeaconPool storage bp = _pools[msg.sender];
-                uint256 burnShares = escrowToBurn > _shares[msg.sender] ? _shares[msg.sender] : escrowToBurn;
-                if (burnShares > bp.totalShares) burnShares = bp.totalShares;
-                uint256 burnAssets = _convertToAssets(bp, burnShares);
-                _shares[msg.sender] -= burnShares;
-                _aggregateShares -= burnShares;
-                bp.totalShares -= burnShares;
-                bp.totalAssets = burnAssets >= bp.totalAssets ? 0 : bp.totalAssets - burnAssets;
-                // forge-lint: disable-next-line(unsafe-typecast)
-                emit BeaconRebase(msg.sender, -int256(burnAssets), bp.totalAssets, bp.totalShares);
-
-                // The burn lowered `totalAssets`, but the slashed ETH (if it has physically
-                // arrived) is still in the pod. Tell the pod to floor `withdrawNonBeaconChainEth`
-                // at the burned amount so the owner cannot drain the slashed principal as fake
-                // "non-beacon surplus" once the floor drops. Without this the service slash is
-                // non-punitive: the owner re-extracts 100% of principal despite the slash.
-                address podAddr = ownerToPod[msg.sender];
-                if (podAddr != address(0) && burnAssets > 0) {
-                    ValidatorPod(payable(podAddr)).recordSlashedPrincipalRetained(burnAssets);
-                }
-            }
-        }
-
-        emit UndelegationCompleted(undelegationRoot, msg.sender, operator, realizedAssets);
+        // Body lives in {ValidatorPodManagerLib.completeUndelegation}, linked by DELEGATECALL so it runs
+        // in this contract's context (storage, msg.sender, events). Behavior is unchanged; only the code
+        // location moved out of this contract's runtime bytecode. `nonReentrant` still guards here.
+        ValidatorPodManagerLib.completeUndelegation(_layout(), undelegationRoot);
     }
 
     /// @notice Get undelegation info.
@@ -1044,33 +869,9 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     /// @dev Off-chain consumers can derive per-delegator slash impact from the
     ///      `OperatorPoolSlashed` event plus cached share balances.
     function _slash(address operator, uint16 slashBps) internal returns (uint256 actualSlashed) {
-        if (slashBps > BPS_DENOMINATOR) {
-            slashBps = uint16(BPS_DENOMINATOR);
-        }
-
-        DelegationPool storage pool = _operatorDelegationPools[operator];
-        uint256 selfBefore = operatorStake[operator];
-        uint256 delegatedBefore = pool.totalAssets;
-        uint256 totalStake = selfBefore + delegatedBefore;
-
-        uint256 amount = (totalStake * slashBps) / BPS_DENOMINATOR;
-        actualSlashed = amount;
-
-        // Self-stake first.
-        uint256 selfSlash = amount > selfBefore ? selfBefore : amount;
-        if (selfSlash > 0) {
-            operatorStake[operator] = selfBefore - selfSlash;
-            amount -= selfSlash;
-        }
-
-        // Delegation pool: decrement totalAssets only; shares are untouched so every
-        // delegator's effective claim drops proportionally in a single SSTORE.
-        if (amount > 0 && delegatedBefore > 0) {
-            uint256 poolSlash = amount > delegatedBefore ? delegatedBefore : amount;
-            uint256 newTotal = delegatedBefore - poolSlash;
-            pool.totalAssets = newTotal;
-            emit OperatorPoolSlashed(operator, poolSlash, newTotal, pool.totalShares);
-        }
+        // Body lives in {ValidatorPodManagerLib.slash}, linked by DELEGATECALL so it mutates this
+        // contract's storage and emits `OperatorPoolSlashed` from this address. Behavior unchanged.
+        return ValidatorPodManagerLib.slash(_layout(), operator, slashBps);
     }
 
     /// @inheritdoc IStaking
