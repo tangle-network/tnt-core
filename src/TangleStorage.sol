@@ -542,13 +542,47 @@ abstract contract TangleStorage {
     uint256 internal _managerHookGasLimit;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // EVENT-DRIVEN SETTLEMENT ASSET (appended 2026-07-08)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Appended after `_managerHookGasLimit` (never inserted mid layout); the reserved
+    // gap below is shrunk by two to preserve total storage size for upgrade safety.
+
+    /// @notice Service ID => EventDriven settlement asset. `address(0)` = native.
+    /// @dev Pinned once at activation from the SERVICE's BLUEPRINT settlement asset
+    ///      (`_blueprintSettlementAsset[blueprintId]`, set by the blueprint owner), NOT
+    ///      from the customer's request — see `TangleServicesFacet._handleInitialPayments`.
+    ///      Read by the per-job collection/distribution paths
+    ///      (`JobsSubmission._collectJobPaymentIfNeeded`, the Jobs/RFQ distribute
+    ///      overrides) so per-job billing settles in the currency the blueprint DEVELOPER
+    ///      declared — native OR a manager-allowed ERC20 (e.g. Tempo PathUSD) — instead of
+    ///      a native-only hardcode. Pinning per-service is deliberate: a later change to the
+    ///      blueprint's asset must NOT re-price services that are already live. Only written
+    ///      for EventDriven services; other pricing models leave it at the `address(0)`
+    ///      default, which is also the correct native sentinel, so a stale read can never
+    ///      misroute a non-EventDriven payment.
+    mapping(uint64 => address) internal _serviceEventDrivenAsset;
+
+    /// @notice Blueprint ID => EventDriven settlement asset the developer declares for the
+    ///         blueprint's services. `address(0)` = native (the default and the sentinel).
+    /// @dev Set by the blueprint owner via `setBlueprintSettlementAsset`; the SAME party that
+    ///      sets the per-job rate (`setJobEventRates`) chooses the settlement asset, so the
+    ///      rate's units always match the asset's decimals. Read once at activation to pin
+    ///      `_serviceEventDrivenAsset[serviceId]`. The customer CANNOT choose the settlement
+    ///      asset at request time (an EventDriven request must pass native `address(0)`); this
+    ///      is what makes the 10^12x under-payment exploit — a 6-dec rate driven to settle in
+    ///      native — structurally impossible: there is no path to a service whose settlement
+    ///      asset differs from its blueprint's declared asset.
+    mapping(uint64 => address) internal _blueprintSettlementAsset;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @dev Reserved storage slots for future appends. __gap size 27, occupying slots
-    ///      91..117 (the sequential layout ends at _managerHookGasLimit in slot 90 —
+    /// @dev Reserved storage slots for future appends. __gap size 25, occupying slots
+    ///      92..116 (the sequential layout ends at _blueprintSettlementAsset in slot 91 —
     ///      verify with `forge inspect Tangle storage-layout`; the tail slots are pinned
-    ///      by StorageLayoutSnapshotTest). Appending a field consumes gap slots
-    ///      one-for-one: shrink this array by the field's slot count in the same change.
-    uint256[27] private __gap;
+    ///      by StorageLayoutSnapshotTest, which fixes _managerHookGasLimit at slot 89, so the
+    ///      two appended asset mappings sit at slots 90 and 91). Appending a field consumes gap
+    ///      slots one-for-one: shrink this array by the field's slot count in the same change.
+    uint256[25] private __gap;
 }

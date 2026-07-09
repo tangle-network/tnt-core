@@ -88,13 +88,20 @@ abstract contract JobsRFQ is Base {
             serviceId, jobIndex, quotes, effectiveMaxQuoteAge, msg.sender, inputsHash
         );
 
-        if (totalPrice > 0 && !_isPaymentAssetAllowedByManager(bp.manager, serviceId, address(0))) {
-            revert Errors.TokenNotAllowed(address(0));
+        // Settle the RFQ quote in the service's pinned EventDriven settlement asset
+        // (`address(0)` = native, which is also the default for any non-EventDriven service,
+        // preserving the prior native-only behavior). For an ERC20-settlement service the
+        // manager allow-list is re-checked here (fail-closed) and the quoted price is pulled
+        // via `transferFrom`; the matching distribution in `_distributeRFQJobPayment` pays out
+        // in the same asset.
+        address asset = _serviceEventDrivenAsset[serviceId];
+        if (totalPrice > 0 && !_isPaymentAssetAllowedByManager(bp.manager, serviceId, asset)) {
+            revert Errors.TokenNotAllowed(asset);
         }
 
         // Collect payment
-        PaymentLib.collectPayment(address(0), totalPrice, msg.value);
-        _recordPayment(msg.sender, serviceId, address(0), totalPrice);
+        PaymentLib.collectPayment(asset, totalPrice, msg.value);
+        _recordPayment(msg.sender, serviceId, asset, totalPrice);
 
         // Create the job call
         callId = _serviceCallCount[serviceId]++;

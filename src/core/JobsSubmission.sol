@@ -170,13 +170,28 @@ abstract contract JobsSubmission is Base {
     {
         if (svc.pricing == Types.PricingModel.EventDriven) {
             uint256 perJob = _jobEventRates[svc.blueprintId][jobIndex];
+            // The per-job rate is denominated in the SETTLEMENT ASSET's smallest unit
+            // (`_serviceEventDrivenAsset[serviceId]`; `address(0)` = native). That asset is the
+            // one the blueprint DEVELOPER declared (`setBlueprintSettlementAsset`) and the
+            // service pinned at activation — the same party that set this rate — so a service
+            // settling in a 6-decimal token (e.g. Tempo PathUSD) carries a rate in 6-dec units,
+            // and there is no way for the rate's decimals and the asset's decimals to diverge.
+            // See `getServicePaymentAsset` / `setJobEventRates` / `setBlueprintSettlementAsset`.
             payment = perJob > 0 ? perJob : _blueprintConfigs[svc.blueprintId].eventRate;
+            address asset = _serviceEventDrivenAsset[serviceId];
             address manager = _blueprints[svc.blueprintId].manager;
-            if (payment > 0 && !_isPaymentAssetAllowedByManager(manager, serviceId, address(0))) {
-                revert Errors.TokenNotAllowed(address(0));
+            // Re-gate the settlement asset against the manager allow-list at collection time
+            // (fail-closed): for native this is the unchanged `address(0)` check; for an ERC20
+            // it rejects a token the manager has since de-listed, even though it was allowed
+            // when the service was requested.
+            if (payment > 0 && !_isPaymentAssetAllowedByManager(manager, serviceId, asset)) {
+                revert Errors.TokenNotAllowed(asset);
             }
-            PaymentLib.collectPayment(address(0), payment, msgValue);
-            _recordPayment(payer, serviceId, address(0), payment);
+            // Native: `collectPayment` requires `msgValue == payment`. ERC20: it requires
+            // `msgValue == 0` and pulls `payment` via `transferFrom` (payer must have approved
+            // the Tangle), rejecting fee-on-transfer / rebasing tokens at ingress.
+            PaymentLib.collectPayment(asset, payment, msgValue);
+            _recordPayment(payer, serviceId, asset, payment);
         }
     }
 

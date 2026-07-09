@@ -282,6 +282,14 @@ interface ITangleServices {
     /// @notice Get service info
     function getService(uint64 serviceId) external view returns (Types.Service memory);
 
+    /// @notice Get a service's per-job (EventDriven) settlement asset.
+    /// @dev `address(0)` = native, otherwise the ERC20 the blueprint DEVELOPER declared
+    ///      (`setBlueprintSettlementAsset`) and the service pinned at activation. The customer
+    ///      does not choose this asset. Every per-job bill for the service is collected and
+    ///      distributed in this asset. Non-EventDriven services return `address(0)`. The
+    ///      per-job rate from `getJobEventRate` is denominated in THIS asset's smallest unit.
+    function getServicePaymentAsset(uint64 serviceId) external view returns (address);
+
     /// @notice Check if service is active
     function isServiceActive(uint64 serviceId) external view returns (bool);
 

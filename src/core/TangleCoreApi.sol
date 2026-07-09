@@ -384,6 +384,23 @@ abstract contract TangleCoreApi is Base {
         return _services[id];
     }
 
+    /// @notice Get a service's per-job settlement asset (EventDriven pricing).
+    /// @dev Returns the token every per-job bill for this service is collected and
+    ///      distributed in: `address(0)` for native, or the ERC20 the blueprint DEVELOPER
+    ///      declared (`setBlueprintSettlementAsset`) and the service pinned at activation.
+    ///      The customer does NOT choose this asset. Drivers read this to decide whether
+    ///      to send native `msg.value` or to `approve` the Tangle and submit with value 0.
+    ///      For non-EventDriven services (or an unknown id) this returns `address(0)`,
+    ///      which is the native sentinel and does not imply the service settles per-job.
+    ///      NOTE: the per-job rate (`getJobEventRate`) is denominated in THIS asset's
+    ///      smallest unit — a service settling in a 6-decimal token (e.g. Tempo PathUSD)
+    ///      must have its rate set in 6-dec units, not 18.
+    /// @param serviceId The service ID to query
+    /// @return The settlement asset address (`address(0)` = native)
+    function getServicePaymentAsset(uint64 serviceId) external view returns (address) {
+        return _serviceEventDrivenAsset[serviceId];
+    }
+
     /// @notice Get operator's data for a specific service
     /// @param serviceId The service ID to query
     /// @param op The operator address

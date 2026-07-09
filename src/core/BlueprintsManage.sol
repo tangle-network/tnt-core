@@ -21,6 +21,7 @@ abstract contract BlueprintsManage is Base {
     event BlueprintTransferred(uint64 indexed blueprintId, address indexed from, address indexed to);
     event BlueprintDeactivated(uint64 indexed blueprintId);
     event JobEventRateSet(uint64 indexed blueprintId, uint8 indexed jobIndex, uint256 rate);
+    event BlueprintSettlementAssetSet(uint64 indexed blueprintId, address indexed asset);
     event BlueprintResourceRequirementsSet(uint64 indexed blueprintId, uint256 count);
     event BlueprintSourcesAcked(uint64 indexed blueprintId, address indexed operator, bytes32 sourcesHash);
 
@@ -255,6 +256,11 @@ abstract contract BlueprintsManage is Base {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Set event rate overrides for one or more job types in a blueprint
+    /// @dev Rates are denominated in the SETTLEMENT ASSET's smallest unit, NOT a fixed
+    ///      18-decimal scale. Each EventDriven service pins its settlement asset at
+    ///      activation (see `getServicePaymentAsset`); a service that settles in a 6-decimal
+    ///      token (e.g. Tempo PathUSD) will collect `rate` in 6-dec units. Set rates in the
+    ///      decimals of the token your blueprint's services settle in.
     /// @param blueprintId The blueprint ID
     /// @param jobIndexes Array of job indexes
     /// @param rates Array of per-job event rates (0 to clear override and use blueprint default)
@@ -292,6 +298,57 @@ abstract contract BlueprintsManage is Base {
         if (rate == 0) {
             rate = _blueprintConfigs[blueprintId].eventRate;
         }
+    }
+
+    /// @notice Set the settlement asset every EventDriven service of this blueprint bills in.
+    /// @dev The blueprint OWNER — the same party that sets the per-job rate via
+    ///      `setJobEventRates` — declares the settlement asset here, so the rate's units always
+    ///      match the asset's decimals. Each service pins this value at activation
+    ///      (`getServicePaymentAsset`); the CUSTOMER cannot choose the asset at request time (an
+    ///      EventDriven request must pass native `address(0)`). This closes the split-authority
+    ///      flaw where a developer's 6-decimal rate (e.g. 5e6 = 5.00 PathUSD) could be driven to
+    ///      settle in native by a customer requesting `address(0)`, a 10^12x under-payment: with
+    ///      the asset sourced wholly from the blueprint there is NO path to a service whose
+    ///      settlement asset differs from its blueprint's declared asset.
+    ///
+    ///      The per-job rate (`getJobEventRate`) is denominated in THIS asset's smallest unit.
+    ///      Changing the asset does NOT re-price services that are already live — those keep the
+    ///      asset they pinned at activation. `address(0)` selects native (the default) and skips
+    ///      the manager query (native is the universally billable default, mirroring the
+    ///      request-time native path). A NON-native asset is validated against the manager
+    ///      allow-list for defense-in-depth (fail-closed: a disallowed token reverts
+    ///      `TokenNotAllowed`). The per-job collection path re-checks the allow-list at settle
+    ///      time, so a later manager de-list still fails closed.
+    /// @param blueprintId The blueprint ID (must be owned by the caller)
+    /// @param asset The settlement asset (`address(0)` = native)
+    function setBlueprintSettlementAsset(uint64 blueprintId, address asset) external nonReentrant {
+        Types.Blueprint storage bp = _getBlueprint(blueprintId);
+        if (bp.owner != msg.sender) {
+            revert Errors.NotBlueprintOwner(blueprintId, msg.sender);
+        }
+        // Native (`address(0)`) is the universally billable default and needs no manager gate —
+        // exactly as an EventDriven native request skips the request-time allow-list in
+        // `ServicesRequests._validateRequestPaymentAsset`. Skipping the query for native also
+        // means a manager that whitelists ONLY specific ERC20s can never lock a blueprint out of
+        // its own native default. For a NON-native asset, defense-in-depth: reject an asset the
+        // blueprint's manager does not allow (fail-closed). The blueprint id is passed as the
+        // query context — the developer is declaring the asset for the blueprint, before any
+        // service exists. A `address(0)` manager (no manager) allows everything.
+        if (asset != address(0) && !_isPaymentAssetAllowedByManager(bp.manager, blueprintId, asset)) {
+            revert Errors.TokenNotAllowed(asset);
+        }
+        _blueprintSettlementAsset[blueprintId] = asset;
+        emit BlueprintSettlementAssetSet(blueprintId, asset);
+    }
+
+    /// @notice Get the settlement asset the blueprint's EventDriven services bill in.
+    /// @dev `address(0)` = native (also the default when never set). This is the asset a NEW
+    ///      service will pin at activation; already-live services keep whatever they pinned when
+    ///      they activated. The per-job rate (`getJobEventRate`) is in this asset's smallest unit.
+    /// @param blueprintId The blueprint ID
+    /// @return The blueprint's declared settlement asset (`address(0)` = native)
+    function getBlueprintSettlementAsset(uint64 blueprintId) external view returns (address) {
+        return _blueprintSettlementAsset[blueprintId];
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

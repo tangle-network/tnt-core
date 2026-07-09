@@ -234,6 +234,17 @@ abstract contract QuotesCreate is Base {
             status: Types.ServiceStatus.Active
         });
 
+        // Pin the EventDriven settlement asset from the BLUEPRINT (developer-declared), mirroring
+        // the request/approve activation path (`TangleServicesFacet._handleInitialPayments`). The
+        // quote path is a second way to stand up an EventDriven service, so it must pin the SAME
+        // asset — otherwise a blueprint declaring a 6-decimal ERC20 rate could have a quote-created
+        // service left at the native `address(0)` default and settle every job in native at the
+        // 6-dec rate (the exact 10^12x under-payment this fix closes on the request path). Native
+        // (`address(0)`) blueprints write the zero-default no-op; the mapping stays consistent.
+        if (bp.pricing == Types.PricingModel.EventDriven) {
+            _serviceEventDrivenAsset[activation.serviceId] = _blueprintSettlementAsset[blueprintId];
+        }
+
         activation.totalExposure =
             _processOperatorQuotes(blueprintId, activation.serviceId, operators, exposures, quotes);
 

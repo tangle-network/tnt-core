@@ -382,7 +382,17 @@ contract PaymentsTest is BaseTest {
         vm.stopPrank();
     }
 
-    function test_EventDriven_RequestService_RevertERC20WhenZeroPayment() public {
+    /// @notice Fail-closed: an EventDriven request naming ANY non-native ERC20 settlement token
+    ///         (with zero upfront amount) must revert `TokenNotAllowed` at request time, before
+    ///         any state is written. The customer does NOT choose the settlement asset — it is
+    ///         declared on the blueprint by the developer (`setBlueprintSettlementAsset`) and
+    ///         pinned at activation — so an EventDriven request must be native `address(0)`. This
+    ///         holds regardless of whether the manager would have allow-listed the token.
+    function test_EventDriven_RequestService_RevertDisallowedErc20SettlementToken() public {
+        MockPaymentAssetManager manager = new MockPaymentAssetManager();
+        // The token is not native, so the request fails closed no matter what the manager allows.
+        manager.setAssetAllowed(address(token), false);
+
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
             membership: Types.MembershipModel.Fixed,
             pricing: Types.PricingModel.EventDriven,
@@ -395,7 +405,7 @@ contract PaymentsTest is BaseTest {
 
         vm.prank(developer);
         uint64 bp = tangle.createBlueprint(
-            _blueprintDefinitionWithConfig("ipfs://event-native-only-zero", address(0), config)
+            _blueprintDefinitionWithConfig("ipfs://event-erc20-disallowed", address(manager), config)
         );
         _registerForBlueprint(operator1, bp);
 
@@ -404,9 +414,9 @@ contract PaymentsTest is BaseTest {
         address[] memory callers = new address[](0);
 
         // Zero `paymentAmount` clears the `UpfrontPaymentNotAllowedForEventDriven` check;
-        // a non-native `paymentToken` then fails the EventDriven native-only constraint.
+        // the non-native, un-allowlisted `paymentToken` must then fail closed.
         vm.prank(user1);
-        vm.expectRevert(Errors.InvalidPaymentToken.selector);
+        vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotAllowed.selector, address(token)));
         tangle.requestService(bp, operators, "", callers, 0, address(token), 0, Types.ConfidentialityPolicy.Any);
     }
 

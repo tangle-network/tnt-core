@@ -12769,6 +12769,7 @@ interface ITangleFull {
     event BlueprintCreated(uint64 indexed blueprintId, address indexed owner, address manager, string metadataUri, bytes32 metadataHash);
     event BlueprintDeactivated(uint64 indexed blueprintId);
     event BlueprintResourceRequirementsSet(uint64 indexed blueprintId, uint256 count);
+    event BlueprintSettlementAssetSet(uint64 indexed blueprintId, address indexed asset);
     event BlueprintSourcesAcked(uint64 indexed blueprintId, address indexed operator, bytes32 sourcesHash);
     event BlueprintTransferCancelled(uint64 indexed blueprintId, address indexed owner);
     event BlueprintTransferProposed(uint64 indexed blueprintId, address indexed from, address indexed pendingOwner);
@@ -12840,6 +12841,7 @@ interface ITangleFull {
     function getBlueprintConfig(uint64 blueprintId) external view returns (Types.BlueprintConfig memory);
     function getBlueprintDefinition(uint64 blueprintId) external view returns (Types.BlueprintDefinition memory definition);
     function getBlueprintResourceRequirements(uint64 blueprintId) external view returns (Types.ResourceCommitment[] memory);
+    function getBlueprintSettlementAsset(uint64 blueprintId) external view returns (address);
     function getExecutableSlashes(uint64 fromId, uint64 toId) external view returns (uint64[] memory ids);
     function getExitConfig(uint64 serviceId) external view returns (Types.ExitConfig memory);
     function getExitRequest(uint64 serviceId, address operator) external view returns (Types.ExitRequest memory);
@@ -12857,6 +12859,7 @@ interface ITangleFull {
     function getServiceEscrow(uint64 serviceId) external view returns (PaymentLib.ServiceEscrow memory);
     function getServiceOperator(uint64 serviceId, address operator) external view returns (Types.ServiceOperator memory);
     function getServiceOperators(uint64 serviceId) external view returns (address[] memory);
+    function getServicePaymentAsset(uint64 serviceId) external view returns (address);
     function getServiceRequest(uint64 requestId) external view returns (Types.ServiceRequest memory);
     function getServiceRequestResourceRequirements(uint64 requestId) external view returns (Types.ResourceCommitment[] memory);
     function getServiceRequestSecurityCommitments(uint64 requestId, address operator) external view returns (Types.AssetSecurityCommitment[] memory);
@@ -12902,6 +12905,7 @@ interface ITangleFull {
     function serviceCount() external view returns (uint64);
     function serviceFeeDistributor() external view returns (address);
     function setBlueprintResourceRequirements(uint64 blueprintId, Types.ResourceCommitment[] memory requirements) external;
+    function setBlueprintSettlementAsset(uint64 blueprintId, address asset) external;
     function setBlueprintSources(uint64 blueprintId, Types.BlueprintSource[] memory sources) external;
     function setDefaultTntMinExposureBps(uint16 minExposureBps) external;
     function setJobEventRates(uint64 blueprintId, uint8[] memory jobIndexes, uint256[] memory rates) external;
@@ -14660,6 +14664,25 @@ interface ITangleFull {
   },
   {
     "type": "function",
+    "name": "getBlueprintSettlementAsset",
+    "inputs": [
+      {
+        "name": "blueprintId",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getExecutableSlashes",
     "inputs": [
       {
@@ -15258,6 +15281,25 @@ interface ITangleFull {
         "name": "",
         "type": "address[]",
         "internalType": "address[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getServicePaymentAsset",
+    "inputs": [
+      {
+        "name": "serviceId",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -16570,6 +16612,24 @@ interface ITangleFull {
   },
   {
     "type": "function",
+    "name": "setBlueprintSettlementAsset",
+    "inputs": [
+      {
+        "name": "blueprintId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "asset",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setBlueprintSources",
     "inputs": [
       {
@@ -17453,6 +17513,25 @@ interface ITangleFull {
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BlueprintSettlementAssetSet",
+    "inputs": [
+      {
+        "name": "blueprintId",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "asset",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -18747,6 +18826,128 @@ event BlueprintResourceRequirementsSet(uint64 indexed blueprintId, uint256 count
             #[inline]
             fn from(
                 this: &BlueprintResourceRequirementsSet,
+            ) -> alloy_sol_types::private::LogData {
+                alloy_sol_types::SolEvent::encode_log_data(this)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Event with signature `BlueprintSettlementAssetSet(uint64,address)` and selector `0xa4ea41b2777aa3b65b002e352a0fc2cd98e42e003e143bb3e9805d5375c47f89`.
+```solidity
+event BlueprintSettlementAssetSet(uint64 indexed blueprintId, address indexed asset);
+```*/
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    #[derive(Clone)]
+    pub struct BlueprintSettlementAssetSet {
+        #[allow(missing_docs)]
+        pub blueprintId: u64,
+        #[allow(missing_docs)]
+        pub asset: alloy::sol_types::private::Address,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::SolEvent for BlueprintSettlementAssetSet {
+            type DataTuple<'a> = ();
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type TopicList = (
+                alloy_sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            const SIGNATURE: &'static str = "BlueprintSettlementAssetSet(uint64,address)";
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                164u8, 234u8, 65u8, 178u8, 119u8, 122u8, 163u8, 182u8, 91u8, 0u8, 46u8,
+                53u8, 42u8, 15u8, 194u8, 205u8, 152u8, 228u8, 46u8, 0u8, 62u8, 20u8,
+                59u8, 179u8, 233u8, 128u8, 93u8, 83u8, 117u8, 196u8, 127u8, 137u8,
+            ]);
+            const ANONYMOUS: bool = false;
+            #[allow(unused_variables)]
+            #[inline]
+            fn new(
+                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
+                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                Self {
+                    blueprintId: topics.1,
+                    asset: topics.2,
+                }
+            }
+            #[inline]
+            fn check_signature(
+                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
+            ) -> alloy_sol_types::Result<()> {
+                if topics.0 != Self::SIGNATURE_HASH {
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
+                }
+                Ok(())
+            }
+            #[inline]
+            fn tokenize_body(&self) -> Self::DataToken<'_> {
+                ()
+            }
+            #[inline]
+            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
+                (
+                    Self::SIGNATURE_HASH.into(),
+                    self.blueprintId.clone(),
+                    self.asset.clone(),
+                )
+            }
+            #[inline]
+            fn encode_topics_raw(
+                &self,
+                out: &mut [alloy_sol_types::abi::token::WordToken],
+            ) -> alloy_sol_types::Result<()> {
+                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
+                    return Err(alloy_sol_types::Error::Overrun);
+                }
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
+                out[1usize] = <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic(&self.blueprintId);
+                out[2usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
+                    &self.asset,
+                );
+                Ok(())
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::IntoLogData for BlueprintSettlementAssetSet {
+            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
+                From::from(self)
+            }
+            fn into_log_data(self) -> alloy_sol_types::private::LogData {
+                From::from(&self)
+            }
+        }
+        #[automatically_derived]
+        impl From<&BlueprintSettlementAssetSet> for alloy_sol_types::private::LogData {
+            #[inline]
+            fn from(
+                this: &BlueprintSettlementAssetSet,
             ) -> alloy_sol_types::private::LogData {
                 alloy_sol_types::SolEvent::encode_log_data(this)
             }
@@ -29086,6 +29287,162 @@ function getBlueprintResourceRequirements(uint64 blueprintId) external view retu
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `getBlueprintSettlementAsset(uint64)` and selector `0xee09b0d8`.
+```solidity
+function getBlueprintSettlementAsset(uint64 blueprintId) external view returns (address);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getBlueprintSettlementAssetCall {
+        #[allow(missing_docs)]
+        pub blueprintId: u64,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`getBlueprintSettlementAsset(uint64)`](getBlueprintSettlementAssetCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getBlueprintSettlementAssetReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::Address,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (u64,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getBlueprintSettlementAssetCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getBlueprintSettlementAssetCall) -> Self {
+                    (value.blueprintId,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getBlueprintSettlementAssetCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { blueprintId: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getBlueprintSettlementAssetReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getBlueprintSettlementAssetReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getBlueprintSettlementAssetReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getBlueprintSettlementAssetCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::Address;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getBlueprintSettlementAsset(uint64)";
+            const SELECTOR: [u8; 4] = [238u8, 9u8, 176u8, 216u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.blueprintId),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: getBlueprintSettlementAssetReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getBlueprintSettlementAssetReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `getExecutableSlashes(uint64,uint64)` and selector `0x110f829b`.
 ```solidity
 function getExecutableSlashes(uint64 fromId, uint64 toId) external view returns (uint64[] memory ids);
@@ -31920,6 +32277,162 @@ function getServiceOperators(uint64 serviceId) external view returns (address[] 
                 > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(|r| {
                         let r: getServiceOperatorsReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `getServicePaymentAsset(uint64)` and selector `0xfc99b3d3`.
+```solidity
+function getServicePaymentAsset(uint64 serviceId) external view returns (address);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getServicePaymentAssetCall {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`getServicePaymentAsset(uint64)`](getServicePaymentAssetCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getServicePaymentAssetReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::Address,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (u64,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getServicePaymentAssetCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getServicePaymentAssetCall) -> Self {
+                    (value.serviceId,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getServicePaymentAssetCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { serviceId: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getServicePaymentAssetReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getServicePaymentAssetReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getServicePaymentAssetReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getServicePaymentAssetCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::Address;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getServicePaymentAsset(uint64)";
+            const SELECTOR: [u8; 4] = [252u8, 153u8, 179u8, 211u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: getServicePaymentAssetReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getServicePaymentAssetReturn = r.into();
                         r._0
                     })
             }
@@ -39424,6 +39937,170 @@ function setBlueprintResourceRequirements(uint64 blueprintId, Types.ResourceComm
         }
     };
     #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `setBlueprintSettlementAsset(uint64,address)` and selector `0x730b595f`.
+```solidity
+function setBlueprintSettlementAsset(uint64 blueprintId, address asset) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setBlueprintSettlementAssetCall {
+        #[allow(missing_docs)]
+        pub blueprintId: u64,
+        #[allow(missing_docs)]
+        pub asset: alloy::sol_types::private::Address,
+    }
+    ///Container type for the return parameters of the [`setBlueprintSettlementAsset(uint64,address)`](setBlueprintSettlementAssetCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setBlueprintSettlementAssetReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (u64, alloy::sol_types::private::Address);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setBlueprintSettlementAssetCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: setBlueprintSettlementAssetCall) -> Self {
+                    (value.blueprintId, value.asset)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for setBlueprintSettlementAssetCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        blueprintId: tuple.0,
+                        asset: tuple.1,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setBlueprintSettlementAssetReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: setBlueprintSettlementAssetReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for setBlueprintSettlementAssetReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl setBlueprintSettlementAssetReturn {
+            fn _tokenize(
+                &self,
+            ) -> <setBlueprintSettlementAssetCall as alloy_sol_types::SolCall>::ReturnToken<
+                '_,
+            > {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for setBlueprintSettlementAssetCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = setBlueprintSettlementAssetReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "setBlueprintSettlementAsset(uint64,address)";
+            const SELECTOR: [u8; 4] = [115u8, 11u8, 89u8, 95u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.blueprintId),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.asset,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                setBlueprintSettlementAssetReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
     /**Function with signature `setBlueprintSources(uint64,(uint8,(string,string,string),(uint8,uint8,string,string),(uint8,string,string),(string,string,string),(uint8,uint8,string,bytes32)[])[])` and selector `0x1d683faa`.
 ```solidity
@@ -45061,6 +45738,8 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
         #[allow(missing_docs)]
         getBlueprintResourceRequirements(getBlueprintResourceRequirementsCall),
         #[allow(missing_docs)]
+        getBlueprintSettlementAsset(getBlueprintSettlementAssetCall),
+        #[allow(missing_docs)]
         getExecutableSlashes(getExecutableSlashesCall),
         #[allow(missing_docs)]
         getExitConfig(getExitConfigCall),
@@ -45094,6 +45773,8 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
         getServiceOperator(getServiceOperatorCall),
         #[allow(missing_docs)]
         getServiceOperators(getServiceOperatorsCall),
+        #[allow(missing_docs)]
+        getServicePaymentAsset(getServicePaymentAssetCall),
         #[allow(missing_docs)]
         getServiceRequest(getServiceRequestCall),
         #[allow(missing_docs)]
@@ -45184,6 +45865,8 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
         serviceFeeDistributor(serviceFeeDistributorCall),
         #[allow(missing_docs)]
         setBlueprintResourceRequirements(setBlueprintResourceRequirementsCall),
+        #[allow(missing_docs)]
+        setBlueprintSettlementAsset(setBlueprintSettlementAssetCall),
         #[allow(missing_docs)]
         setBlueprintSources(setBlueprintSourcesCall),
         #[allow(missing_docs)]
@@ -45329,6 +46012,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             [110u8, 229u8, 188u8, 255u8],
             [114u8, 21u8, 93u8, 80u8],
             [114u8, 161u8, 247u8, 190u8],
+            [115u8, 11u8, 89u8, 95u8],
             [115u8, 36u8, 233u8, 22u8],
             [119u8, 56u8, 12u8, 116u8],
             [120u8, 214u8, 107u8, 227u8],
@@ -45391,6 +46075,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             [232u8, 48u8, 191u8, 246u8],
             [234u8, 209u8, 223u8, 23u8],
             [235u8, 140u8, 59u8, 205u8],
+            [238u8, 9u8, 176u8, 216u8],
             [239u8, 27u8, 66u8, 162u8],
             [239u8, 92u8, 251u8, 140u8],
             [240u8, 244u8, 66u8, 96u8],
@@ -45398,6 +46083,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             [245u8, 171u8, 22u8, 204u8],
             [249u8, 51u8, 59u8, 177u8],
             [251u8, 204u8, 123u8, 61u8],
+            [252u8, 153u8, 179u8, 211u8],
             [252u8, 167u8, 141u8, 45u8],
             [255u8, 20u8, 169u8, 64u8],
         ];
@@ -45469,6 +46155,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             ::core::stringify!(getOperatorBlsPubkey),
             ::core::stringify!(setSlashConfig),
             ::core::stringify!(submitJobFromQuote),
+            ::core::stringify!(setBlueprintSettlementAsset),
             ::core::stringify!(registerOperator_0),
             ::core::stringify!(disputeSlash),
             ::core::stringify!(setDefaultTntMinExposureBps),
@@ -45531,6 +46218,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             ::core::stringify!(setBlueprintResourceRequirements),
             ::core::stringify!(claimDisputeBond),
             ::core::stringify!(getServiceEscrow),
+            ::core::stringify!(getBlueprintSettlementAsset),
             ::core::stringify!(getSlashProposal),
             ::core::stringify!(claimRewards_1),
             ::core::stringify!(setTreasury),
@@ -45538,6 +46226,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             ::core::stringify!(rewardTokens),
             ::core::stringify!(getJobEventRate),
             ::core::stringify!(setServiceFeeDistributor),
+            ::core::stringify!(getServicePaymentAsset),
             ::core::stringify!(getJobQuotedPrice),
             ::core::stringify!(blueprintMasterRevision),
         ];
@@ -45609,6 +46298,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             <getOperatorBlsPubkeyCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setSlashConfigCall as alloy_sol_types::SolCall>::SIGNATURE,
             <submitJobFromQuoteCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <setBlueprintSettlementAssetCall as alloy_sol_types::SolCall>::SIGNATURE,
             <registerOperator_0Call as alloy_sol_types::SolCall>::SIGNATURE,
             <disputeSlashCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setDefaultTntMinExposureBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -45671,6 +46361,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             <setBlueprintResourceRequirementsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <claimDisputeBondCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getServiceEscrowCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getBlueprintSettlementAssetCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashProposalCall as alloy_sol_types::SolCall>::SIGNATURE,
             <claimRewards_1Call as alloy_sol_types::SolCall>::SIGNATURE,
             <setTreasuryCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -45678,6 +46369,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             <rewardTokensCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getJobEventRateCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setServiceFeeDistributorCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getServicePaymentAssetCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getJobQuotedPriceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintMasterRevisionCall as alloy_sol_types::SolCall>::SIGNATURE,
         ];
@@ -45706,7 +46398,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
     impl alloy_sol_types::SolInterface for ITangleFullCalls {
         const NAME: &'static str = "ITangleFullCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 137usize;
+        const COUNT: usize = 140usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -45830,6 +46522,9 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 Self::getBlueprintResourceRequirements(_) => {
                     <getBlueprintResourceRequirementsCall as alloy_sol_types::SolCall>::SELECTOR
                 }
+                Self::getBlueprintSettlementAsset(_) => {
+                    <getBlueprintSettlementAssetCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::getExecutableSlashes(_) => {
                     <getExecutableSlashesCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -45880,6 +46575,9 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 }
                 Self::getServiceOperators(_) => {
                     <getServiceOperatorsCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::getServicePaymentAsset(_) => {
+                    <getServicePaymentAssetCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::getServiceRequest(_) => {
                     <getServiceRequestCall as alloy_sol_types::SolCall>::SELECTOR
@@ -46013,6 +46711,9 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 }
                 Self::setBlueprintResourceRequirements(_) => {
                     <setBlueprintResourceRequirementsCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::setBlueprintSettlementAsset(_) => {
+                    <setBlueprintSettlementAssetCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::setBlueprintSources(_) => {
                     <setBlueprintSourcesCall as alloy_sol_types::SolCall>::SELECTOR
@@ -46853,6 +47554,17 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                     submitJobFromQuote
                 },
                 {
+                    fn setBlueprintSettlementAsset(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <setBlueprintSettlementAssetCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::setBlueprintSettlementAsset)
+                    }
+                    setBlueprintSettlementAsset
+                },
+                {
                     fn registerOperator_0(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -47527,6 +48239,17 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                     getServiceEscrow
                 },
                 {
+                    fn getBlueprintSettlementAsset(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <getBlueprintSettlementAssetCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::getBlueprintSettlementAsset)
+                    }
+                    getBlueprintSettlementAsset
+                },
+                {
                     fn getSlashProposal(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -47602,6 +48325,17 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                             .map(ITangleFullCalls::setServiceFeeDistributor)
                     }
                     setServiceFeeDistributor
+                },
+                {
+                    fn getServicePaymentAsset(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <getServicePaymentAssetCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::getServicePaymentAsset)
+                    }
+                    getServicePaymentAsset
                 },
                 {
                     fn getJobQuotedPrice(
@@ -48372,6 +49106,17 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                     submitJobFromQuote
                 },
                 {
+                    fn setBlueprintSettlementAsset(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <setBlueprintSettlementAssetCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::setBlueprintSettlementAsset)
+                    }
+                    setBlueprintSettlementAsset
+                },
+                {
                     fn registerOperator_0(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -49052,6 +49797,17 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                     getServiceEscrow
                 },
                 {
+                    fn getBlueprintSettlementAsset(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <getBlueprintSettlementAssetCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::getBlueprintSettlementAsset)
+                    }
+                    getBlueprintSettlementAsset
+                },
+                {
                     fn getSlashProposal(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -49127,6 +49883,17 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                             .map(ITangleFullCalls::setServiceFeeDistributor)
                     }
                     setServiceFeeDistributor
+                },
+                {
+                    fn getServicePaymentAsset(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <getServicePaymentAssetCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::getServicePaymentAsset)
+                    }
+                    getServicePaymentAsset
                 },
                 {
                     fn getJobQuotedPrice(
@@ -49360,6 +50127,11 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                         inner,
                     )
                 }
+                Self::getBlueprintSettlementAsset(inner) => {
+                    <getBlueprintSettlementAssetCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::getExecutableSlashes(inner) => {
                     <getExecutableSlashesCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -49438,6 +50210,11 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 }
                 Self::getServiceOperators(inner) => {
                     <getServiceOperatorsCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::getServicePaymentAsset(inner) => {
+                    <getServicePaymentAssetCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -49661,6 +50438,11 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 }
                 Self::setBlueprintResourceRequirements(inner) => {
                     <setBlueprintResourceRequirementsCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::setBlueprintSettlementAsset(inner) => {
+                    <setBlueprintSettlementAssetCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -50074,6 +50856,12 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                         out,
                     )
                 }
+                Self::getBlueprintSettlementAsset(inner) => {
+                    <getBlueprintSettlementAssetCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::getExecutableSlashes(inner) => {
                     <getExecutableSlashesCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -50172,6 +50960,12 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 }
                 Self::getServiceOperators(inner) => {
                     <getServiceOperatorsCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::getServicePaymentAsset(inner) => {
+                    <getServicePaymentAssetCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -50443,6 +51237,12 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                         out,
                     )
                 }
+                Self::setBlueprintSettlementAsset(inner) => {
+                    <setBlueprintSettlementAssetCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::setBlueprintSources(inner) => {
                     <setBlueprintSourcesCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -50665,6 +51465,8 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
         #[allow(missing_docs)]
         BlueprintResourceRequirementsSet(BlueprintResourceRequirementsSet),
         #[allow(missing_docs)]
+        BlueprintSettlementAssetSet(BlueprintSettlementAssetSet),
+        #[allow(missing_docs)]
         BlueprintSourcesAcked(BlueprintSourcesAcked),
         #[allow(missing_docs)]
         BlueprintTransferCancelled(BlueprintTransferCancelled),
@@ -50824,6 +51626,11 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 243u8, 6u8, 141u8, 250u8, 213u8, 40u8, 166u8, 94u8, 227u8, 199u8,
             ],
             [
+                164u8, 234u8, 65u8, 178u8, 119u8, 122u8, 163u8, 182u8, 91u8, 0u8, 46u8,
+                53u8, 42u8, 15u8, 194u8, 205u8, 152u8, 228u8, 46u8, 0u8, 62u8, 20u8,
+                59u8, 179u8, 233u8, 128u8, 93u8, 83u8, 117u8, 196u8, 127u8, 137u8,
+            ],
+            [
                 176u8, 147u8, 125u8, 220u8, 140u8, 75u8, 117u8, 27u8, 250u8, 106u8, 69u8,
                 45u8, 118u8, 254u8, 7u8, 251u8, 222u8, 39u8, 95u8, 126u8, 169u8, 193u8,
                 250u8, 139u8, 10u8, 25u8, 21u8, 120u8, 16u8, 158u8, 5u8, 241u8,
@@ -50919,6 +51726,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             ::core::stringify!(JobResultSubmitted),
             ::core::stringify!(OperatorLeftService),
             ::core::stringify!(RewardsClaimed),
+            ::core::stringify!(BlueprintSettlementAssetSet),
             ::core::stringify!(BlueprintTransferCancelled),
             ::core::stringify!(JobSubmittedFromQuote),
             ::core::stringify!(OperatorPreferencesUpdated),
@@ -50955,6 +51763,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             <JobResultSubmitted as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorLeftService as alloy_sol_types::SolEvent>::SIGNATURE,
             <RewardsClaimed as alloy_sol_types::SolEvent>::SIGNATURE,
+            <BlueprintSettlementAssetSet as alloy_sol_types::SolEvent>::SIGNATURE,
             <BlueprintTransferCancelled as alloy_sol_types::SolEvent>::SIGNATURE,
             <JobSubmittedFromQuote as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorPreferencesUpdated as alloy_sol_types::SolEvent>::SIGNATURE,
@@ -50995,7 +51804,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for ITangleFullEvents {
         const NAME: &'static str = "ITangleFullEvents";
-        const COUNT: usize = 33usize;
+        const COUNT: usize = 34usize;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
@@ -51025,6 +51834,15 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                             data,
                         )
                         .map(Self::BlueprintResourceRequirementsSet)
+                }
+                Some(
+                    <BlueprintSettlementAssetSet as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
+                ) => {
+                    <BlueprintSettlementAssetSet as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
+                        .map(Self::BlueprintSettlementAssetSet)
                 }
                 Some(
                     <BlueprintSourcesAcked as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
@@ -51299,6 +52117,9 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 Self::BlueprintResourceRequirementsSet(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
+                Self::BlueprintSettlementAssetSet(inner) => {
+                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
+                }
                 Self::BlueprintSourcesAcked(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
@@ -51400,6 +52221,9 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::BlueprintResourceRequirementsSet(inner) => {
+                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
+                }
+                Self::BlueprintSettlementAssetSet(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::BlueprintSourcesAcked(inner) => {
@@ -52060,6 +52884,17 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                 },
             )
         }
+        ///Creates a new call builder for the [`getBlueprintSettlementAsset`] function.
+        pub fn getBlueprintSettlementAsset(
+            &self,
+            blueprintId: u64,
+        ) -> alloy_contract::SolCallBuilder<&P, getBlueprintSettlementAssetCall, N> {
+            self.call_builder(
+                &getBlueprintSettlementAssetCall {
+                    blueprintId,
+                },
+            )
+        }
         ///Creates a new call builder for the [`getExecutableSlashes`] function.
         pub fn getExecutableSlashes(
             &self,
@@ -52257,6 +53092,17 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, getServiceOperatorsCall, N> {
             self.call_builder(
                 &getServiceOperatorsCall {
+                    serviceId,
+                },
+            )
+        }
+        ///Creates a new call builder for the [`getServicePaymentAsset`] function.
+        pub fn getServicePaymentAsset(
+            &self,
+            serviceId: u64,
+        ) -> alloy_contract::SolCallBuilder<&P, getServicePaymentAssetCall, N> {
+            self.call_builder(
+                &getServicePaymentAssetCall {
                     serviceId,
                 },
             )
@@ -52786,6 +53632,19 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                 },
             )
         }
+        ///Creates a new call builder for the [`setBlueprintSettlementAsset`] function.
+        pub fn setBlueprintSettlementAsset(
+            &self,
+            blueprintId: u64,
+            asset: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<&P, setBlueprintSettlementAssetCall, N> {
+            self.call_builder(
+                &setBlueprintSettlementAssetCall {
+                    blueprintId,
+                    asset,
+                },
+            )
+        }
         ///Creates a new call builder for the [`setBlueprintSources`] function.
         pub fn setBlueprintSources(
             &self,
@@ -53199,6 +54058,12 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
         ) -> alloy_contract::Event<&P, BlueprintResourceRequirementsSet, N> {
             self.event_filter::<BlueprintResourceRequirementsSet>()
+        }
+        ///Creates a new event filter for the [`BlueprintSettlementAssetSet`] event.
+        pub fn BlueprintSettlementAssetSet_filter(
+            &self,
+        ) -> alloy_contract::Event<&P, BlueprintSettlementAssetSet, N> {
+            self.event_filter::<BlueprintSettlementAssetSet>()
         }
         ///Creates a new event filter for the [`BlueprintSourcesAcked`] event.
         pub fn BlueprintSourcesAcked_filter(

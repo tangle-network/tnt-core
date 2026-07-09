@@ -249,7 +249,15 @@ abstract contract ServicesRequests is Base {
         if (manager == address(0)) {
             return;
         }
-        // Subscription requests must always validate the selected settlement token, even with zero initial deposit.
+        // Only the Subscription zero-deposit case still needs request-time settlement-token
+        // validation: its escrow is funded by later top-ups in the selected token, so a
+        // disallowed token must be rejected before it can be pinned onto a service that later
+        // bills in it. EventDriven requests carry NO customer-chosen asset — the settlement
+        // asset is declared on the blueprint by the developer (`setBlueprintSettlementAsset`,
+        // validated there) and pinned at activation — so the request's `paymentToken` is always
+        // native `address(0)` (enforced in `_validatePricingPaymentConsistency`) and needs no
+        // gate here. PayOnce with a nonzero amount is gated below via the `paymentAmount == 0`
+        // early-return.
         if (paymentAmount == 0 && pricing != Types.PricingModel.Subscription) return;
         if (!_isPaymentAssetAllowedByManager(manager, requestContextId, paymentToken)) {
             revert Errors.TokenNotAllowed(paymentToken);
@@ -264,13 +272,23 @@ abstract contract ServicesRequests is Base {
         private
         pure
     {
-        // Event-driven services are funded by per-job `msg.value`, not by an upfront
-        // lump sum. Reject non-zero `paymentAmount` AT REQUEST TIME so the customer's
-        // funds aren't collected only to revert at activation — and so a tooling bug
-        // can't silently lock funds in the contract until expiry.
+        // Event-driven services are funded per-job in the settlement asset the blueprint OWNER
+        // declared (`setBlueprintSettlementAsset`), NOT by an upfront lump sum and NOT in a
+        // customer-chosen asset. The CUSTOMER must not pick the settlement asset at request
+        // time — that split (customer picks asset, developer picks rate) is exactly what let a
+        // 6-decimal rate settle in native for a 10^12x under-payment. So an EventDriven request
+        // must pass native `address(0)` as `paymentToken` (the asset is sourced wholly from the
+        // blueprint at activation) and a zero `paymentAmount` (rejected here so the customer's
+        // funds aren't collected only to revert at activation, and so a tooling bug can't
+        // silently lock funds until expiry).
         if (pricing == Types.PricingModel.EventDriven) {
+            // Reject a non-zero upfront amount FIRST: a non-zero `paymentAmount` implies tooling
+            // misuse regardless of the proposed settlement token, and this ordering is relied on
+            // by the request-flow tests. Then reject any non-native `paymentToken`: the customer
+            // does not choose the settlement asset (it is sourced from the blueprint at
+            // activation), so an EventDriven request must be native.
             if (paymentAmount != 0) revert Errors.UpfrontPaymentNotAllowedForEventDriven();
-            if (paymentToken != address(0)) revert Errors.InvalidPaymentToken();
+            if (paymentToken != address(0)) revert Errors.TokenNotAllowed(paymentToken);
         }
     }
 
