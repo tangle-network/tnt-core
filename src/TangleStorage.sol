@@ -542,13 +542,31 @@ abstract contract TangleStorage {
     uint256 internal _managerHookGasLimit;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // EVENT-DRIVEN SETTLEMENT ASSET (appended 2026-07-08)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Appended after `_managerHookGasLimit` (never inserted mid layout); the reserved
+    // gap below is shrunk by one to preserve total storage size for upgrade safety.
+
+    /// @notice Service ID => EventDriven settlement asset. `address(0)` = native.
+    /// @dev Pinned once at activation from the approved request's `paymentToken`
+    ///      (`TangleServicesFacet._handleInitialPayments`). Read by the per-job
+    ///      collection/distribution paths (`JobsSubmission._collectJobPaymentIfNeeded`,
+    ///      the Jobs/RFQ distribute overrides) so per-job billing settles in the
+    ///      currency the customer selected at request time — native OR a
+    ///      manager-allowed ERC20 (e.g. Tempo PathUSD) — instead of a native-only
+    ///      hardcode. Only written for EventDriven services; other pricing models
+    ///      leave it at the `address(0)` default, which is also the correct native
+    ///      sentinel, so a stale read can never misroute a non-EventDriven payment.
+    mapping(uint64 => address) internal _serviceEventDrivenAsset;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @dev Reserved storage slots for future appends. __gap size 27, occupying slots
-    ///      91..117 (the sequential layout ends at _managerHookGasLimit in slot 90 —
+    /// @dev Reserved storage slots for future appends. __gap size 26, occupying slots
+    ///      92..117 (the sequential layout ends at _serviceEventDrivenAsset in slot 91 —
     ///      verify with `forge inspect Tangle storage-layout`; the tail slots are pinned
     ///      by StorageLayoutSnapshotTest). Appending a field consumes gap slots
     ///      one-for-one: shrink this array by the field's slot count in the same change.
-    uint256[27] private __gap;
+    uint256[26] private __gap;
 }

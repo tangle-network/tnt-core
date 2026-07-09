@@ -21,18 +21,24 @@ contract TangleJobsFacet is JobsSubmission, IFacetSelectors {
     }
 
     /// @notice Distribute job payment (called from Jobs mixin)
-    /// @dev Payment is distributed based on effective exposure (delegation × exposureBps)
+    /// @dev Payment is distributed based on effective exposure (delegation × exposureBps),
+    ///      in the service's pinned EventDriven settlement asset (native `address(0)` OR the
+    ///      ERC20 the customer selected at request time). This is the same token the per-job
+    ///      `collectPayment` in `JobsSubmission._collectJobPaymentIfNeeded` pulled in, so what
+    ///      the customer paid and what operators/dev/treasury receive are always one currency.
     function _distributeJobPayment(uint64 serviceId, uint256 payment) internal override {
         Types.Service storage svc = _services[serviceId];
+        address asset = _serviceEventDrivenAsset[serviceId];
         address[] memory operators = _serviceOperatorSet[serviceId].values();
 
-        ITanglePaymentsInternal(address(this))
-            .distributePayment(serviceId, svc.blueprintId, address(0), payment, operators);
+        ITanglePaymentsInternal(address(this)).distributePayment(serviceId, svc.blueprintId, asset, payment, operators);
     }
 
-    /// @notice Distribute RFQ job payment to quoted operators at their individual prices
+    /// @notice Distribute RFQ job payment to quoted operators at their individual prices,
+    ///         in the service's pinned EventDriven settlement asset (native or ERC20).
     function _distributeRFQJobPayment(uint64 serviceId, uint64 callId, uint256) internal override {
         Types.Service storage svc = _services[serviceId];
+        address asset = _serviceEventDrivenAsset[serviceId];
         address[] memory quotedOps = _jobQuotedOperators[serviceId][callId].values();
 
         for (uint256 i = 0; i < quotedOps.length; i++) {
@@ -43,7 +49,7 @@ contract TangleJobsFacet is JobsSubmission, IFacetSelectors {
             singleOp[0] = quotedOps[i];
 
             ITanglePaymentsInternal(address(this))
-                .distributePayment(serviceId, svc.blueprintId, address(0), opPayment, singleOp);
+                .distributePayment(serviceId, svc.blueprintId, asset, opPayment, singleOp);
         }
     }
 }

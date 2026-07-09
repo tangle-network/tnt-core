@@ -12857,6 +12857,7 @@ interface ITangleFull {
     function getServiceEscrow(uint64 serviceId) external view returns (PaymentLib.ServiceEscrow memory);
     function getServiceOperator(uint64 serviceId, address operator) external view returns (Types.ServiceOperator memory);
     function getServiceOperators(uint64 serviceId) external view returns (address[] memory);
+    function getServicePaymentAsset(uint64 serviceId) external view returns (address);
     function getServiceRequest(uint64 requestId) external view returns (Types.ServiceRequest memory);
     function getServiceRequestResourceRequirements(uint64 requestId) external view returns (Types.ResourceCommitment[] memory);
     function getServiceRequestSecurityCommitments(uint64 requestId, address operator) external view returns (Types.AssetSecurityCommitment[] memory);
@@ -15258,6 +15259,25 @@ interface ITangleFull {
         "name": "",
         "type": "address[]",
         "internalType": "address[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getServicePaymentAsset",
+    "inputs": [
+      {
+        "name": "serviceId",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -31927,6 +31947,162 @@ function getServiceOperators(uint64 serviceId) external view returns (address[] 
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `getServicePaymentAsset(uint64)` and selector `0xfc99b3d3`.
+```solidity
+function getServicePaymentAsset(uint64 serviceId) external view returns (address);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getServicePaymentAssetCall {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`getServicePaymentAsset(uint64)`](getServicePaymentAssetCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getServicePaymentAssetReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::Address,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (u64,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getServicePaymentAssetCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getServicePaymentAssetCall) -> Self {
+                    (value.serviceId,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getServicePaymentAssetCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { serviceId: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getServicePaymentAssetReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getServicePaymentAssetReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getServicePaymentAssetReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getServicePaymentAssetCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::Address;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getServicePaymentAsset(uint64)";
+            const SELECTOR: [u8; 4] = [252u8, 153u8, 179u8, 211u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: getServicePaymentAssetReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getServicePaymentAssetReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `getServiceRequest(uint64)` and selector `0x5f9b4dfa`.
 ```solidity
 function getServiceRequest(uint64 requestId) external view returns (Types.ServiceRequest memory);
@@ -45095,6 +45271,8 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
         #[allow(missing_docs)]
         getServiceOperators(getServiceOperatorsCall),
         #[allow(missing_docs)]
+        getServicePaymentAsset(getServicePaymentAssetCall),
+        #[allow(missing_docs)]
         getServiceRequest(getServiceRequestCall),
         #[allow(missing_docs)]
         getServiceRequestResourceRequirements(getServiceRequestResourceRequirementsCall),
@@ -45398,6 +45576,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             [245u8, 171u8, 22u8, 204u8],
             [249u8, 51u8, 59u8, 177u8],
             [251u8, 204u8, 123u8, 61u8],
+            [252u8, 153u8, 179u8, 211u8],
             [252u8, 167u8, 141u8, 45u8],
             [255u8, 20u8, 169u8, 64u8],
         ];
@@ -45538,6 +45717,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             ::core::stringify!(rewardTokens),
             ::core::stringify!(getJobEventRate),
             ::core::stringify!(setServiceFeeDistributor),
+            ::core::stringify!(getServicePaymentAsset),
             ::core::stringify!(getJobQuotedPrice),
             ::core::stringify!(blueprintMasterRevision),
         ];
@@ -45678,6 +45858,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
             <rewardTokensCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getJobEventRateCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setServiceFeeDistributorCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getServicePaymentAssetCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getJobQuotedPriceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintMasterRevisionCall as alloy_sol_types::SolCall>::SIGNATURE,
         ];
@@ -45706,7 +45887,7 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
     impl alloy_sol_types::SolInterface for ITangleFullCalls {
         const NAME: &'static str = "ITangleFullCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 137usize;
+        const COUNT: usize = 138usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -45880,6 +46061,9 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 }
                 Self::getServiceOperators(_) => {
                     <getServiceOperatorsCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::getServicePaymentAsset(_) => {
+                    <getServicePaymentAssetCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::getServiceRequest(_) => {
                     <getServiceRequestCall as alloy_sol_types::SolCall>::SELECTOR
@@ -47604,6 +47788,17 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                     setServiceFeeDistributor
                 },
                 {
+                    fn getServicePaymentAsset(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <getServicePaymentAssetCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::getServicePaymentAsset)
+                    }
+                    getServicePaymentAsset
+                },
+                {
                     fn getJobQuotedPrice(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -49129,6 +49324,17 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                     setServiceFeeDistributor
                 },
                 {
+                    fn getServicePaymentAsset(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <getServicePaymentAssetCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::getServicePaymentAsset)
+                    }
+                    getServicePaymentAsset
+                },
+                {
                     fn getJobQuotedPrice(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -49438,6 +49644,11 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 }
                 Self::getServiceOperators(inner) => {
                     <getServiceOperatorsCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::getServicePaymentAsset(inner) => {
+                    <getServicePaymentAssetCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -50172,6 +50383,12 @@ function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
                 }
                 Self::getServiceOperators(inner) => {
                     <getServiceOperatorsCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::getServicePaymentAsset(inner) => {
+                    <getServicePaymentAssetCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -52257,6 +52474,17 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, getServiceOperatorsCall, N> {
             self.call_builder(
                 &getServiceOperatorsCall {
+                    serviceId,
+                },
+            )
+        }
+        ///Creates a new call builder for the [`getServicePaymentAsset`] function.
+        pub fn getServicePaymentAsset(
+            &self,
+            serviceId: u64,
+        ) -> alloy_contract::SolCallBuilder<&P, getServicePaymentAssetCall, N> {
+            self.call_builder(
+                &getServicePaymentAssetCall {
                     serviceId,
                 },
             )

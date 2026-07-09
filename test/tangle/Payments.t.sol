@@ -382,7 +382,17 @@ contract PaymentsTest is BaseTest {
         vm.stopPrank();
     }
 
-    function test_EventDriven_RequestService_RevertERC20WhenZeroPayment() public {
+    /// @notice Fail-closed: an EventDriven request naming a manager-DISALLOWED ERC20
+    ///         settlement token (with zero upfront amount) must revert `TokenNotAllowed`
+    ///         at request time, before any state is written. Since PR the
+    ///         "EventDriven is native-only" constraint was relaxed to allow a chosen ERC20
+    ///         settlement token, the guard that must hold is the manager allow-list, not a
+    ///         blanket native-only revert.
+    function test_EventDriven_RequestService_RevertDisallowedErc20SettlementToken() public {
+        MockPaymentAssetManager manager = new MockPaymentAssetManager();
+        // Explicitly DISALLOW the token (default mapping value is false anyway).
+        manager.setAssetAllowed(address(token), false);
+
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
             membership: Types.MembershipModel.Fixed,
             pricing: Types.PricingModel.EventDriven,
@@ -395,7 +405,7 @@ contract PaymentsTest is BaseTest {
 
         vm.prank(developer);
         uint64 bp = tangle.createBlueprint(
-            _blueprintDefinitionWithConfig("ipfs://event-native-only-zero", address(0), config)
+            _blueprintDefinitionWithConfig("ipfs://event-erc20-disallowed", address(manager), config)
         );
         _registerForBlueprint(operator1, bp);
 
@@ -404,9 +414,9 @@ contract PaymentsTest is BaseTest {
         address[] memory callers = new address[](0);
 
         // Zero `paymentAmount` clears the `UpfrontPaymentNotAllowedForEventDriven` check;
-        // a non-native `paymentToken` then fails the EventDriven native-only constraint.
+        // the non-native, un-allowlisted `paymentToken` must then fail closed.
         vm.prank(user1);
-        vm.expectRevert(Errors.InvalidPaymentToken.selector);
+        vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotAllowed.selector, address(token)));
         tangle.requestService(bp, operators, "", callers, 0, address(token), 0, Types.ConfidentialityPolicy.Any);
     }
 

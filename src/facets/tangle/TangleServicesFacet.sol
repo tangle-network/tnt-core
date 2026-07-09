@@ -180,9 +180,16 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         }
 
         if (pricing == Types.PricingModel.EventDriven) {
-            // EventDriven services are funded by per-job `msg.value`, not by an upfront
-            // lump sum. `paymentAmount` is rejected at request-time by
-            // `_validatePricingPaymentConsistency`; nothing to do here.
+            // EventDriven services are funded per-job, not by an upfront lump sum
+            // (`paymentAmount` is rejected at request-time by
+            // `_validatePricingPaymentConsistency`). Pin the settlement asset the customer
+            // selected at request time — native `address(0)` OR a manager-allowed ERC20 —
+            // so every per-job bill collects and distributes in that currency. The token
+            // was already allow-list-validated at request time in
+            // `ServicesRequests._validateRequestPaymentAsset` (fail-closed for non-native).
+            // `address(0)` is both the native sentinel and the zero-default, so this write
+            // is a no-op for native services but keeps the mapping explicit and auditable.
+            _serviceEventDrivenAsset[serviceId] = paymentToken;
             return;
         }
 
