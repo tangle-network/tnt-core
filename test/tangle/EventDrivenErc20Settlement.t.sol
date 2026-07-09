@@ -10,9 +10,9 @@ import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MockToken } from "../mocks/MockToken.sol";
 import { TangleJobsRFQFacet } from "../../src/facets/tangle/TangleJobsRFQFacet.sol";
 
-/// @notice Blueprint manager that allow-lists a single settlement asset for both request-time
-///         and job-time payment-asset checks (context id is ignored, so the same answer holds
-///         for `requestContextId` and `serviceId`).
+/// @notice Blueprint manager that allow-lists a single settlement asset for both the
+///         blueprint-time (`setBlueprintSettlementAsset`) and job-time payment-asset checks
+///         (context id is ignored, so the same answer holds for `blueprintId` and `serviceId`).
 contract AllowAssetManager is BlueprintServiceManagerBase {
     mapping(address => bool) internal _allowed;
 
@@ -27,8 +27,11 @@ contract AllowAssetManager is BlueprintServiceManagerBase {
 
 /// @title EventDrivenErc20SettlementTest
 /// @notice Covers the generalized EventDriven per-job settlement asset: an EventDriven service
-///         may settle per-job billing in native OR a manager-allowed ERC20 (e.g. Tempo PathUSD).
-///         AUDITED FINANCIAL code — every path (happy, back-compat, fail-closed) is exercised.
+///         may settle per-job billing in native OR a manager-allowed ERC20 (e.g. Tempo PathUSD),
+///         with the settlement asset chosen by the blueprint DEVELOPER at the blueprint level
+///         (same party that sets the per-job rate), NOT by the customer at request time.
+///         AUDITED FINANCIAL code — every path (happy, back-compat, fail-closed, exploit) is
+///         exercised.
 contract EventDrivenErc20SettlementTest is BaseTest {
     uint256 internal constant OPERATOR1_PK = 0x1A;
     uint256 internal constant OPERATOR2_PK = 0x2B;
@@ -45,6 +48,10 @@ contract EventDrivenErc20SettlementTest is BaseTest {
     uint64 internal nativeService;
 
     uint256 internal constant RATE = 10 ether; // per-job rate (18-dec token units)
+
+    bytes32 private constant QUOTE_TYPEHASH = keccak256(
+        "QuoteDetails(address requester,uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,uint8 operation,uint64 serviceId,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)Asset(uint8 kind,address token)AssetSecurityCommitment(Asset asset,uint16 exposureBps)ResourceCommitment(uint8 kind,uint64 count)"
+    );
 
     function setUp() public override {
         super.setUp();
@@ -85,6 +92,9 @@ contract EventDrivenErc20SettlementTest is BaseTest {
             tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://ed-erc20", address(manager), cfg));
         nativeBlueprint =
             tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://ed-native", address(nativeManager), cfg));
+        // Developer declares the settlement asset ON THE BLUEPRINT. The native blueprint is
+        // left at the address(0) default (no setter call) to prove native back-compat.
+        tangle.setBlueprintSettlementAsset(erc20Blueprint, address(settleToken));
         vm.stopPrank();
 
         _registerOperator(operator1, 5 ether);
@@ -94,12 +104,49 @@ contract EventDrivenErc20SettlementTest is BaseTest {
         _registerForBlueprint(operator1, nativeBlueprint);
         _registerForBlueprint(operator2, nativeBlueprint);
 
-        erc20Service = _activateEventDrivenService(erc20Blueprint, address(settleToken));
-        nativeService = _activateEventDrivenService(nativeBlueprint, address(0));
+        erc20Service = _activateEventDrivenService(erc20Blueprint);
+        nativeService = _activateEventDrivenService(nativeBlueprint);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // getServicePaymentAsset VIEW
+    // BLUEPRINT SETTLEMENT ASSET (setter auth + validation + view)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_GetBlueprintSettlementAsset_Erc20() public view {
+        assertEq(tangle.getBlueprintSettlementAsset(erc20Blueprint), address(settleToken));
+    }
+
+    function test_GetBlueprintSettlementAsset_NativeDefaultIsZero() public view {
+        // Never set on the native blueprint -> defaults to the native sentinel.
+        assertEq(tangle.getBlueprintSettlementAsset(nativeBlueprint), address(0));
+    }
+
+    function test_SetBlueprintSettlementAsset_OnlyOwner() public {
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.NotBlueprintOwner.selector, erc20Blueprint, user1));
+        tangle.setBlueprintSettlementAsset(erc20Blueprint, address(settleToken));
+    }
+
+    function test_SetBlueprintSettlementAsset_RejectsManagerDisallowedToken() public {
+        MockERC20 badToken = new MockERC20();
+        vm.prank(developer);
+        vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotAllowed.selector, address(badToken)));
+        tangle.setBlueprintSettlementAsset(erc20Blueprint, address(badToken));
+    }
+
+    function test_SetBlueprintSettlementAsset_NativeAlwaysAllowed() public {
+        // Even a manager that allow-lists nothing must accept native (address(0)).
+        AllowAssetManager strict = new AllowAssetManager();
+        Types.BlueprintConfig memory cfg = _edConfig(RATE);
+        vm.startPrank(developer);
+        uint64 bp = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://ed-strict", address(strict), cfg));
+        tangle.setBlueprintSettlementAsset(bp, address(0)); // must not revert
+        vm.stopPrank();
+        assertEq(tangle.getBlueprintSettlementAsset(bp), address(0));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // getServicePaymentAsset VIEW (pinned from the BLUEPRINT, not the request)
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_GetServicePaymentAsset_Erc20() public view {
@@ -113,6 +160,149 @@ contract EventDrivenErc20SettlementTest is BaseTest {
     function test_GetServicePaymentAsset_UnknownServiceReturnsZero() public view {
         // Non-EventDriven / unknown ids default to the native sentinel.
         assertEq(tangle.getServicePaymentAsset(9999), address(0));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CUSTOMER CANNOT CHOOSE THE ASSET (root-cause guard)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice (a) An EventDriven request with a non-zero paymentToken reverts — the customer
+    ///         cannot pick the settlement asset. The asset comes wholly from the blueprint.
+    function test_Request_CustomerCannotChooseErc20Asset() public {
+        address[] memory ops = new address[](1);
+        ops[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        // Even the blueprint's OWN allow-listed settlement token is rejected as a request-time
+        // paymentToken: EventDriven requests must be native. The asset is not the customer's.
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotAllowed.selector, address(settleToken)));
+        tangle.requestService(
+            erc20Blueprint, ops, "", callers, 0, address(settleToken), 0, Types.ConfidentialityPolicy.Any
+        );
+    }
+
+    /// @notice (a) A non-native paymentToken NOT on the blueprint's asset is likewise rejected —
+    ///         same revert, because the check is "EventDriven request must be native", not a
+    ///         per-token allow-list.
+    function test_Request_CustomerCannotChooseArbitraryAsset() public {
+        MockERC20 badToken = new MockERC20();
+        address[] memory ops = new address[](1);
+        ops[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotAllowed.selector, address(badToken)));
+        tangle.requestService(
+            erc20Blueprint, ops, "", callers, 0, address(badToken), 0, Types.ConfidentialityPolicy.Any
+        );
+    }
+
+    /// @notice (b) With the blueprint's asset = ERC20, jobs settle in that token via transferFrom
+    ///         and the customer CANNOT force native — supplying native value reverts.
+    function test_Erc20_Blueprint_SettlesInErc20_CustomerCannotForceNative() public {
+        // The service pinned the blueprint's ERC20 asset (proven by the view).
+        assertEq(tangle.getServicePaymentAsset(erc20Service), address(settleToken));
+
+        // Native value on the ERC20 service reverts (collectPayment requires msgValue == 0).
+        vm.startPrank(user1);
+        settleToken.approve(address(tangle), RATE);
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidMsgValue.selector, 0, RATE));
+        tangle.submitJob{ value: RATE }(erc20Service, 0, "");
+        vm.stopPrank();
+
+        // The correct path settles in the ERC20.
+        vm.startPrank(user1);
+        settleToken.approve(address(tangle), RATE);
+        uint64 callId = tangle.submitJob(erc20Service, 0, "");
+        vm.stopPrank();
+        assertEq(tangle.getJobCall(erc20Service, callId).payment, RATE);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EXPLOIT (c): a 6-dec-scale rate CANNOT be driven to settle in native
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice (c) The original 10^12x under-payment exploit, proven dead. A blueprint authors a
+    ///         6-decimal PathUSD rate (5e6 = 5.00 pUSD). PRE-FIX, the customer chose the
+    ///         settlement asset at request time: passing native `address(0)` pinned a
+    ///         NATIVE-settling service, so every job settled at 5e6 wei = 5e-12 TNT (~$0) while
+    ///         consuming real compute priced at $5.00. POST-FIX, the settlement asset is sourced
+    ///         wholly from the blueprint (the developer's pUSD), independent of what the customer
+    ///         passes. The customer's request MUST be native `address(0)` (it is not a choice —
+    ///         a non-native request reverts), and the resulting service still settles in pUSD.
+    ///         So:
+    ///           1. the customer cannot request a NON-native asset (reverts, tested elsewhere);
+    ///           2. requesting native `address(0)` — the pre-fix exploit trigger — no longer
+    ///              yields a native-settling service: it settles in the blueprint's pUSD; and
+    ///           3. every job collects 5e6 pUSD UNITS (5.00 pUSD), never 5e6 wei of native, and
+    ///              native value is rejected outright.
+    ///         There is NO code path to a service whose settlement asset differs from its
+    ///         blueprint's declared asset.
+    function test_Exploit_SixDecimalRateCannotSettleInNative() public {
+        MockToken usd = new MockToken("PathUSD", "pUSD", 6);
+        usd.mint(user1, 1_000_000e6);
+
+        AllowAssetManager usdManager = new AllowAssetManager();
+        usdManager.setAllowed(address(usd), true);
+
+        uint256 usdRate = 5e6; // 5.00 pUSD in 6-dec smallest units — the exploit's rate.
+        Types.BlueprintConfig memory cfg = _edConfig(usdRate);
+
+        vm.startPrank(developer);
+        uint64 bp =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://ed-exploit", address(usdManager), cfg));
+        tangle.setBlueprintSettlementAsset(bp, address(usd));
+        vm.stopPrank();
+        _registerForBlueprint(operator1, bp);
+        _registerForBlueprint(operator2, bp);
+
+        address[] memory ops = new address[](2);
+        ops[0] = operator1;
+        ops[1] = operator2;
+        address[] memory callers = new address[](0);
+
+        // ATTACK: request the service passing native `address(0)` — the exact input that PRE-FIX
+        // pinned a native-settling service and enabled the 10^12x under-payment. The request
+        // succeeds (native is the mandatory request asset), but crucially the service pins the
+        // BLUEPRINT's pUSD asset, NOT native. The customer's native input does NOT choose the
+        // settlement asset.
+        vm.prank(user1);
+        uint64 requestId =
+            tangle.requestService(bp, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
+        vm.prank(operator1);
+        tangle.approveService(_approve(requestId));
+        vm.prank(operator2);
+        tangle.approveService(_approve(requestId));
+        uint64 svc = tangle.serviceCount() - 1;
+
+        assertEq(
+            tangle.getServicePaymentAsset(svc),
+            address(usd),
+            "native request STILL settles in the blueprint's pUSD - the exploit's native pin is gone"
+        );
+
+        // The customer cannot pay the pUSD-priced job with native value: the ERC20 path requires
+        // msgValue == 0. Native cannot be substituted to under-pay.
+        vm.startPrank(user1);
+        usd.approve(address(tangle), usdRate);
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidMsgValue.selector, 0, usdRate));
+        tangle.submitJob{ value: usdRate }(svc, 0, "");
+        vm.stopPrank();
+
+        // The only reachable path collects exactly 5e6 pUSD UNITS (5.00 pUSD), never 5e6 wei of
+        // native. If the exploit were live, `payment` would be 5e6 wei of a NATIVE-settling
+        // service (5e-12 TNT); here it is 5.00 pUSD and no native is accepted.
+        uint256 nativeBalBefore = address(tangle).balance;
+        uint256 usdBefore = usd.balanceOf(user1);
+        vm.startPrank(user1);
+        usd.approve(address(tangle), usdRate);
+        uint64 callId = tangle.submitJob(svc, 0, "");
+        vm.stopPrank();
+
+        assertEq(tangle.getJobCall(svc, callId).payment, usdRate, "payment is 5e6 pUSD units (5.00 pUSD)");
+        assertEq(usdBefore - usd.balanceOf(user1), usdRate, "exactly 5.00 pUSD pulled from customer");
+        assertEq(address(tangle).balance, nativeBalBefore, "no native was accepted for this job");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -186,7 +376,7 @@ contract EventDrivenErc20SettlementTest is BaseTest {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // NATIVE BACK-COMPAT
+    // NATIVE BACK-COMPAT (d): blueprint asset unset == pre-change behavior
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_Native_SubmitJob_UnchangedBehavior() public {
@@ -218,21 +408,13 @@ contract EventDrivenErc20SettlementTest is BaseTest {
 
     function test_Native_RequestService_NoManagerGateForNative() public {
         // A native EventDriven REQUEST must not require the manager to allow `address(0)` at
-        // request time: build a blueprint whose manager allow-lists NOTHING and confirm the
-        // native request still activates. (This is the request-time behavior my change
-        // preserves — the job-time native gate is a separate, pre-existing check.)
+        // request time: build a blueprint whose manager allow-lists NOTHING (and whose
+        // settlement asset is left at the native default) and confirm the native request still
+        // activates. The job-time native gate is a separate, pre-existing check.
         AllowAssetManager strictManager = new AllowAssetManager();
-        // Deliberately allow nothing at request time.
+        // Deliberately allow nothing at request time; leave blueprint asset unset (native).
 
-        Types.BlueprintConfig memory cfg = Types.BlueprintConfig({
-            membership: Types.MembershipModel.Fixed,
-            pricing: Types.PricingModel.EventDriven,
-            minOperators: 1,
-            maxOperators: 10,
-            subscriptionRate: 0,
-            subscriptionInterval: 0,
-            eventRate: RATE
-        });
+        Types.BlueprintConfig memory cfg = _edConfig(RATE);
         vm.prank(developer);
         uint64 bp = tangle.createBlueprint(
             _blueprintDefinitionWithConfig("ipfs://ed-native-strict", address(strictManager), cfg)
@@ -242,7 +424,7 @@ contract EventDrivenErc20SettlementTest is BaseTest {
 
         // The request activates without the manager allow-listing native — no request-time
         // TokenNotAllowed revert — and the service's settlement asset is native.
-        uint64 svc = _activateEventDrivenService(bp, address(0));
+        uint64 svc = _activateEventDrivenService(bp);
         assertEq(tangle.getServicePaymentAsset(svc), address(0));
 
         // Now allow native so the (pre-existing) job-time gate passes, and confirm a native
@@ -254,34 +436,94 @@ contract EventDrivenErc20SettlementTest is BaseTest {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // FAIL-CLOSED
+    // PIN-AT-ACTIVATION (e): changing the blueprint asset does not re-price live services
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function test_FailClosed_RequestDisallowedErc20Reverts() public {
-        // A second, un-allowlisted token.
-        MockERC20 badToken = new MockERC20();
-        badToken.mint(user1, 1000 ether);
+    function test_PinAtActivation_BlueprintAssetChangeDoesNotRepriceLiveService() public {
+        // erc20Service pinned settleToken at activation.
+        assertEq(tangle.getServicePaymentAsset(erc20Service), address(settleToken));
 
-        address[] memory ops = new address[](1);
-        ops[0] = operator1;
-        address[] memory callers = new address[](0);
+        // Developer switches the blueprint to a DIFFERENT (also-allowed) token AFTER the
+        // service went live.
+        MockERC20 newToken = new MockERC20();
+        manager.setAllowed(address(newToken), true);
+        vm.prank(developer);
+        tangle.setBlueprintSettlementAsset(erc20Blueprint, address(newToken));
+        assertEq(tangle.getBlueprintSettlementAsset(erc20Blueprint), address(newToken), "blueprint asset updated");
 
-        vm.prank(user1);
-        vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotAllowed.selector, address(badToken)));
-        tangle.requestService(
-            erc20Blueprint, ops, "", callers, 0, address(badToken), 0, Types.ConfidentialityPolicy.Any
+        // The LIVE service keeps its originally pinned asset — it is NOT re-priced.
+        assertEq(
+            tangle.getServicePaymentAsset(erc20Service),
+            address(settleToken),
+            "live service keeps its activation-pinned asset"
         );
+
+        // A newly activated service picks up the NEW blueprint asset.
+        newToken.mint(user1, 1_000_000 ether);
+        uint64 svc2 = _activateEventDrivenService(erc20Blueprint);
+        assertEq(tangle.getServicePaymentAsset(svc2), address(newToken), "new service pins the new asset");
+
+        // And the old service still bills in its old token.
+        vm.startPrank(user1);
+        settleToken.approve(address(tangle), RATE);
+        uint64 callId = tangle.submitJob(erc20Service, 0, "");
+        vm.stopPrank();
+        assertEq(tangle.getJobCall(erc20Service, callId).payment, RATE);
     }
 
-    function test_FailClosed_NativeValueOnErc20ServiceReverts() public {
-        // ERC20-settlement service: sending native value must revert in collectPayment
-        // (ERC20 path requires msgValue == 0).
+    // ═══════════════════════════════════════════════════════════════════════════
+    // QUOTE-PATH ACTIVATION also pins the BLUEPRINT asset (second activation path)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice The RFQ `createServiceFromQuotes` path is a SECOND way to stand up an EventDriven
+    ///         service. It must pin the same blueprint-declared settlement asset as the
+    ///         request/approve path — otherwise a quote-created service of an ERC20 blueprint
+    ///         would be left at the native `address(0)` default and re-open the exact 10^12x
+    ///         under-payment (a 6-dec rate settling in native) through a different entry point.
+    function test_QuotePath_EventDrivenService_PinsBlueprintErc20Asset() public {
+        Types.SignedQuote[] memory quotes = _createZeroCostQuote(erc20Blueprint, 120);
+
+        vm.prank(user1);
+        uint64 svc = tangle.createServiceFromQuotes(erc20Blueprint, quotes, "", new address[](0), 120);
+
+        // The quote-created service settles in the blueprint's ERC20, not native.
+        assertEq(
+            tangle.getServicePaymentAsset(svc),
+            address(settleToken),
+            "quote-created EventDriven service must pin the blueprint's ERC20 asset"
+        );
+
+        // And a job on it settles in the ERC20 (native value rejected).
         vm.startPrank(user1);
         settleToken.approve(address(tangle), RATE);
         vm.expectRevert(abi.encodeWithSelector(Errors.InvalidMsgValue.selector, 0, RATE));
-        tangle.submitJob{ value: RATE }(erc20Service, 0, "");
+        tangle.submitJob{ value: RATE }(svc, 0, "");
         vm.stopPrank();
+
+        vm.startPrank(user1);
+        settleToken.approve(address(tangle), RATE);
+        uint64 callId = tangle.submitJob(svc, 0, "");
+        vm.stopPrank();
+        assertEq(tangle.getJobCall(svc, callId).payment, RATE, "quote-path job settles in the ERC20 at RATE");
     }
+
+    /// @notice Native quote-created service leaves the asset at the native default (back-compat).
+    function test_QuotePath_NativeBlueprint_LeavesNativeDefault() public {
+        Types.SignedQuote[] memory quotes = _createZeroCostQuote(nativeBlueprint, 120);
+
+        vm.prank(user1);
+        uint64 svc = tangle.createServiceFromQuotes(nativeBlueprint, quotes, "", new address[](0), 120);
+
+        assertEq(tangle.getServicePaymentAsset(svc), address(0), "native quote service stays native");
+
+        vm.prank(user1);
+        uint64 callId = tangle.submitJob{ value: RATE }(svc, 0, "");
+        assertEq(tangle.getJobCall(svc, callId).payment, RATE);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FAIL-CLOSED
+    // ═══════════════════════════════════════════════════════════════════════════
 
     function test_FailClosed_MissingApprovalOnErc20ServiceReverts() public {
         // No approval -> transferFrom reverts inside collectPayment.
@@ -300,7 +542,7 @@ contract EventDrivenErc20SettlementTest is BaseTest {
 
     function test_FailClosed_ManagerDelistsErc20AfterActivation() public {
         // Manager de-lists the settlement token AFTER activation: per-job collection must
-        // fail closed at submit time even though the token was allowed at request time.
+        // fail closed at submit time even though the token was allowed at blueprint-set time.
         manager.setAllowed(address(settleToken), false);
 
         vm.startPrank(user1);
@@ -366,21 +608,15 @@ contract EventDrivenErc20SettlementTest is BaseTest {
 
         // Rate is 5.00 pUSD expressed in the token's 6-decimal smallest unit.
         uint256 usdRate = 5e6;
-        Types.BlueprintConfig memory cfg = Types.BlueprintConfig({
-            membership: Types.MembershipModel.Fixed,
-            pricing: Types.PricingModel.EventDriven,
-            minOperators: 1,
-            maxOperators: 10,
-            subscriptionRate: 0,
-            subscriptionInterval: 0,
-            eventRate: usdRate
-        });
-        vm.prank(developer);
+        Types.BlueprintConfig memory cfg = _edConfig(usdRate);
+        vm.startPrank(developer);
         uint64 bp = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://ed-usd", address(usdManager), cfg));
+        tangle.setBlueprintSettlementAsset(bp, address(usd));
+        vm.stopPrank();
         _registerForBlueprint(operator1, bp);
         _registerForBlueprint(operator2, bp);
 
-        uint64 svc = _activateEventDrivenService(bp, address(usd));
+        uint64 svc = _activateEventDrivenService(bp);
         assertEq(tangle.getServicePaymentAsset(svc), address(usd));
 
         uint256 userBefore = usd.balanceOf(user1);
@@ -445,8 +681,22 @@ contract EventDrivenErc20SettlementTest is BaseTest {
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Request + fully approve a 2-operator EventDriven service settling in `asset`.
-    function _activateEventDrivenService(uint64 blueprintId, address asset) internal returns (uint64 serviceId) {
+    function _edConfig(uint256 eventRate) internal pure returns (Types.BlueprintConfig memory) {
+        return Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.EventDriven,
+            minOperators: 1,
+            maxOperators: 10,
+            subscriptionRate: 0,
+            subscriptionInterval: 0,
+            eventRate: eventRate
+        });
+    }
+
+    /// @notice Request + fully approve a 2-operator EventDriven service. The settlement asset is
+    ///         sourced from the BLUEPRINT (set by the developer), so the customer's request is
+    ///         always native `address(0)` — the customer never chooses the asset.
+    function _activateEventDrivenService(uint64 blueprintId) internal returns (uint64 serviceId) {
         address[] memory ops = new address[](2);
         ops[0] = operator1;
         ops[1] = operator2;
@@ -454,7 +704,7 @@ contract EventDrivenErc20SettlementTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId =
-            tangle.requestService(blueprintId, ops, "", callers, 0, asset, 0, Types.ConfidentialityPolicy.Any);
+            tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         vm.prank(operator1);
         tangle.approveService(_approve(requestId));
@@ -462,6 +712,58 @@ contract EventDrivenErc20SettlementTest is BaseTest {
         tangle.approveService(_approve(requestId));
 
         serviceId = tangle.serviceCount() - 1;
+    }
+
+    /// @notice A single zero-cost operator quote signed by operator1 for the given blueprint,
+    ///         suitable for `createServiceFromQuotes` on an EventDriven blueprint (which requires
+    ///         `totalCost == 0`). Empty security/resource commitment arrays.
+    function _createZeroCostQuote(uint64 blueprintId, uint64 ttl) internal view returns (Types.SignedQuote[] memory) {
+        Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: user1,
+            blueprintId: blueprintId,
+            ttlBlocks: ttl,
+            totalCost: 0,
+            timestamp: uint64(block.timestamp),
+            expiry: uint64(block.timestamp + 1 hours),
+            confidentiality: Types.ConfidentialityPolicy.Any,
+            operation: Types.QuoteOperation.Create,
+            serviceId: 0,
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
+        });
+
+        bytes32 emptyArrayHash = keccak256("");
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(bytes("TangleQuote")),
+                keccak256(bytes("1")),
+                block.chainid,
+                address(tangle)
+            )
+        );
+        bytes32 structHash = keccak256(
+            abi.encode(
+                QUOTE_TYPEHASH,
+                details.requester,
+                details.blueprintId,
+                details.ttlBlocks,
+                details.totalCost,
+                details.timestamp,
+                details.expiry,
+                details.confidentiality,
+                details.operation,
+                details.serviceId,
+                emptyArrayHash, // hash of the empty securityCommitments array
+                emptyArrayHash // hash of the empty resourceCommitments array
+            )
+        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(OPERATOR1_PK, digest);
+
+        Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
+        quotes[0] = Types.SignedQuote({ details: details, signature: abi.encodePacked(r, s, v), operator: operator1 });
+        return quotes;
     }
 
     function _createJobQuote(

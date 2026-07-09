@@ -123,6 +123,24 @@ interface ITangleBlueprints {
     ///      `setJobEventRates` and `getServicePaymentAsset`.
     function getJobEventRate(uint64 blueprintId, uint8 jobIndex) external view returns (uint256 rate);
 
+    /// @notice Emitted when a blueprint owner sets the blueprint's EventDriven settlement asset.
+    event BlueprintSettlementAssetSet(uint64 indexed blueprintId, address indexed asset);
+
+    /// @notice Set the settlement asset every EventDriven service of this blueprint bills in
+    ///         (blueprint owner only).
+    /// @dev The SAME party that sets the per-job rate (`setJobEventRates`) declares the settlement
+    ///      asset here, so the rate's units match the asset's decimals. Each service pins this at
+    ///      activation (`getServicePaymentAsset`); the customer cannot choose the asset (an
+    ///      EventDriven request must pass native `address(0)`). `address(0)` = native. A NON-native
+    ///      asset is validated against the manager allow-list (fail-closed). Changing the asset does
+    ///      not re-price already-live services.
+    function setBlueprintSettlementAsset(uint64 blueprintId, address asset) external;
+
+    /// @notice Get the settlement asset the blueprint's EventDriven services bill in.
+    /// @dev `address(0)` = native (also the default). The per-job rate (`getJobEventRate`) is in
+    ///      this asset's smallest unit.
+    function getBlueprintSettlementAsset(uint64 blueprintId) external view returns (address);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // RESOURCE REQUIREMENTS
     // ═══════════════════════════════════════════════════════════════════════════

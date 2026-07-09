@@ -382,15 +382,15 @@ contract PaymentsTest is BaseTest {
         vm.stopPrank();
     }
 
-    /// @notice Fail-closed: an EventDriven request naming a manager-DISALLOWED ERC20
-    ///         settlement token (with zero upfront amount) must revert `TokenNotAllowed`
-    ///         at request time, before any state is written. Since PR the
-    ///         "EventDriven is native-only" constraint was relaxed to allow a chosen ERC20
-    ///         settlement token, the guard that must hold is the manager allow-list, not a
-    ///         blanket native-only revert.
+    /// @notice Fail-closed: an EventDriven request naming ANY non-native ERC20 settlement token
+    ///         (with zero upfront amount) must revert `TokenNotAllowed` at request time, before
+    ///         any state is written. The customer does NOT choose the settlement asset — it is
+    ///         declared on the blueprint by the developer (`setBlueprintSettlementAsset`) and
+    ///         pinned at activation — so an EventDriven request must be native `address(0)`. This
+    ///         holds regardless of whether the manager would have allow-listed the token.
     function test_EventDriven_RequestService_RevertDisallowedErc20SettlementToken() public {
         MockPaymentAssetManager manager = new MockPaymentAssetManager();
-        // Explicitly DISALLOW the token (default mapping value is false anyway).
+        // The token is not native, so the request fails closed no matter what the manager allows.
         manager.setAssetAllowed(address(token), false);
 
         Types.BlueprintConfig memory config = Types.BlueprintConfig({

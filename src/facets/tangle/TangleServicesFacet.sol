@@ -182,14 +182,21 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         if (pricing == Types.PricingModel.EventDriven) {
             // EventDriven services are funded per-job, not by an upfront lump sum
             // (`paymentAmount` is rejected at request-time by
-            // `_validatePricingPaymentConsistency`). Pin the settlement asset the customer
-            // selected at request time — native `address(0)` OR a manager-allowed ERC20 —
-            // so every per-job bill collects and distributes in that currency. The token
-            // was already allow-list-validated at request time in
-            // `ServicesRequests._validateRequestPaymentAsset` (fail-closed for non-native).
-            // `address(0)` is both the native sentinel and the zero-default, so this write
-            // is a no-op for native services but keeps the mapping explicit and auditable.
-            _serviceEventDrivenAsset[serviceId] = paymentToken;
+            // `_validatePricingPaymentConsistency`, which also forces the request's
+            // `paymentToken` to native `address(0)` so the customer cannot choose the asset).
+            // Pin the settlement asset from the BLUEPRINT the DEVELOPER declared
+            // (`_blueprintSettlementAsset[blueprintId]`) — native `address(0)` OR a
+            // manager-allowed ERC20 — NOT from the customer's request. Sourcing the asset and
+            // the per-job rate (`setJobEventRates`) from the SAME party keeps their units
+            // aligned and makes the 10^12x under-payment exploit — a 6-dec rate driven to
+            // settle in native — structurally impossible. The blueprint asset was allow-list
+            // validated by `setBlueprintSettlementAsset`, and the per-job collection path
+            // re-checks the allow-list at settle time (fail-closed on a later manager de-list).
+            // Pinning per-service means a later `setBlueprintSettlementAsset` cannot re-price
+            // this already-live service. `address(0)` is both the native sentinel and the
+            // zero-default, so this write is a no-op for native blueprints but keeps the
+            // mapping explicit and auditable.
+            _serviceEventDrivenAsset[serviceId] = _blueprintSettlementAsset[blueprintId];
             return;
         }
 

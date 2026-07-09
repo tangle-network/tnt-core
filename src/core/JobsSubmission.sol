@@ -171,9 +171,12 @@ abstract contract JobsSubmission is Base {
         if (svc.pricing == Types.PricingModel.EventDriven) {
             uint256 perJob = _jobEventRates[svc.blueprintId][jobIndex];
             // The per-job rate is denominated in the SETTLEMENT ASSET's smallest unit
-            // (`_serviceEventDrivenAsset[serviceId]`; `address(0)` = native). A service that
-            // settles in a 6-decimal token (e.g. Tempo PathUSD) therefore carries a rate in
-            // 6-dec units, not 18. See `getServicePaymentAsset` / `setJobEventRates`.
+            // (`_serviceEventDrivenAsset[serviceId]`; `address(0)` = native). That asset is the
+            // one the blueprint DEVELOPER declared (`setBlueprintSettlementAsset`) and the
+            // service pinned at activation — the same party that set this rate — so a service
+            // settling in a 6-decimal token (e.g. Tempo PathUSD) carries a rate in 6-dec units,
+            // and there is no way for the rate's decimals and the asset's decimals to diverge.
+            // See `getServicePaymentAsset` / `setJobEventRates` / `setBlueprintSettlementAsset`.
             payment = perJob > 0 ? perJob : _blueprintConfigs[svc.blueprintId].eventRate;
             address asset = _serviceEventDrivenAsset[serviceId];
             address manager = _blueprints[svc.blueprintId].manager;

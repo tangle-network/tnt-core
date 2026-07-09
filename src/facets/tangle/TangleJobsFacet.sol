@@ -23,7 +23,7 @@ contract TangleJobsFacet is JobsSubmission, IFacetSelectors {
     /// @notice Distribute job payment (called from Jobs mixin)
     /// @dev Payment is distributed based on effective exposure (delegation × exposureBps),
     ///      in the service's pinned EventDriven settlement asset (native `address(0)` OR the
-    ///      ERC20 the customer selected at request time). This is the same token the per-job
+    ///      ERC20 the blueprint developer declared). This is the same token the per-job
     ///      `collectPayment` in `JobsSubmission._collectJobPaymentIfNeeded` pulled in, so what
     ///      the customer paid and what operators/dev/treasury receive are always one currency.
     function _distributeJobPayment(uint64 serviceId, uint256 payment) internal override {
