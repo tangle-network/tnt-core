@@ -40,7 +40,7 @@
 \maketitle
 
 \begin{abstract}
-Tangle Cloud provides decentralized compute infrastructure for AI workloads. This document describes the product vision, technical infrastructure, and development roadmap. The first products are the sandbox runtime and the agentic workbench. They show how operator-run infrastructure can support AI workloads while adding accountability and better value distribution. We cover isolation, deployment models, pricing, and the path toward a decentralized compute market.
+Tangle Cloud is infrastructure for AI systems that improve themselves. Two products ship today: a sandbox runtime that gives any agent a real, isolated computer (shell, files, browser, any coding harness), and an agentic workbench that turns natural language into running, deployed software. Every run is traced, and those traces are mined to make the next run better. The same open-source tooling runs two ways: on Tangle Cloud's managed infrastructure today, and on a network of independent operators as it comes online, so you get the ease of a managed product with no lock-in to it. This document describes the products, the infrastructure beneath them, the operator economics that let independent providers compete to run them, and the roadmap from managed service to decentralized compute market.
 
 \textit{This document complements the Tangle Protocol Specification (core mechanisms and security model) and the Blueprint SDK Developer Guide (implementation details). Together they describe the protocol, SDK, and product layer.}
 \end{abstract}
@@ -52,11 +52,11 @@ Tangle Cloud provides decentralized compute infrastructure for AI workloads. Thi
 \section{Vision: Decentralized AI Infrastructure}
 %==============================================================================
 
-Increasingly capable AI systems need infrastructure that can scale without losing accountability. Current options concentrate control and value in a small provider set.
+AI systems are starting to do real economic work: writing and shipping code, running long workflows, and making decisions with money attached. That work needs somewhere to run: a real computer per agent, isolation you can trust, and a record of what happened so the next run is better.
 
-Centralized cloud providers work well, but they set prices unilaterally, define terms of service, choose which customers to serve, and capture most of the economics their products create. For AI infrastructure that may control significant economic activity, that concentration is a real risk.
+Tangle Cloud provides that infrastructure. Two products ship today. A sandbox runtime gives each agent an isolated computer. An agentic workbench turns natural language into deployed software. Every run they produce is traced and mined for improvement. This is infrastructure for AI that gets better the more it runs.
 
-Tangle Cloud offers an alternative. Independent operators compete to provide compute. Prices emerge from markets rather than corporate decisions. Economic value flows to the operators, developers, delegators, and keepers doing the work. No single entity can deny service or change terms unilaterally.
+The infrastructure is built to decentralize. Centralized clouds work, but they set prices unilaterally, define terms of service, choose which customers to serve, and capture most of the economics their products create. For infrastructure that may run significant economic activity, that concentration is a real risk. Tangle Cloud runs the same open-source tooling two ways: on managed infrastructure today, and on a network of independent operators as it comes online. Prices emerge from a market rather than a corporate decision. Value flows to the operators, developers, delegators, and keepers doing the work. And because the stack is open, you are never locked into any one provider, including us.
 
 \subsection{The Product-Protocol Connection}
 
