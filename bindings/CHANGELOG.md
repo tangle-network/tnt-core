@@ -7,7 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
+## [0.19.1] - 2026-07-24
+
+Corrective republish of the 0.19 bindings against the **deployed** contract.
+crates.io `0.19.0` was published 2026-07-07, two days before #209 merged, so it
+shipped an intermediate 0.19 ABI that was never deployed. Consumers pinning
+`0.19.0` (including blueprint-sdk) built against contract selectors that do not
+match the live 0.19 deployment; this release corrects that.
+
+### ABI — regenerated against the final 0.19 contract (missing from `0.19.0`)
+
+- **EventDriven per-job billing in the service's settlement asset** (#209): a
+  job settles in a developer-declared per-blueprint asset (native OR ERC20),
+  pinned to the service at activation. New/changed selectors on the
+  settlement-asset payment path (`i_tangle*.rs` regenerated; ~900 lines changed
+  vs `0.19.0`). Required for chains that ban native value transfers (e.g. Tempo).
+
+### Changed (tooling)
 
 - **MSRV raised to Rust 1.91** (`rust-version`, was `1.81`). The Dependabot
   security sweep (#198) bumped `alloy` 1.1.2 → 1.8.3 — required to pull the
