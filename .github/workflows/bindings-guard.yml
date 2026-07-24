@@ -1,0 +1,72 @@
+# Bindings publish guard.
+#
+# The failure this exists to prevent (it happened, and it silently broke
+# operators): `bindings/` was regenerated when the contracts changed, but
+# `bindings/Cargo.toml`'s version stayed the same. crates.io already had that
+# version, so the published crate kept an ABI that no longer matched the
+# deployed contract — `tnt-core-bindings 0.19.0` was published 2026-07-07 and
+# #209 changed the ABI on 2026-07-09 under the same version number, leaving the
+# published crate ~900 lines out of date. Consumers (blueprint-sdk, and every
+# operator built from it) linked selectors that do not exist on-chain, and
+# nothing failed loudly — the live operator only worked because it consumed
+# bindings through a git patch that masked the staleness.
+#
+# A published crate version is IMMUTABLE, so any ABI change must ship under a
+# new version. This gate makes that mechanical: touch the generated bindings,
+# bump the version in the same PR.
+name: Bindings Guard
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: bindings-guard-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  version-bump-required:
+    name: ABI change requires a bindings version bump
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need the merge base to diff the PR against its target.
+          fetch-depth: 0
+
+      - name: Require a version bump when generated bindings change
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+
+          changed() { git diff --name-only "$BASE_SHA"...HEAD -- "$@"; }
+
+          abi_changed="$(changed 'bindings/abi/**' 'bindings/src/bindings/**')"
+          if [ -z "$abi_changed" ]; then
+            echo "No generated-bindings changes in this PR — guard not applicable."
+            exit 0
+          fi
+
+          echo "Generated bindings changed in this PR:"
+          echo "$abi_changed" | sed 's/^/  /'
+
+          # The published identity is bindings/Cargo.toml's `version`. Compare the
+          # literal on both sides rather than just "did the file change", so an
+          # unrelated edit (a dependency line, metadata) cannot satisfy the gate.
+          base_version="$(git show "$BASE_SHA:bindings/Cargo.toml" | sed -n 's/^version = "\(.*\)"/\1/p' | head -1)"
+          head_version="$(sed -n 's/^version = "\(.*\)"/\1/p' bindings/Cargo.toml | head -1)"
+          echo "bindings version: base=${base_version:-<none>} head=${head_version:-<none>}"
+
+          if [ -z "$head_version" ]; then
+            echo "::error file=bindings/Cargo.toml::Could not read a version from bindings/Cargo.toml"
+            exit 1
+          fi
+
+          if [ "$base_version" = "$head_version" ]; then
+            echo "::error file=bindings/Cargo.toml::This PR changes the generated bindings (ABI/selectors) but leaves tnt-core-bindings at ${head_version}. A published crate version is immutable, so republishing is impossible — consumers would keep the OLD ABI while the contracts moved, exactly the drift that shipped a stale 0.19.0. Bump the version in bindings/Cargo.toml (and note the ABI change in bindings/CHANGELOG.md)."
+            exit 1
+          fi
+
+          echo "OK: bindings version moved ${base_version} -> ${head_version} alongside the ABI change."
