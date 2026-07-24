@@ -2,7 +2,7 @@
 name = "tnt-core-bindings"
 version = "0.19.0"
 edition = "2021"
-rust-version = "1.81"
+rust-version = "1.91"
 description = "Rust bindings for TNT Core Solidity contracts (Tangle staking protocol)"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/tangle-network/tnt-core"
