@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **MSRV raised to Rust 1.91** (`rust-version`, was `1.81`). The Dependabot
+  security sweep (#198) bumped `alloy` 1.1.2 → 1.8.3 — required to pull the
+  `lru` 0.16 fix (RUSTSEC) via `alloy-provider`, which moves its `lru` pin
+  `^0.13` → `^0.16` — and `alloy` 1.8.3 declares `rustc >= 1.91`. The declared
+  MSRV now matches what the locked dependency graph actually requires; the
+  previous `1.81` no longer built. CI builds on `stable`, which satisfies it.
+
+### Build environment (consequences of the `alloy` 1.8.3 bump — noted, accepted)
+
+- **cmake + a C toolchain are now build-time requirements.** `alloy` 1.8.3
+  pulls `reqwest` 0.13 → `rustls` 0.23.41, whose default crypto provider is
+  `aws-lc-rs` (`aws-lc-sys` compiles a C/C++ crypto library via `cmake`).
+  Minimal build images must install `cmake` and a C compiler.
+- **TLS trust root moved to the OS-native store.** `reqwest` 0.13 replaced the
+  bundled `webpki-roots` Mozilla store with `rustls-platform-verifier`, so RPC
+  over HTTPS now trusts the host OS certificate store (Keychain / `/etc/ssl` /
+  Windows cert store) rather than a pinned root set.
+
 ## [0.18.0] - 2026-07-02
 
 Event-sourced blueprint definitions and operator endpoints: `createBlueprint`

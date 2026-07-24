@@ -2,7 +2,7 @@
 name = "tnt-core-fixtures"
 version = "0.17.1"
 edition = "2021"
-rust-version = "1.81"
+rust-version = "1.91"
 description = "Local testnet fixture data for TNT Core"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/tangle-network/tnt-core"
