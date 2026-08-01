@@ -100,6 +100,10 @@ sepolia = "${SEPOLIA_RPC}"
 holesky = "${HOLESKY_RPC}"
 base = "${BASE_RPC}"
 base-sepolia = "${BASE_SEPOLIA_RPC}"
+# Arc Testnet (Circle) — chainId 5042002, USDC-gas, per-tx cap 16,777,216 gas.
+arc_testnet = "${ARC_TESTNET_RPC:-https://rpc.testnet.arc.io}"
+# Robinhood Chain Sepolia — chainId 46630, Arbitrum Nitro Rollup (ArbOS 61).
+robinhood_testnet = "${ROBINHOOD_TESTNET_RPC:-https://rpc.testnet.chain.robinhood.com}"
 tangle_local = "${TANGLE_LOCAL_RPC}"
 tangle_testnet = "${TANGLE_TESTNET_RPC}"
 tangle_mainnet = "${TANGLE_MAINNET_RPC}"
@@ -113,6 +117,9 @@ base = { key = "${BASE_KEY}" }
 base-sepolia = { key = "${BASE_SEPOLIA_KEY}" }
 tangle_testnet = { key = "${TANGLE_TESTNET_KEY}", url = "https://testnet-explorer.tangle.tools" }
 tangle_mainnet = { key = "${TANGLE_MAINNET_KEY}", url = "https://explorer.tangle.tools" }
+# Both are Blockscout, which accepts an empty API key.
+arc_testnet = { key = "", chain = 5042002, url = "https://testnet.arcscan.app/api/" }
+robinhood_testnet = { key = "", chain = 46630, url = "https://explorer.testnet.chain.robinhood.com/api" }
 
 [dependencies]
 forge-std = "1.9.4"

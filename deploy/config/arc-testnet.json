@@ -1,0 +1,98 @@
+{
+  "network": "arc-testnet",
+  "_chainId": 5042002,
+  "_note": "Arc Testnet (Circle), chainId 5042002. Verified live: eth_chainId=0x4cef52, reth v1.11.3, Malachite BFT, ~510ms blocks. Explorer https://testnet.arcscan.app, faucet https://faucet.circle.com (20 USDC per address / 2h, no account). UNLIKE Tempo, Arc PERMITS native value transfers, so EventDriven jobs may settle natively; the per-blueprint ERC20 settlement asset from #209 remains available. HAZARD: USDC is the native gas token AND is exposed as an ERC-20 at 0x3600000000000000000000000000000000000000 backed by the SAME balance (18-dec native view, 6-dec ERC-20 view). address(this).balance and USDC.balanceOf(address(this)) are therefore the same money -- do NOT register that ERC-20 as a stake asset here, and never sum the two views. CONSTRAINT: per-tx gas cap 16,777,216 (2^24), ~44% tighter than Tempo's 30M -- simulate FullDeploy without --broadcast and split any tx over ~16.0M before deploying. src/beacon/* is inoperable (EIP-4788 beacon-roots contract omitted); PREVRANDAO is always 0.",
+  "roles": {
+    "admin": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "treasury": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "timelock": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "multisig": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "revokeBootstrap": true
+  },
+  "core": {
+    "deploy": true,
+    "tangle": "0x0000000000000000000000000000000000000000",
+    "staking": "0x0000000000000000000000000000000000000000",
+    "statusRegistry": "0x0000000000000000000000000000000000000000",
+    "minOperatorStake": 1000000000000000000,
+    "minDelegation": 100000000000000000,
+    "operatorCommissionBps": 1000,
+    "maxBlueprintsPerOperator": 0,
+    "managerHookGasLimit": 2000000
+  },
+  "stakeAssets": [
+    {
+      "symbol": "TNT",
+      "token": "0x0000000000000000000000000000000000000001",
+      "adapter": "0x0000000000000000000000000000000000000000",
+      "minOperatorStake": 1000000000000000000,
+      "minDelegation": 100000000000000000,
+      "depositCap": 250000000000000000000000,
+      "rewardMultiplierBps": 10000
+    }
+  ],
+  "incentives": {
+    "deployMetrics": true,
+    "metrics": "0x0000000000000000000000000000000000000000",
+    "deployRewardVaults": true,
+    "rewardVaults": "0x0000000000000000000000000000000000000000",
+    "deployInflationPool": true,
+    "inflationPool": "0x0000000000000000000000000000000000000000",
+    "tntToken": "0x0000000000000000000000000000000000000000",
+    "vaultOperatorCommissionBps": 1500,
+    "epochLength": 604800,
+    "weights": {
+      "stakingBps": 5500,
+      "operatorsBps": 2500,
+      "customersBps": 1000,
+      "developersBps": 1000,
+      "stakersBps": 0
+    },
+    "vaults": [
+      {
+        "asset": "0x0000000000000000000000000000000000000001",
+        "depositCap": 250000000000000000000000,
+        "active": true
+      }
+    ]
+  },
+  "guards": {
+    "pauseStaking": false,
+    "pauseTangle": false,
+    "requireAdapters": false,
+    "delegatorDelay": 0,
+    "operatorDelay": 0,
+    "bondLessDelay": 0,
+    "maxBlueprintsPerOperator": 0
+  },
+  "manifest": {
+    "path": "deployments/arc-testnet/latest.json",
+    "logSummary": true
+  },
+  "migration": {
+    "deploy": true,
+    "emitArtifacts": true,
+    "useMockVerifier": false,
+    "artifactsPath": "deployments/arc-testnet/migration.json",
+    "merklePath": "packages/migration-claim/merkle-tree.json",
+    "evmClaimsPath": "packages/migration-claim/evm-claims.json",
+    "treasuryCarveoutPath": "packages/migration-claim/treasury-carveout.json",
+    "foundationCarveoutPath": "packages/migration-claim/foundation-carveout.json",
+    "migrationOwner": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "sp1VerifierGateway": "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B",
+    "programVKey": "0x000d74444f16d75f72527687a36c1bd4c49e6799816dac4989be3bc175e86fd7",
+    "merkleRoot": "0x54ec5497e0a2f43ec721c1ec5392cb224cf710b1210b579dcaefea002bb51adb",
+    "substrateAllocation": "51244581812207794935986305",
+    "evmAllocation": "1125776519168932451653760",
+    "treasuryAmount": "32588831841878446700145909",
+    "foundationAmount": "15040809826744825912214026",
+    "treasuryRecipient": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "foundationRecipient": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "notes": "arc testnet additive deployment"
+  },
+  "credits": {
+    "deploy": true,
+    "owner": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "credits": "0x0000000000000000000000000000000000000000"
+  }
+}
