@@ -8,7 +8,14 @@ BROADCAST_PATH="${BROADCAST_PATH:-$FIXTURES_DIR/localtestnet-broadcast.json}"
 ANVIL_PORT="${ANVIL_PORT:-9545}"
 ANVIL_URL="http://127.0.0.1:${ANVIL_PORT}"
 KEEP_LOGS="${KEEP_FIXTURE_LOGS:-0}"
-export FOUNDRY_CODE_SIZE_LIMIT="${FOUNDRY_CODE_SIZE_LIMIT:-100000}"
+# LocalTestnetSetup deploys the whole protocol from one script, so its INITCODE
+# (not runtime code) is what anvil must accept -- currently ~595 KB and growing
+# with every facet. forge also enforces 2x this value as the initcode ceiling.
+# The previous 100000 default started rejecting the script with
+# "create initcode size limit", breaking fixture regeneration entirely.
+# This is a local test fixture, not a deployable target, so the limit only needs
+# to be comfortably above the script's own size.
+export FOUNDRY_CODE_SIZE_LIMIT="${FOUNDRY_CODE_SIZE_LIMIT:-1000000}"
 
 mkdir -p "$FIXTURES_DIR"
 TMP_STATE="$(mktemp -t anvil-state.XXXXXX.json)"
