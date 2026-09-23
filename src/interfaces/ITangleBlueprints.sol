@@ -110,9 +110,17 @@ interface ITangleBlueprints {
     function blueprintMasterRevision(uint64 blueprintId) external view returns (uint32);
 
     /// @notice Set event rate overrides for one or more job types in a blueprint
+    /// @dev Rates are denominated in the SETTLEMENT ASSET's smallest unit, not a fixed
+    ///      18-decimal scale. Each EventDriven service pins its settlement asset at
+    ///      activation (`getServicePaymentAsset`); a blueprint whose services settle in a
+    ///      6-decimal token (e.g. Tempo PathUSD) must set rates in 6-dec units. The rate is
+    ///      per-blueprint but the decimals are per-service-asset, so a blueprint intended
+    ///      for a single settlement token should document that token's decimals.
     function setJobEventRates(uint64 blueprintId, uint8[] calldata jobIndexes, uint256[] calldata rates) external;
 
     /// @notice Get the effective event rate for a specific job type
+    /// @dev The returned rate is in the settlement asset's smallest unit — see
+    ///      `setJobEventRates` and `getServicePaymentAsset`.
     function getJobEventRate(uint64 blueprintId, uint8 jobIndex) external view returns (uint256 rate);
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -208,7 +208,7 @@ abstract contract ServicesRequests is Base {
         _validateServiceTtl(ttl);
 
         BlueprintRequestData memory blueprintData = _loadBlueprintRequestData(blueprintId);
-        _validatePricingPaymentConsistency(blueprintData.pricing, paymentToken, paymentAmount);
+        _validatePricingPaymentConsistency(blueprintData.pricing, paymentAmount);
 
         uint64 requestContextId = _serviceRequestCount;
         _validateRequestPaymentAsset(
@@ -249,28 +249,32 @@ abstract contract ServicesRequests is Base {
         if (manager == address(0)) {
             return;
         }
-        // Subscription requests must always validate the selected settlement token, even with zero initial deposit.
-        if (paymentAmount == 0 && pricing != Types.PricingModel.Subscription) return;
+        // Two zero-deposit cases still require settlement-token validation so a disallowed
+        // token can never be pinned onto a service that later bills in it:
+        //   - Subscription: the escrow is funded by later top-ups in the selected token.
+        //   - EventDriven with a NON-native token: per-job billing settles in that ERC20,
+        //     so the token must clear the manager allow-list at request time (fail-closed).
+        // Native (`address(0)`) EventDriven needs no gate — native is the universally
+        // billable default and matches the prior behavior — so we skip the allow-list query
+        // rather than forcing native through a manager that may not whitelist `address(0)`.
+        bool eventDrivenErc20 = pricing == Types.PricingModel.EventDriven && paymentToken != address(0);
+        if (paymentAmount == 0 && pricing != Types.PricingModel.Subscription && !eventDrivenErc20) return;
         if (!_isPaymentAssetAllowedByManager(manager, requestContextId, paymentToken)) {
             revert Errors.TokenNotAllowed(paymentToken);
         }
     }
 
-    function _validatePricingPaymentConsistency(
-        Types.PricingModel pricing,
-        address paymentToken,
-        uint256 paymentAmount
-    )
-        private
-        pure
-    {
-        // Event-driven services are funded by per-job `msg.value`, not by an upfront
-        // lump sum. Reject non-zero `paymentAmount` AT REQUEST TIME so the customer's
-        // funds aren't collected only to revert at activation — and so a tooling bug
-        // can't silently lock funds in the contract until expiry.
+    function _validatePricingPaymentConsistency(Types.PricingModel pricing, uint256 paymentAmount) private pure {
+        // Event-driven services are funded per-job (native `msg.value` OR a per-job ERC20
+        // transfer), not by an upfront lump sum. Reject non-zero `paymentAmount` AT REQUEST
+        // TIME so the customer's funds aren't collected only to revert at activation — and
+        // so a tooling bug can't silently lock funds in the contract until expiry. The
+        // settlement token itself (native `address(0)` OR an ERC20 such as Tempo PathUSD) is
+        // permitted and pinned as the service's per-job settlement asset at activation; a
+        // NON-native token is gated by the manager allow-list in `_validateRequestPaymentAsset`
+        // (fail-closed: a disallowed token reverts `TokenNotAllowed` at request time).
         if (pricing == Types.PricingModel.EventDriven) {
             if (paymentAmount != 0) revert Errors.UpfrontPaymentNotAllowedForEventDriven();
-            if (paymentToken != address(0)) revert Errors.InvalidPaymentToken();
         }
     }
 

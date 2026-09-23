@@ -255,6 +255,11 @@ abstract contract BlueprintsManage is Base {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Set event rate overrides for one or more job types in a blueprint
+    /// @dev Rates are denominated in the SETTLEMENT ASSET's smallest unit, NOT a fixed
+    ///      18-decimal scale. Each EventDriven service pins its settlement asset at
+    ///      activation (see `getServicePaymentAsset`); a service that settles in a 6-decimal
+    ///      token (e.g. Tempo PathUSD) will collect `rate` in 6-dec units. Set rates in the
+    ///      decimals of the token your blueprint's services settle in.
     /// @param blueprintId The blueprint ID
     /// @param jobIndexes Array of job indexes
     /// @param rates Array of per-job event rates (0 to clear override and use blueprint default)
