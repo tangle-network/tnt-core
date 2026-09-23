@@ -35,6 +35,36 @@ abstract contract FacetRouterBase {
         }
     }
 
+    /// @notice Re-point every selector each facet exposes to that facet, in one call.
+    /// @dev `clearFacetSelectors` followed by `registerFacet` is the only other way to move a
+    ///      selector that already routes somewhere, and across a broadcast those are two
+    ///      transactions: between them every entry point of the facet reverts `UnknownSelector`,
+    ///      and an interrupted broadcast leaves them dead. This call swaps all `facets` inside one
+    ///      transaction. Passed as the `data` of `upgradeToAndCall`, it also lands in the same
+    ///      transaction as the implementation swap, so a router upgrade that changes facets is
+    ///      atomic end to end. An unrouted selector is set; one already routed to the same facet
+    ///      is rewritten in place. A replaced selector emits `FacetSelectorCleared` before
+    ///      `FacetSelectorSet`, mirroring the two-step path for off-chain consumers.
+    function replaceFacets(address[] calldata facets) external {
+        _authorizeFacetRegistryChange();
+        for (uint256 i = 0; i < facets.length; i++) {
+            address facet = facets[i];
+            if (facet == address(0)) _revertZeroAddress();
+            if (facet.code.length == 0) _revertNotAContract(facet);
+            bytes4[] memory selectorList = IFacetSelectors(facet).selectors();
+            for (uint256 j = 0; j < selectorList.length; j++) {
+                bytes4 selector = selectorList[j];
+                address previous = _getFacetForSelector(selector);
+                if (previous != address(0) && previous != facet) {
+                    emit FacetSelectorCleared(selector);
+                }
+                _setFacetForSelector(selector, facet);
+                emit FacetSelectorSet(selector, facet);
+            }
+            emit FacetRegistered(facet);
+        }
+    }
+
     /// @notice Resolve the facet for a selector
     function facetForSelector(bytes4 selector) external view returns (address) {
         return _getFacetForSelector(selector);

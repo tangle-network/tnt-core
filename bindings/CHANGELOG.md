@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-09-22
+
+### ABI — `replaceFacets(address[])` on the facet routers (`MultiAssetDelegation`; `Tangle`)
+
+- New router-admin function, gated by `UPGRADER_ROLE` like the rest of the facet
+  registry: re-points every selector of each given facet in ONE call, and as the
+  `data` of `upgradeToAndCall` it lands in the same transaction as the
+  implementation swap. Replaces the two-transaction `clearFacetSelectors` +
+  `registerFacet` swap, which left every entry point of a facet reverting
+  `UnknownSelector` between the two and dead if the broadcast stopped between them.
+- Only `multi_asset_delegation.rs` / `MultiAssetDelegation.json` change; the
+  `ITangle*` interfaces do not expose the facet registry.
+- Not on any live deployment yet: the 0.19 routers gain it with their next UUPS
+  upgrade (`script/EventDrivenSettlementUpgrade.s.sol` is the reference path).
+
 ## [0.19.1] - 2026-07-24
 
 Corrective republish of the 0.19 bindings against the **deployed** contract.
@@ -885,7 +900,7 @@ ValidatorPodManager). Single coordinated bindings cut.
 - Raw ABI JSON exports via `abi` module
 - `TNT_CORE_VERSION` constant for commit tracking
 
-[Unreleased]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.17.1...HEAD
+[Unreleased]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.20.0...HEAD
 [0.11.1]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.11.0...bindings-v0.11.1
 [0.11.0]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.10.9...bindings-v0.11.0
 [0.1.0]: https://github.com/tangle-network/tnt-core/releases/tag/bindings-v0.1.0
@@ -927,3 +942,4 @@ ValidatorPodManager). Single coordinated bindings cut.
 [0.16.0]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.15.0...bindings-v0.16.0
 [0.17.0]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.16.0...bindings-v0.17.0
 [0.17.1]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.17.0...bindings-v0.17.1
+[0.20.0]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.19.1...bindings-v0.20.0
