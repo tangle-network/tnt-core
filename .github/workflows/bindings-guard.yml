@@ -27,7 +27,7 @@ concurrency:
 jobs:
   version-bump-required:
     name: ABI change requires a bindings version bump
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ci-public]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
