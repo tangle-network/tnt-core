@@ -105,6 +105,15 @@ contract MyBlueprint is BlueprintServiceManagerBase {
 | `LiquidDelegationVault.sol` | ERC-7540 vault for liquid staking |
 | `OperatorStatusRegistry.sol` | Operator liveness tracking |
 
+### Reward Layer
+| Contract | Description |
+|----------|-------------|
+| `InflationPool.sol` | Pre-funded (no-minting) epoch distribution across 5 categories |
+| `RewardVaults.sol` | Per-vault reward accounting with lock multipliers |
+| `ServiceFeeDistributor.sol` | Staker share of service fees, USD-weighted per asset |
+| `StreamingPaymentManager.sol` | Time-streamed payment schedules |
+| `TangleMetrics.sol` | On-chain activity data (heartbeats, jobs, slashes) for merit weighting |
+
 ### Key Interfaces
 | Interface | Description |
 |-----------|-------------|
@@ -158,6 +167,7 @@ contract MyBlueprint is BlueprintServiceManagerBase {
 - [Deployment Guide](https://github.com/tangle-network/tnt-core/blob/main/docs/DEPLOYMENT_RUNBOOK.md)
 - [Full Deploy Config](https://github.com/tangle-network/tnt-core/blob/main/docs/full-deploy.md)
 - [Pricing Models](https://github.com/tangle-network/tnt-core/blob/main/docs/PRICING.md)
+- [Tokenomics](https://github.com/tangle-network/tnt-core/blob/main/docs/TOKENOMICS.md)
 - [Interfaces](https://github.com/tangle-network/tnt-core/tree/main/src/interfaces)
 
 ## Rust Bindings
