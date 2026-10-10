@@ -2,14 +2,14 @@
 
 Technical reference. Every number here is sourced from the contract code in this repo. Where a value is governance-adjustable, the default at initialization is given.
 
-## Two reward systems
+## Reward systems
 
-TNT rewards flow through two independent systems:
+TNT rewards in tnt-core flow through two mechanisms:
 
-1. **Substrate staking inflation** — block emissions to network validators (the Tangle chain runtime, not this repo). Curve parameters live in the `tangle` repo's `runtime/mainnet/src/lib.rs`.
-2. **EVM service economy** — this repo. Payment splits on every service bill, and an epoch-based InflationPool distributing a governance-funded allocation. The InflationPool **cannot mint**; it distributes only what the treasury funds it with.
+1. **Service fees** — payment splits on every service bill (see below). Fees are paid by service consumers in whatever token the service accepts; the split routes shares to operators, the blueprint developer, the protocol treasury, and stakers.
+2. **InflationPool** — an epoch-based distribution of a governance-funded TNT allocation across five categories. The pool **cannot mint**; it distributes only what the treasury funds it with. This is the protocol-emission side of the economy.
 
-This document covers system 2.
+Both mechanisms are pure EVM — no Substrate pallets involved.
 
 ## Payment split (every service bill)
 
@@ -85,6 +85,6 @@ Blueprints that drive more job completions and heartbeats generate more merit-sc
 - **LiquidDelegationVault / LiquidDelegationFactory** — ERC-4626-style liquid delegation shares
 - **OperatorManager / OperatorStatusRegistry** — operator lifecycle
 
-## Relationship to the Substrate chain
+## Historical note
 
-The Tangle chain (Substrate) runs its own `pallet_staking` with a separate inflation curve (see the `tangle` repo). The EVM contracts in this repo do not mint; all EVM-side rewards are pre-funded by treasury allocations. The two systems are linked economically (same TNT token) but mechanically independent.
+The predecessor Tangle chain (Substrate runtime) is archived. All live protocol logic — staking, delegation, blueprints, services, payments, rewards, slashing — is in these EVM contracts. The InflationPool's pre-funded design exists precisely because these contracts cannot mint: the treasury funds each yearly allocation, and the pool streams it. Block-level validator emissions (if the chain uses a validator set) are outside this repo's scope.
