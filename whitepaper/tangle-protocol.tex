@@ -40,7 +40,7 @@
 \maketitle
 
 \begin{abstract}
-Tangle Network is a decentralized protocol for coordinating computational services with cryptoeconomic accountability. This document describes the protocol's architecture, economic mechanisms, and security model. Developers define service templates (blueprints), operators provide compute with staked collateral, and customers consume services with cryptographic guarantees. The core accounting paths for staking, slashing, and reward distribution are O(1), so gas cost does not grow with participant count. Operators stake assets that can be destroyed if they misbehave, which makes honest service the economically rational path. The network token (TNT) is hard-capped at 100{,}000{,}000 TNT,
+Tangle Network is a decentralized protocol for coordinating computational services with cryptoeconomic accountability. This document describes the protocol's architecture, economic mechanisms, and security model. Developers define service templates (blueprints), operators provide compute with staked collateral, and customers --- human or agent --- consume services with cryptographic guarantees. The core accounting paths for staking, slashing, and reward distribution are O(1), so gas cost does not grow with participant count. Operators stake assets that can be destroyed if they misbehave, which makes honest service the economically rational path. The network token (TNT) is hard-capped at 100{,}000{,}000 TNT,
 with the full supply minted at genesis; ``inflation'' rewards are treasury-funded emissions that create no new supply.
 \end{abstract}
 
@@ -71,7 +71,7 @@ Tangle provides an alternative where accountability is cryptographic rather than
 
 \subsection{Concrete Scenarios}
 
-Three scenarios illustrate where current infrastructure fails and where cryptoeconomic accountability succeeds.
+Four scenarios illustrate where current infrastructure fails and where cryptoeconomic accountability succeeds.
 
 \textbf{Scenario 1: The Trading Agent.} An institutional investor deploys an AI agent managing \$100 million across decentralized exchanges. The agent monitors markets, identifies opportunities, and executes trades.
 
@@ -91,6 +91,12 @@ In the centralized model, the provider has contractual obligations but no econom
 
 In Tangle, operators stake assets proportional to code value. Breach triggers immediate, automatic slashing. Operators invest in security up to stake value. The company selects operators whose stake matches or exceeds code value.
 
+\textbf{Scenario 4: The Agent as Customer.} An autonomous agent must procure compute for its own work: inference, data analysis, sandboxed execution. It holds a wallet and a budget; no human approves each purchase.
+
+In the centralized model, the agent cannot be a customer. Accounts require identity verification and contractual terms that presume a legal person. The agent's principal must pre-provision credentials with a single provider, recreating the dependence the deployment was meant to avoid.
+
+In Tangle, the agent is a customer like any other. It discovers blueprint services, collects EIP-712-signed quotes through the RFQ flow, and hires operators without committee approval. Event-driven pricing charges per job, so spend tracks work exactly. Every job produces the same cryptographic accountability evidence available to any customer, giving the agent's principal an audit trail of what was purchased and what was executed.
+
 \subsection{Design Philosophy}
 
 Six principles guide Tangle's design. Each addresses a specific failure mode in existing infrastructure.
@@ -107,7 +113,7 @@ The inflation distribution allocates 10\% to developers and 25\% to operators. B
 
 Permission systems create gatekeepers. Gatekeepers accumulate power. Power corrupts. Every permissioned system eventually serves those who control permissions rather than those who need access.
 
-Tangle implements permissionless participation at every layer. Anyone can become an operator by staking the minimum bond. Anyone can deploy a blueprint. Anyone can use services. No committee approves applications.
+Tangle implements permissionless participation at every layer. Anyone can become an operator by staking the minimum bond. Anyone can deploy a blueprint. Anyone can use services. No committee approves applications. Participation requires keys and payment rather than identity, so machine customers are first-class: an agent holding a wallet becomes a customer the same way a human does.
 
 Abuse prevention uses economic rather than administrative mechanisms. Minimum stake creates Sybil resistance without identity. Schema validation ensures well-formed services without human review. Slashing punishes misbehavior without prior permission. Markets filter quality more effectively than committees could.
 
