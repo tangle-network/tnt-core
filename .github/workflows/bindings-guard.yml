@@ -24,6 +24,9 @@ concurrency:
   group: bindings-guard-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   version-bump-required:
     name: ABI change requires a bindings version bump
@@ -34,6 +37,7 @@ jobs:
         with:
           # Need the merge base to diff the PR against its target.
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Require a version bump when generated bindings change
         env:
