@@ -33,10 +33,11 @@ base-sepolia with production-shaped config, then smoke a real cycle: deploy → 
 delegate → request+approve service → submit job → bill → propose+execute slash → unstake. Confirm
 the role-handoff assertions and `_assertGovernanceConfiguration` pass.
 
-### 🟡 4. Confirm CI is green
-Foundry CI was restored (`.github/workflows/foundry.yml`: `forge test` under `fast` + an
-optimizer `size` job for EIP-170). It has not been observed passing on a live GH Actions run —
-confirm both jobs go green on a PR before relying on it as a merge gate.
+### 🟡 4. Confirm local and pre-deploy checks pass
+Run the local Beelink gate in [README.md](../README.md#local-build) against the exact proposed
+revision, including the affected integration tests. Before deployment, use the `ci_size`
+production-codegen profile in `foundry.toml` to check EIP-170 sizes. PR/push CI is retired;
+release validation remains in the publication path.
 
 ### 🟡 5. Token-launch workstream (separate owner)
 Tokenomics already designed (inflation pool + weights + fee split, all implemented/tested).

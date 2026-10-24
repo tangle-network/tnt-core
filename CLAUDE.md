@@ -8,10 +8,10 @@ Financial logic requires meaningful fuzz or invariant tests as well as the affec
 
 ## Checks and generated artifacts
 
-Use [foundry.toml](foundry.toml) and [contract CI](.github/workflows/foundry.yml) for supported build and test profiles.
+Use [foundry.toml](foundry.toml) for supported build and test profiles and the [local Beelink gate](README.md#local-build) before merge.
 The `local_build` profile excludes tests; a passing build does not prove contract correctness.
 Use the `fast` profile for local correctness tests with normal constructor semantics.
-Check deployable sizes with the production-codegen profile described in CI.
+Check deployable sizes with the `ci_size` production-codegen profile in `foundry.toml`.
 
 For indexer changes, inspect [its scripts](indexer/package.json) and regenerate types when the schema or event contract changes.
 For binding changes, read [xtask](xtask/README.md) and [binding guidance](bindings/README.md).
