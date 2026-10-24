@@ -33,6 +33,8 @@ tnt-core = "0.16.0"
 
 ### Local Build
 
+Local Beelink gate (set `TOUCHED_INTEGRATION_TEST` to the affected `.t.sol` path): `beelink-gate auto https://github.com/tangle-network/tnt-core.git "$(git rev-parse HEAD)" -- sh -c 'forge soldeer install && git diff --exit-code -- foundry.toml soldeer.lock remappings.txt && FOUNDRY_PROFILE=local_build forge build && FOUNDRY_PROFILE=fast forge test --match-path "$1"' _ "${TOUCHED_INTEGRATION_TEST:?set touched integration test path}"`. The manifest/lock/remapping check refuses dependency drift after installation.
+
 ```bash
 # Fast local build without compiling test/ and script/
 FOUNDRY_PROFILE=local_build forge build
