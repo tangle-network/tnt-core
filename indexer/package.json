@@ -27,9 +27,6 @@
     "typescript": "^5.9.3",
     "vitest": "^4.1.12"
   },
-  "optionalDependencies": {
-    "generated": "file:generated"
-  },
   "dependencies": {
     "viem": "^2.45.1"
   },
