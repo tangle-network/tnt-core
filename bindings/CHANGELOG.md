@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.20.0] - 2026-09-22
 
+### Dependencies — Alloy 2
+
+- `alloy` and `alloy-contract` move from 1.0.35 to 2.0.5. Contract instances now
+  take an Alloy 2 `Provider`, so consumers on the Alloy 2 stack (blueprint-sdk)
+  get one Alloy version instead of mixing 1.x binding types with a 2.x provider.
+  The requirement is `^2.0.5`; the lock is tested at 2.1.1, the newest Alloy
+  release within this crate's 1.91 `rust-version` (2.2+ needs Rust 1.94.1).
+
 ### ABI — `replaceFacets(address[])` on the facet routers (`MultiAssetDelegation`; `Tangle`)
 
 - New router-admin function, gated by `UPGRADER_ROLE` like the rest of the facet

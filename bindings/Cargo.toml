@@ -24,7 +24,7 @@ include = [
 path = "src/lib.rs"
 
 [dependencies]
-alloy = { version = "1.0.35" }
-alloy-contract = "1.0.35"
+alloy = { version = "2.0.5" }
+alloy-contract = "2.0.5"
 alloy-sol-types = "1.2.1"
 serde = { version = "1.0", features = ["derive"], default-features = false }
