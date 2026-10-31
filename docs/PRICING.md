@@ -28,7 +28,7 @@ enum PricingModel {
 |-------|----------|-------|------------|
 | `PayOnce` | Fixed-duration deliverables with predictable cost (deploy a validator for 30 days, run a one-off compute job) | Service requester | Lump sum distributed at activation |
 | `Subscription` | Long-running services billed periodically (managed infra, hosted nodes, RPC) | Service owner funds escrow; anyone triggers bills | Per-interval draws against escrow |
-| `EventDriven` | Usage-priced services where cost varies per call (AI inference, sandboxed compute) | Job submitter | Per-job `msg.value` at submission |
+| `EventDriven` | Usage-priced services where cost varies per call (AI inference, sandboxed compute) | Job submitter | Per-job payment in the blueprint's settlement asset (native `msg.value` by default; an ERC-20 the owner pinned otherwise). x402 does not use this row. |
 
 ---
 
@@ -273,7 +273,7 @@ rejects any non-zero `paymentAmount`:
 ```solidity
 if (pricing == Types.PricingModel.EventDriven) {
     if (paymentAmount != 0) revert Errors.UpfrontPaymentNotAllowedForEventDriven();
-    if (paymentToken != address(0)) revert Errors.InvalidPaymentToken();
+    if (paymentToken != address(0)) revert Errors.TokenNotAllowed(paymentToken);
 }
 ```
 
@@ -283,8 +283,12 @@ nowhere to go.
 
 ### Settlement asset
 
-EventDriven payments are **native-token only** today. Request-time `paymentToken` must
-be `address(0)`; `submitJob` / `submitJobFromQuote` collect via `msg.value`.
+EventDriven settlement is native-token only at request time: `paymentToken` must be
+`address(0)` and `paymentAmount` must be 0. The customer does not choose the asset.
+The blueprint owner pins it with `setBlueprintSettlementAsset` (`address(0)` = native,
+the default). `submitJob` / `submitJobFromQuote` collect that pinned asset, and
+finalization distributes it through `PaymentSplit`. An x402 stablecoin payment does
+not. See [Stablecoin agent payments](#stablecoin-agent-payments).
 
 ### Rate resolution
 
@@ -300,8 +304,9 @@ function _collectJobPaymentIfNeeded(...) private returns (uint256 payment) {
     if (svc.pricing == Types.PricingModel.EventDriven) {
         uint256 perJob = _jobEventRates[svc.blueprintId][jobIndex];
         payment = perJob > 0 ? perJob : _blueprintConfigs[svc.blueprintId].eventRate;
-        PaymentLib.collectPayment(address(0), payment, msgValue);
-        _recordPayment(payer, serviceId, address(0), payment);
+        address asset = _serviceEventDrivenAsset[serviceId]; // address(0) = native
+        PaymentLib.collectPayment(asset, payment, msgValue);
+        _recordPayment(payer, serviceId, asset, payment);
     }
 }
 ```
@@ -344,15 +349,16 @@ Blueprint owners apply the overrides post-deployment with
 ### EventDriven flow
 
 ```
-submitJob(serviceId, jobIndex, inputs)  [msg.value == effective rate]
+submitJob(serviceId, jobIndex, inputs)
     │
     ├─ resolve rate: per-job override → BlueprintConfig.eventRate
-    ├─ collect payment (native; reject mismatched msg.value)
+    ├─ collect the pinned asset (native: msg.value == rate; ERC-20: msg.value == 0
+    │    and transferFrom of the rate)
     └─ record payment
 
 submitResult / submitAggregatedResult
     │
-    └─ on completion → _distributePaymentWithEffectiveExposure
+    └─ on completion → distributePayment(asset) → _distributePaymentWithEffectiveExposure
           (no keeper rebate; weights = effective exposure)
 ```
 
@@ -839,8 +845,8 @@ Errors in `src/libraries/Errors.sol` that are pricing-specific or commonly hit:
 | `BillingArithmeticOverflow()` | `nominalRate * cumDeltaPeriod` overflowed — fix upstream state (stake / rate sanity) |
 | `SubscriptionBaselineNotInitialized(uint64 serviceId)` | First bill against a service activated via a non-canonical path that skipped baseline seeding |
 | `UpfrontPaymentNotAllowedForEventDriven()` | Request flow attempted to send non-zero `paymentAmount` for an EventDriven blueprint |
-| `InvalidPaymentToken()` | Mixed-token escrow (deposit token differs from prior deposit) or EventDriven with non-native `paymentToken` |
-| `TokenNotAllowed(address token)` | Manager's `queryIsPaymentAssetAllowed` rejected the chosen settlement token |
+| `InvalidPaymentToken()` | Mixed-token escrow (deposit token differs from prior deposit) |
+| `TokenNotAllowed(address token)` | Manager allow-list rejected the asset, or an EventDriven request passed a non-native `paymentToken` |
 | `InsufficientEscrowBalance(uint256 required, uint256 available)` | Subscription bill demanded more than escrow held |
 | `InvalidPaymentSplit()` | `setPaymentSplit` arguments don't sum to exactly 10_000 |
 | `InvalidMsgValue(uint256 expected, uint256 sent)` | Native payment with mismatched `msg.value`, or ERC-20 payment with non-zero `msg.value` |
@@ -895,9 +901,80 @@ From `src/TangleStorage.sol`:
 | Multiplier-based job rate tables | No | Define in manager + apply via `setJobEventRates` |
 | Dynamic per-call pricing | No | Job RFQ |
 | Metered / per-second billing | No | Off-chain settlement or manager hook coupled to QoS bps |
-| ERC-20 settlement for EventDriven jobs | Not yet | PayOnce / Subscription support ERC-20; EventDriven is native-only today |
+| ERC-20 settlement for on-chain EventDriven jobs | Yes (`setBlueprintSettlementAsset`, then `distributePayment`) | Request-time `paymentToken` stays native. x402 is not this row; see [Stablecoin agent payments](#stablecoin-agent-payments). |
 
 ---
+
+## Stablecoin agent payments
+
+Two stablecoin paths exist. Only an on-chain job enters `PaymentSplit`. This section does not change settlement and does not add a rate. The live tuple is `paymentSplit()`; the defaults already in this file are the policy.
+
+### On-chain EventDriven already uses the split
+
+EventDriven settlement is native-token only at request time (`paymentToken == address(0)`, `paymentAmount == 0`). The blueprint owner pins the job asset with `setBlueprintSettlementAsset`. `address(0)` is native and is the default. `submitJob` / `submitJobFromQuote` collect that asset. Finalization calls `distributePayment` with it (`TangleJobsFacet._distributeJobPayment` → `_distributePaymentWithEffectiveExposure`, keeper `address(0)`). An on-chain stablecoin job already reaches the recipients below.
+
+| Recipient | Default already in this file | Delivery |
+|-----------|------------------------------|----------|
+| Operators | 40% (`DEFAULT_OPERATOR_BPS = 4000`). This path is not a permissionless bill, so a keeper share, if an admin has set one, folds into this pool. The default keeper share is 0%. | `pendingRewards` for the settlement asset, withdrawn with `claimRewards` |
+| Blueprint developer | 20% (`DEFAULT_DEVELOPER_BPS = 2000`) | Pushed to `queryDeveloperPaymentAddress`, or the blueprint owner if that hook is empty |
+| Protocol treasury (the TNT protocol's share) | 20% (`DEFAULT_PROTOCOL_BPS = 2000`) | Pushed to the treasury in the settlement asset |
+| Stakers/delegators | 20% (`DEFAULT_STAKER_BPS = 2000`) | Forwarded per operator through `ServiceFeeDistributor` in the settlement asset. If no operator has effective exposure, this share folds into the operator pool. If the distributor is unset or the forward fails, `StakerShareRefundedToEscrow` fires. |
+| Keeper | 0% (`DEFAULT_KEEPER_BPS = 0`) | Not paid on this path. |
+
+`PaymentLib.calculateSplit` leaves rounding dust on the staker share. The treasury is paid in the stablecoin. The split does not mint TNT and does not swap the stablecoin for TNT. `_tntPaymentDiscountBps` (default 0) moves value only when the bill token is TNT, and only out of the protocol share. `InflationPool` is not credited by the payment.
+
+### x402 settles outside PaymentSplit
+
+This repository has no x402 facilitator and no external-settlement function. An agent that pays a stablecoin over x402 pays the resource server's payee. That transfer never calls `distributePayment`.
+
+| Party | x402 / off-protocol stablecoin today |
+|-------|--------------------------------------|
+| Operators | The payee receives the gross. There is no exposure-weighted pool. |
+| Blueprint developer | Nothing. |
+| Stakers/delegators | Nothing. |
+| TNT protocol treasury | Nothing. The payment does not reach the treasury, does not buy TNT, and does not fund `InflationPool`. |
+
+### Future PaymentSplit path — acceptance
+
+Not implemented. Precondition: the mainnet deployment recorded in `deploy/MAINNET-PARAMETERS.md` is complete. This document does not deploy mainnet and does not change live settlement.
+
+After that precondition, one entry may take an already-settled stablecoin amount and call the existing `distributePayment` path. It must not define a new split or a new price.
+
+**Inputs**
+
+- `serviceId` of an Active service.
+- `token`: the ERC-20 the agent paid. It must be that service's pinned asset (`getServicePaymentAsset`).
+- `amount`: the settled gross, in `token`'s smallest unit. The protocol does not reprice it. The existing dust floor in `PaymentLib.collectPayment` still applies.
+- `operators`: the service operator set, or the single quoted operator on an RFQ job. The same set `_distributeJobPayment` already passes.
+- The live `paymentSplit()`. The defaults quoted above are developer 2000, protocol 2000, operator 4000, staker 2000, keeper 0.
+
+**Outputs**
+
+On the path where the developer and the treasury accept `token`, a distributor is set, and operators have effective exposure:
+
+- `PaymentDistributed` carries that `token` and gross. Developer, protocol, operator-pool, and staker-pool amounts equal `PaymentLib.calculateSplit(amount, paymentSplit(), false)`. `includeKeeper` is false, so any keeper bps fold into the operator pool and the keeper amount is 0.
+- Operator shares sit in `pendingRewards` for `token` until `claimRewards(token)`.
+- The developer share and the protocol share are pushed in `token`. A failed push follows the existing `PushTransferFailed` rule and folds that amount into the operator pool. It does not leave the gross unsplit with the payee.
+- The staker share is forwarded in `token` to `ServiceFeeDistributor`, or folded or refunded under the rules already in this file.
+- The treasury's balance of `token` increases by the protocol share. TNT supply does not change. `InflationPool` does not change. `_tntPaymentDiscountBps` does not move a stablecoin.
+
+**Proof**
+
+- A local Foundry test, not a mainnet transaction. Settle one mock ERC-20 gross through the entry and assert `PaymentDistributed` matches `calculateSplit` of the live default split, operator `pendingRewards` sum to the operator pool, the treasury's token balance increases by the protocol share, the developer recipient increases by the developer share, and a configured distributor records the staker share for that token.
+- If the entry is absent or the call reverts, the operator's token balance does not increase by the gross.
+- This documentation does not change storage. An implementation that appends a field shrinks `__gap` in the same change and passes the existing storage-layout snapshot test.
+
+### Protocol task list
+
+Checked against this revision. Open items are not started. Their precondition is the mainnet deploy above.
+
+- [x] Request-time EventDriven `paymentToken` is native-only. The job asset is the blueprint's (`setBlueprintSettlementAsset`), not the customer's.
+- [x] On-chain EventDriven collection and distribution already pass `_serviceEventDrivenAsset` into `distributePayment`. A stablecoin job submitted on-chain already reaches operators, the developer, stakers, and the protocol treasury under the split above.
+- [x] No x402 or external-settlement function in this repository calls `distributePayment`. x402 settles outside `PaymentSplit` and reaches only the payee.
+- [x] The split to reuse is the live `PaymentSplit` in this file. No new basis points.
+- [ ] After the mainnet deploy: add one entry that takes a settled stablecoin gross and calls the existing `distributePayment` path. No new split, no new rate, no TNT conversion, and no mainnet broadcast to add the entry.
+- [ ] After the mainnet deploy: land the Foundry proof under **Proof** before any caller is pointed at the entry.
+- [ ] After the mainnet deploy and after that proof is green: an x402 payee may be set to the entry. Until then the payee stays outside this contract. A failed forward must not count as a full payment to the operator.
 
 ## Integration Checklist
 
@@ -928,8 +1005,8 @@ From `src/TangleStorage.sol`:
 
 ### Service consumer
 
-1. `EventDriven` (fixed): `submitJob` with `msg.value == getJobEventRate(blueprintId, jobIndex)`.
-2. `EventDriven` (RFQ): obtain signed `JobQuoteDetails` (with `requester == self`) from each operator, then `submitJobFromQuote` with `msg.value == Σ price`.
+1. `EventDriven` (fixed): when `getServicePaymentAsset(serviceId)` is `address(0)`, `submitJob` with `msg.value == getJobEventRate(blueprintId, jobIndex)`. When it is an ERC-20, approve the Tangle for that amount and call `submitJob` with `msg.value == 0`.
+2. `EventDriven` (RFQ): obtain signed `JobQuoteDetails` (with `requester == self`) from each operator, then `submitJobFromQuote` paying `Σ price` in the same pinned asset (`msg.value` for native, `transferFrom` for an ERC-20).
 3. `Subscription`: call `fundService` to keep escrow funded; monitor `SubscriptionBillAdjustedByManager` and `EscrowFunded` for off-chain accounting; call `withdrawRemainingEscrow` after termination.
 4. `PayOnce`: pay at service creation via `createServiceFromQuotes` with `msg.value == Σ quote.totalCost`.
 
