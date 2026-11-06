@@ -46,99 +46,42 @@ blueprint owner; Sections D and E call out operator + auditor flows.
 Blueprints are templates that operators can spin services from. Registration
 puts the template on-chain and assigns it a `blueprintId`.
 
-Every blueprint repo under `~/code/` ships with a `deploy/register-blueprint.sh`
-that handles BSM deployment + `Tangle.createBlueprint(...)` in one shot. The manager must already
-bind its expected Tangle core and creator: use the base's internal
+Deploy the manager using the blueprint repository's deployment instructions.
+Bind its expected Tangle core and creator with the canonical base's
 `_initializeBlueprintManager(core, creator)` in an atomic constructor or protected
-proxy initializer. A direct manager without an atomic binder requires its deployer
-to call `initializeBlueprintManager(core, creator)` before registration. A CLI deploying
-such a manager must perform that step from the deployment signer; it cannot initialize
-an arbitrary existing manager. The callback validates both registry and creator.
-The canonical sweep script in tnt-core wraps all of them.
+proxy initializer. A direct manager without that binder requires its deployer to
+call `initializeBlueprintManager(core, creator)` before registration. The callback
+checks both the registry and creator.
+
+Set the manager address in the blueprint's definition and configure the SDK
+keystore for the same wallet. Set `HTTP_RPC_URL`, `WS_RPC_URL`, `TANGLE_CORE` and
+`STAKING_CONTRACT` from the current deployment, and `KEYSTORE_PATH` to that SDK
+keystore directory. These endpoint, address and path variables are used below.
+Register through the maintained CLI from the blueprint repository:
 
 ```bash
-# From tnt-core, register every known blueprint repo against Base Sepolia.
-cd ~/code/tnt-core
-export PRIVATE_KEY=0x...                  # blueprint owner key
-export RPC_URL=https://sepolia.base.org
-export TANGLE_CORE=0xC9b0716a187072be0f38A5D972392C6479b9Cfe3
-./deploy/register-blueprints.sh
+cargo tangle blueprint deploy tangle \
+  --network testnet --definition deploy/definition.json \
+  --http-rpc-url "$HTTP_RPC_URL" --ws-rpc-url "$WS_RPC_URL" \
+  --tangle-contract "$TANGLE_CORE" --staking-contract "$STAKING_CONTRACT" \
+  --keystore-path "$KEYSTORE_PATH"
 ```
 
-Output appends one row per blueprint to
-`deployments/<network>/blueprints.tsv`:
+The CLI prints the assigned blueprint ID and transaction. Its `--help` and the
+[SDK deployment guide](https://github.com/tangle-network/blueprint#deploying-to-testnetmainnet)
+own settings and artifact options. Keep signing material in the SDK keystore.
 
-```
-repo               blueprint_id  bsm_address    status      binary_version_id  binary_sha256  ...
-ai-trading-blueprint   42   0xBSM...   registered   -   -   -   -   no_v0_published   2026-05-22T...
-llm-inference-blueprint 43  0xBSM...   registered   -   -   -   -   no_v0_published   2026-05-22T...
-```
+### A.2. Publish the genesis binary
 
-The `binary_version_id` column is `-` because no v0 was published yet — the
-sweep script publishes v0 inline (see A.2). For now the blueprint exists
-on-chain but has zero binaries, which means `effectiveBinaryVersion(serviceId)`
-will revert until you publish at least one.
+Registration and binary publication are separate transactions. Build and host the
+artifact through the blueprint's release path, then use
+`cargo tangle blueprint publish-version` and
+`cargo tangle blueprint set-active-version` with the assigned blueprint ID.
+[Section B](#b-shipping-a-new-release) describes the same flow for later versions.
+The SDK CLI owns hashing, signing and transaction encoding for both.
 
-You can also register a single blueprint by running its per-repo script
-directly:
-
-```bash
-cd ~/code/ai-trading-blueprint
-export PRIVATE_KEY=0x...
-export RPC_URL=https://sepolia.base.org
-export TANGLE_CORE=0xC9b0716a187072be0f38A5D972392C6479b9Cfe3
-BROADCAST=true ./deploy/register-blueprint.sh
-```
-
-The script prints `DEPLOY_BLUEPRINT_ID=<n>` to stdout — that's the
-`blueprintId` you'll use everywhere else in this doc.
-
-### A.2. Publish the v0 binary at registration time
-
-The sweep script publishes a v0 inline when it finds an artifact and a URI.
-For a single repo from CLI:
-
-```bash
-# Build a release artifact (whatever 'cargo build --release' produces)
-cd ~/code/ai-trading-blueprint
-cargo build --release -p trading-blueprint-bin
-
-# Pin to IPFS and capture the CID
-CID=$(ipfs add -Q target/release/trading-blueprint)
-echo "CID=$CID"
-
-# Wire it into the per-repo register script and re-run
-cd ~/code/ai-trading-blueprint
-export BLUEPRINT_BINARY_PATH=$(pwd)/target/release/trading-blueprint
-export BLUEPRINT_BINARY_URI=ipfs://$CID
-export PRIVATE_KEY=0x...
-export RPC_URL=https://sepolia.base.org
-export TANGLE_CORE=0xC9b0716a187072be0f38A5D972392C6479b9Cfe3
-BROADCAST=true ./deploy/register-blueprint.sh
-```
-
-Expected output (registration already done, so this only re-runs the publish):
-
-```
-=== AI Trading Blueprint Registration ===
-  ...
-  DEPLOY_BLUEPRINT_ID=42
-
-=== v0 Binary Publish ===
-  Artifact:  /home/you/code/ai-trading-blueprint/target/release/trading-blueprint
-  sha256:    0xabc...
-  URI:       ipfs://Qm...
-  Attest:    0x0000...0000
-  Variants:  cloud
-  -> publishing v0 for cloud (blueprintId=42)
-  OK cloud blueprintId=42 versionId=0 (active)
-```
-
-After this, `Tangle.effectiveBinaryVersion(serviceId)` returns the row you
-just published for any AUTO-policy service.
-
-If you skip A.2, the manifest carries `no_v0_published — re-run when binary
-path is configured` and operators can't run your blueprint yet.
+Operators need at least one published binary before
+`effectiveBinaryVersion(serviceId)` can resolve an artifact.
 
 ### A.3. Operator-side bring-up
 
@@ -170,7 +113,9 @@ unlock `cargo tangle blueprint publish-version` (Section B), run:
 ```bash
 cargo tangle blueprint claim \
   --blueprint-id 42 \
-  --rpc-url https://sepolia.base.org
+  --http-rpc-url "$HTTP_RPC_URL" --ws-rpc-url "$WS_RPC_URL" \
+  --tangle-contract "$TANGLE_CORE" --staking-contract "$STAKING_CONTRACT" \
+  --keystore-path "$KEYSTORE_PATH"
 ```
 
 This signs a message proving control of the owner key and posts it to the
@@ -247,22 +192,10 @@ cargo tangle blueprint publish-version \
   --binary target/release/my-blueprint \
   --binary-uri ipfs://QmXyz... \
   --attestation-bundle attestation.json \
-  --rpc-url https://sepolia.base.org
+  --http-rpc-url "$HTTP_RPC_URL" --ws-rpc-url "$WS_RPC_URL" \
+  --tangle-contract "$TANGLE_CORE" --staking-contract "$STAKING_CONTRACT" \
+  --keystore-path "$KEYSTORE_PATH"
 
-# Published versionId=5 · tx 0xabc...
-# sha256 = 0xd41d...
-# attestationHash = 0xfe09...
-```
-
-Equivalent raw `cast` invocation (if you're not running the CLI):
-
-```bash
-SHA=0x$(sha256sum target/release/my-blueprint | awk '{print $1}')
-ATT=0x$(sha256sum attestation.json | awk '{print $1}')
-cast send $TANGLE_CORE \
-  "publishBinaryVersion(uint64,bytes32,string,bytes32)" \
-  42 "$SHA" "ipfs://QmXyz..." "$ATT" \
-  --private-key $PRIVATE_KEY --rpc-url $RPC_URL
 ```
 
 The transaction emits `BinaryVersionPublished(blueprintId, versionId,
@@ -279,13 +212,10 @@ adopt it:
 ```bash
 cargo tangle blueprint set-active-version \
   --blueprint-id 42 \
-  --version-id 5
-
-# or raw cast:
-cast send $TANGLE_CORE \
-  "setActiveBinaryVersion(uint64,uint64)" \
-  42 5 \
-  --private-key $PRIVATE_KEY --rpc-url $RPC_URL
+  --version-id 5 \
+  --http-rpc-url "$HTTP_RPC_URL" --ws-rpc-url "$WS_RPC_URL" \
+  --tangle-contract "$TANGLE_CORE" --staking-contract "$STAKING_CONTRACT" \
+  --keystore-path "$KEYSTORE_PATH"
 ```
 
 Effect:
