@@ -192,11 +192,10 @@ cargo tangle blueprint publish-version \
   --binary target/release/my-blueprint \
   --binary-uri ipfs://QmXyz... \
   --attestation-bundle attestation.json \
-  --rpc-url https://sepolia.base.org
+  --http-rpc-url "$HTTP_RPC_URL" --ws-rpc-url "$WS_RPC_URL" \
+  --tangle-contract "$TANGLE_CORE" --staking-contract "$STAKING_CONTRACT" \
+  --keystore-path "$KEYSTORE_PATH"
 
-# Published versionId=5 · tx 0xabc...
-# sha256 = 0xd41d...
-# attestationHash = 0xfe09...
 ```
 
 The transaction emits `BinaryVersionPublished(blueprintId, versionId,
