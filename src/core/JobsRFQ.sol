@@ -80,7 +80,7 @@ abstract contract JobsRFQ is Base {
         }
         bytes32 resourceHash = keccak256(
             abi.encode(
-                keccak256("ResourceCommitment(uint8 kind,uint64 count,bytes32 gpuClass,uint64 durationSecs)"),
+                keccak256("GpuResourceCommitment(uint8 kind,uint64 count,bytes32 gpuClass,uint64 durationSecs)"),
                 resource.kind,
                 resource.count,
                 resource.gpuClass,

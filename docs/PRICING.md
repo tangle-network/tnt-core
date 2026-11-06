@@ -366,106 +366,45 @@ submitResult / submitAggregatedResult
 
 ## Job RFQ
 
-For jobs whose price is negotiated per request. The buyer requests a quote from
-specific operators, who sign EIP-712, and the buyer submits the job with the signed
-quote(s).
+Use job RFQ when the price depends on the requested work. The requester obtains
+operator-signed quotes, then calls `submitJobFromQuote` with those quotes and the
+exact job inputs. Fixed per-job prices use `setJobEventRates` instead.
 
-### When to use RFQ vs fixed rates
+[`Types.JobQuoteDetails`](../src/libraries/Types.sol) owns the signed fields and
+[`SignatureLib`](../src/libraries/SignatureLib.sol) owns their EIP-712 type strings
+and domain. [`ITangleJobs`](../src/interfaces/ITangleJobs.sol) owns the public ABI.
+The signature binds the requester, service, job, integer price, timestamp, expiry,
+confidentiality policy and hash of the submitted inputs. Confidentiality values
+come from `Types.ConfidentialityPolicy`.
 
-| Mode | Mechanism |
-|------|-----------|
-| Standardized ops with predictable cost | Fixed per-job rates (`setJobEventRates`) |
-| Variable cost (model choice, resource sizing, volume discounts) | Job RFQ (`submitJobFromQuote`) |
+Each quoted operator must be active in the service. Expiry and maximum quote age
+are enforced, and an accepted digest is single-use. Only quoted operators can
+submit RFQ results. `getJobQuotedOperators` and `getJobQuotedPrice` expose the
+accepted operator set and individual prices.
 
-### EIP-712 types
-
-```solidity
-struct JobQuoteDetails {
-    address requester;       // Caller authorized to redeem (defeats front-running)
-    uint64 serviceId;
-    uint8 jobIndex;
-    uint256 price;
-    uint64 timestamp;
-    uint64 expiry;
-    uint8 confidentiality;   // 0=Any, 1=Required, 2=Preferred
-}
-
-struct SignedJobQuote {
-    JobQuoteDetails details;
-    bytes signature;
-    address operator;
-}
-```
-
-Domain: `EIP712Domain(string name, string version, uint256 chainId, address verifyingContract)` with `name="TangleQuote"`, `version="1"`.
-
-### Submission
-
-```solidity
-function submitJobFromQuote(
-    uint64 serviceId,
-    uint8 jobIndex,
-    bytes calldata inputs,
-    SignedJobQuote[] calldata quotes
-) external payable returns (uint64 callId);
-```
-
-- `msg.value == Σ quotes[i].details.price`.
-- Each quote's `(serviceId, jobIndex, requester)` must match the call.
-- Each operator must be active in the service.
-- Quotes expire on `expiry` and against `maxQuoteAge` (default 1 hour).
-- Each quote digest is single-use (`_usedQuotes[digest]`).
-
-### Result enforcement
-
-Only operators quoted on the call may submit results:
-
-```solidity
-if (job.isRFQ && !_jobQuotedOperators[serviceId][callId].contains(msg.sender)) {
-    revert Errors.NotQuotedOperator(serviceId, callId);
-}
-```
-
-### Payment distribution for RFQ jobs
-
-Each quoted operator's gross share is their **individually quoted price** (not a pro-rata
-split of the total). The standard `PaymentSplit` (developer / protocol / operator pool /
-staker pool) still applies to each operator's slice; weights inside the operator pool
-are exposure-based.
-
-### View functions
-
-```solidity
-function getJobQuotedOperators(uint64 serviceId, uint64 callId)
-    external view returns (address[] memory);
-
-function getJobQuotedPrice(uint64 serviceId, uint64 callId, address operator)
-    external view returns (uint256);
-```
+Payment uses the service's pinned settlement asset: send the sum of the prices
+as `msg.value` for native settlement, or approve that amount and send no native
+value for ERC-20 settlement. Each operator's quoted price is its gross share;
+the live payment split and exposure weights govern distribution within it.
 
 ### GPU job quotes
 
-The five-argument `submitJobFromQuote` overload accepts the same job quotes plus
-`Types.GpuResourceCommitment {kind, count, gpuClass, durationSecs}`. `kind` must be
-GPU (5); class, count and duration must be nonzero. `gpuClass` is `keccak256` of
-the canonical id from the [Blueprint SDK GPU catalog](https://github.com/tangle-network/blueprint/blob/main/crates/core/gpu-catalog.json).
+The five-argument overload additionally accepts `Types.GpuResourceCommitment`.
+Operators sign `GpuJobQuoteDetails` with a nested `GpuResourceCommitment` naming
+the GPU resource kind, count, class hash and duration. The class hash is
+`keccak256` of an id from the [SDK catalog](https://github.com/tangle-network/blueprint/blob/main/crates/core/gpu-catalog.json).
+GPU kind, nonzero class, positive count and positive duration are enforced by
+[`JobsRFQ`](../src/core/JobsRFQ.sol). Catalog support and per-class rates are
+validated when the operator quotes the work.
 
-Each operator signs this EIP-712 type with the existing `TangleQuote` v1 domain:
-
-```text
-GpuJobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality,bytes32 inputsHash,ResourceCommitment resourceCommitment)ResourceCommitment(uint8 kind,uint64 count,bytes32 gpuClass,uint64 durationSecs)
-```
-
-The GPU overload commits every operator to the same resource. Altering its class,
-count or duration invalidates the signature. `JobGpuResourceCommitted` records the
-accepted allocation alongside the job call. The four-argument overload, legacy
-`JobQuoteDetails` typehash, and legacy signature verification remain unchanged;
+Changing class, count or duration invalidates the signature.
+`JobGpuResourceCommitted` records the accepted allocation beside the job call.
+The four-argument overload and legacy service/job quote schemas remain unchanged;
 a legacy signature cannot authorize a GPU commitment.
 
-Use the [SDK quote signer](https://github.com/tangle-network/blueprint/blob/main/crates/tangle-extra/src/job_quote.rs)
-for signing and calldata construction. Catalog validation and per-class rates
-belong at the quote boundary; the protocol verifies the signed allocation and
-preserves the exact input, requester, expiry, confidentiality and replay checks.
+Use the [SDK signer](https://github.com/tangle-network/blueprint/blob/main/crates/tangle-extra/src/job_quote.rs)
+for signing and calldata. The [compatibility target](../test/tangle/EIP712Compatibility.t.sol)
+redeems off-chain-encoded GPU and legacy quotes through the public RFQ calls.
 
 ## Service-Level RFQ (createServiceFromQuotes)
 
