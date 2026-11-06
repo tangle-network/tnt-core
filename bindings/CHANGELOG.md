@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-06
+
+- Regenerate canonical GPU RFQ overloads and protected BlueprintServiceManagerBase initialization from the containing TNT Core source. Legacy RFQ interfaces remain available.
+
 ## [0.20.0] - 2026-09-22
 
 ### Dependencies — Alloy 2

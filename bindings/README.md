@@ -2,12 +2,7 @@
 
 Rust bindings for [TNT Core](https://github.com/tangle-network/tnt-core) Solidity contracts, generated using [Alloy](https://github.com/alloy-rs/alloy).
 
-## Installation
-
-```toml
-[dependencies]
-tnt-core-bindings = "0.10.9"
-```
+Install with `cargo add tnt-core-bindings`; Cargo owns the current version.
 
 ## Usage
 
@@ -34,23 +29,6 @@ async fn main() -> eyre::Result<()> {
     Ok(())
 }
 ```
-
-## Available Bindings
-
-| Contract | Description |
-|----------|-------------|
-| `ITangle` | Main Tangle protocol interface (blueprints, services, jobs) |
-| `ITangleFull` | Full Tangle surface (includes slashing + admin) |
-| `ITangleBlueprints` | Blueprint registration and management |
-| `ITangleServices` | Service lifecycle management |
-| `ITangleJobs` | Job submission and results |
-| `ITangleOperators` | Operator registration and status |
-| `ITangleSlashing` | Slashing mechanism |
-| `ITangleRewards` | Reward distribution |
-| `IMultiAssetDelegation` | Multi-asset staking and delegation (facet ABI) |
-| `MultiAssetDelegation` | Router/diamond management ABI |
-| `IBlueprintServiceManager` | Blueprint service manager interface |
-| `IOperatorStatusRegistry` | Operator status tracking |
 
 ## Raw ABIs
 
