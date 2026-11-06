@@ -105,6 +105,8 @@ contract NativeEvidenceIntegrationTest is Test {
         assertEq(manager.pendingEvidence(service, operator), bytes32(0));
         vm.expectRevert("EVIDENCE_REPLAY");
         _admit(manager, service, operator, good);
+        vm.expectRevert("EVIDENCE_REPLAY");
+        _admit(manager, service, operator, bytes.concat(good, bytes32(0)));
         NativeEvidenceManager other =
             new NativeEvidenceManager(address(first.tangle()), first.developer(), address(verifier));
         vm.expectRevert("EVIDENCE_REJECTED");
@@ -130,10 +132,24 @@ contract NativeEvidenceIntegrationTest is Test {
         bytes memory callback = _receipt(manager, next, operator, 0xbad, 0xbad);
         vm.prank(first.developer());
         manager.configureCallback(callback, true);
-        _admit(manager, next, operator, callback);
+        bytes32 callbackHash = _admit(manager, next, operator, callback);
         assertEq(manager.callbacks(), 1, "reverted callback wrote state");
-        assertEq(manager.pendingEvidence(next, operator), keccak256(callback));
-        assertEq(first.tangle().getSlashProposal(1).evidence, keccak256(callback));
+        assertEq(manager.pendingEvidence(next, operator), callbackHash);
+        assertEq(first.tangle().getSlashProposal(1).evidence, callbackHash);
+    }
+
+    function testCancelledProposalFreesThePendingSlot() public {
+        verifier = new GpuLeaseEvidenceVerifier(vm.addr(KEY));
+        NativeEvidenceFixture fixture = new NativeEvidenceFixture();
+        (NativeEvidenceManager manager, uint64 service) = fixture.open(address(verifier));
+        address operator = fixture.operator1();
+        _admit(manager, service, operator, _receipt(manager, service, operator, KEY, KEY));
+        vm.prank(fixture.admin());
+        fixture.tangle().cancelSlash(0, "dispute upheld");
+        vm.warp(block.timestamp + 1);
+        bytes32 later = _admit(manager, service, operator, _receipt(manager, service, operator, KEY, KEY));
+        assertEq(manager.pendingEvidence(service, operator), later);
+        assertEq(fixture.tangle().getSlashProposal(1).evidence, later);
     }
 
     function _admit(
