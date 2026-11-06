@@ -146,7 +146,7 @@ contract BlueprintManagerBindingIntegrationTest is Test, BlueprintDefinitionHelp
     function testUnpreparedProxyHasNoExternalBootstrapAuthority() public {
         BlueprintServiceManagerBase implementation = new BlueprintServiceManagerBase();
         BlueprintServiceManagerBase manager =
-            BlueprintServiceManagerBase(address(new ERC1967Proxy(address(implementation), "")));
+            BlueprintServiceManagerBase(payable(address(new ERC1967Proxy(address(implementation), ""))));
         ITangleFull registry = _registry();
         vm.expectRevert();
         manager.initializeBlueprintManager(address(registry), address(this));
