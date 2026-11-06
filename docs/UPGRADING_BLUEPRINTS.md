@@ -53,14 +53,18 @@ proxy initializer. A direct manager without that binder requires its deployer to
 call `initializeBlueprintManager(core, creator)` before registration. The callback
 checks both the registry and creator.
 
-Set the manager address in the blueprint's definition. Configure the SDK keystore
-for the same wallet, then register through the maintained CLI from that repository:
+Set the manager address in the blueprint's definition and configure the SDK
+keystore for the same wallet. Set `HTTP_RPC_URL`, `WS_RPC_URL`, `TANGLE_CORE` and
+`STAKING_CONTRACT` from the current deployment, and `KEYSTORE_PATH` to that SDK
+keystore directory. These endpoint, address and path variables are used below.
+Register through the maintained CLI from the blueprint repository:
 
 ```bash
 cargo tangle blueprint deploy tangle \
   --network testnet --definition deploy/definition.json \
   --http-rpc-url "$HTTP_RPC_URL" --ws-rpc-url "$WS_RPC_URL" \
-  --tangle-contract "$TANGLE_CORE" --keystore-path "$KEYSTORE_PATH"
+  --tangle-contract "$TANGLE_CORE" --staking-contract "$STAKING_CONTRACT" \
+  --keystore-path "$KEYSTORE_PATH"
 ```
 
 The CLI prints the assigned blueprint ID and transaction. Its `--help` and the
@@ -109,7 +113,9 @@ unlock `cargo tangle blueprint publish-version` (Section B), run:
 ```bash
 cargo tangle blueprint claim \
   --blueprint-id 42 \
-  --rpc-url https://sepolia.base.org
+  --http-rpc-url "$HTTP_RPC_URL" --ws-rpc-url "$WS_RPC_URL" \
+  --tangle-contract "$TANGLE_CORE" --staking-contract "$STAKING_CONTRACT" \
+  --keystore-path "$KEYSTORE_PATH"
 ```
 
 This signs a message proving control of the owner key and posts it to the
@@ -193,17 +199,6 @@ cargo tangle blueprint publish-version \
 # attestationHash = 0xfe09...
 ```
 
-Equivalent raw `cast` invocation (if you're not running the CLI):
-
-```bash
-SHA=0x$(sha256sum target/release/my-blueprint | awk '{print $1}')
-ATT=0x$(sha256sum attestation.json | awk '{print $1}')
-cast send $TANGLE_CORE \
-  "publishBinaryVersion(uint64,bytes32,string,bytes32)" \
-  42 "$SHA" "ipfs://QmXyz..." "$ATT" \
-  --private-key $PRIVATE_KEY --rpc-url $RPC_URL
-```
-
 The transaction emits `BinaryVersionPublished(blueprintId, versionId,
 sha256Hash, binaryUri)`. The dapp indexer picks it up and surfaces the new
 version in the blueprint detail view, including the trust score derived from
@@ -218,13 +213,10 @@ adopt it:
 ```bash
 cargo tangle blueprint set-active-version \
   --blueprint-id 42 \
-  --version-id 5
-
-# or raw cast:
-cast send $TANGLE_CORE \
-  "setActiveBinaryVersion(uint64,uint64)" \
-  42 5 \
-  --private-key $PRIVATE_KEY --rpc-url $RPC_URL
+  --version-id 5 \
+  --http-rpc-url "$HTTP_RPC_URL" --ws-rpc-url "$WS_RPC_URL" \
+  --tangle-contract "$TANGLE_CORE" --staking-contract "$STAKING_CONTRACT" \
+  --keystore-path "$KEYSTORE_PATH"
 ```
 
 Effect:
