@@ -725,7 +725,7 @@ contract JobPricingAndRFQTest is BaseTest {
         Types.JobQuoteDetails memory d = quotes[0].details;
         bytes32 resourceHash = keccak256(
             abi.encode(
-                keccak256("ResourceCommitment(uint8 kind,uint64 count,bytes32 gpuClass,uint64 durationSecs)"),
+                keccak256("GpuResourceCommitment(uint8 kind,uint64 count,bytes32 gpuClass,uint64 durationSecs)"),
                 gpu.kind,
                 gpu.count,
                 gpu.gpuClass,
@@ -735,7 +735,7 @@ contract JobPricingAndRFQTest is BaseTest {
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "GpuJobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality,bytes32 inputsHash,ResourceCommitment resourceCommitment)ResourceCommitment(uint8 kind,uint64 count,bytes32 gpuClass,uint64 durationSecs)"
+                    "GpuJobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality,bytes32 inputsHash,GpuResourceCommitment resourceCommitment)GpuResourceCommitment(uint8 kind,uint64 count,bytes32 gpuClass,uint64 durationSecs)"
                 ),
                 d.requester,
                 d.serviceId,
