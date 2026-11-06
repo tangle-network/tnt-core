@@ -71,10 +71,12 @@ contract EventDrivenErc20SettlementTest is BaseTest {
         settleToken.mint(user1, 1_000_000 ether);
 
         manager = new AllowAssetManager();
+        manager.initializeBlueprintManager(address(tangle), developer);
         manager.setAllowed(address(settleToken), true);
         manager.setAllowed(address(0), true);
 
         nativeManager = new AllowAssetManager();
+        nativeManager.initializeBlueprintManager(address(tangle), developer);
         nativeManager.setAllowed(address(0), true);
 
         Types.BlueprintConfig memory cfg = Types.BlueprintConfig({
@@ -137,6 +139,7 @@ contract EventDrivenErc20SettlementTest is BaseTest {
     function test_SetBlueprintSettlementAsset_NativeAlwaysAllowed() public {
         // Even a manager that allow-lists nothing must accept native (address(0)).
         AllowAssetManager strict = new AllowAssetManager();
+        strict.initializeBlueprintManager(address(tangle), developer);
         Types.BlueprintConfig memory cfg = _edConfig(RATE);
         vm.startPrank(developer);
         uint64 bp = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://ed-strict", address(strict), cfg));
@@ -244,6 +247,7 @@ contract EventDrivenErc20SettlementTest is BaseTest {
         usd.mint(user1, 1_000_000e6);
 
         AllowAssetManager usdManager = new AllowAssetManager();
+        usdManager.initializeBlueprintManager(address(tangle), developer);
         usdManager.setAllowed(address(usd), true);
 
         uint256 usdRate = 5e6; // 5.00 pUSD in 6-dec smallest units — the exploit's rate.
@@ -412,6 +416,7 @@ contract EventDrivenErc20SettlementTest is BaseTest {
         // settlement asset is left at the native default) and confirm the native request still
         // activates. The job-time native gate is a separate, pre-existing check.
         AllowAssetManager strictManager = new AllowAssetManager();
+        strictManager.initializeBlueprintManager(address(tangle), developer);
         // Deliberately allow nothing at request time; leave blueprint asset unset (native).
 
         Types.BlueprintConfig memory cfg = _edConfig(RATE);
@@ -604,6 +609,7 @@ contract EventDrivenErc20SettlementTest is BaseTest {
         usd.mint(user1, 1_000_000e6);
 
         AllowAssetManager usdManager = new AllowAssetManager();
+        usdManager.initializeBlueprintManager(address(tangle), developer);
         usdManager.setAllowed(address(usd), true);
 
         // Rate is 5.00 pUSD expressed in the token's 6-decimal smallest unit.

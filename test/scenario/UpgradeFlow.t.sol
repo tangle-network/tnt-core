@@ -212,6 +212,7 @@ contract UpgradeFlowScenarioTest is UpgradeFlowHarness {
 
     function test_scenario_BSMGate_revertingBSMDoesNotRollBackPublish() public {
         MockBinaryHookBSM bsm = new MockBinaryHookBSM();
+        bsm.initializeBlueprintManager(address(tangle), developer);
         bsm.setRequireAttestation(true);
         uint64 bp = _createBlueprint(developer, address(bsm));
 

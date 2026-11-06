@@ -29,6 +29,7 @@ contract AuditBatch2Test is BaseTest {
         super.setUp();
 
         bsm = new InstantExitBSM();
+        bsm.initializeBlueprintManager(address(tangle), developer);
 
         _registerOperator(operator1, 10 ether);
         _registerOperator(operator2, 10 ether);

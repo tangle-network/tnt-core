@@ -381,6 +381,7 @@ contract QuoteVerificationTest is BaseTest {
 
     function test_CreateFromQuote_ManagerHooksCaptureData() public {
         MockQuoteManager manager = new MockQuoteManager();
+        manager.initializeBlueprintManager(address(tangle), developer);
         vm.prank(developer);
         uint64 managedBlueprintId = _createBlueprintAsSender("ipfs://managed-rfq", address(manager));
         _registerForBlueprint(operator1, managedBlueprintId);
@@ -413,6 +414,7 @@ contract QuoteVerificationTest is BaseTest {
 
     function test_CreateFromQuote_ManagerDisallowsPaymentAsset() public {
         MockQuoteManager manager = new MockQuoteManager();
+        manager.initializeBlueprintManager(address(tangle), developer);
         manager.setPaymentAllowed(false);
         vm.prank(developer);
         uint64 managedBlueprintId = _createBlueprintAsSender("ipfs://managed-rfq-deny", address(manager));

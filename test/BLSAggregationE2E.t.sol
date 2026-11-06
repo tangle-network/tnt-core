@@ -45,6 +45,7 @@ contract BLSAggregationE2ETest is BaseTest {
 
         // Deploy mock BSM
         mockBsm = new MockAggregationBSME2E();
+        mockBsm.initializeBlueprintManager(address(tangle), developer);
 
         // Create blueprint with aggregation-enabled BSM
         vm.prank(developer);

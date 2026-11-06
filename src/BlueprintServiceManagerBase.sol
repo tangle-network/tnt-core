@@ -13,7 +13,10 @@ import { Types } from "./libraries/Types.sol";
 /// Example usage:
 /// ```solidity
 /// contract MyAVSManager is BlueprintServiceManagerBase {
-///     // Only override what you need
+///     constructor(address core) {
+///         _initializeBlueprintManager(core, msg.sender);
+///     }
+///
 ///     function onRegister(address operator, bytes calldata inputs)
 ///         external payable override onlyFromTangle
 ///     {
@@ -28,6 +31,11 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     error OnlyTangleAllowed(address caller, address tangle);
     error OnlyBlueprintOwnerAllowed(address caller, address owner);
     error AlreadyInitialized();
+    error OnlyBootstrapAuthority(address caller, address authority);
+    error InvalidBlueprintBinding();
+
+    bytes32 private constant BOOTSTRAP_AUTHORITY_SLOT =
+        keccak256("tangle.BlueprintServiceManagerBase.bootstrapAuthority");
 
     /// @notice The Tangle core contract address
     address public tangleCore;
@@ -41,6 +49,40 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     /// @notice Permitted payment assets per service
     /// @dev serviceId => set of permitted asset addresses
     mapping(uint64 => EnumerableSet.AddressSet) private _permittedPaymentAssets;
+
+    constructor() {
+        bytes32 slot = BOOTSTRAP_AUTHORITY_SLOT;
+        assembly ("memory-safe") {
+            sstore(slot, caller())
+        }
+    }
+
+    /// @notice Bind a directly deployed manager before its registry registration.
+    /// @dev Proxies must call the internal binder from their own protected initializer.
+    function initializeBlueprintManager(address core, address owner) external {
+        bytes32 slot = BOOTSTRAP_AUTHORITY_SLOT;
+        address authority;
+        assembly ("memory-safe") {
+            authority := sload(slot)
+        }
+        if (authority == address(0) || msg.sender != authority) {
+            revert OnlyBootstrapAuthority(msg.sender, authority);
+        }
+        _initializeBlueprintManager(core, owner);
+    }
+
+    /// @dev Call atomically in a derived constructor or protected proxy initializer.
+    function _initializeBlueprintManager(address core, address owner) internal {
+        if (tangleCore != address(0) || blueprintOwner != address(0) || blueprintId != 0) revert AlreadyInitialized();
+        if (core == address(0) || owner == address(0)) revert InvalidBlueprintBinding();
+        bytes32 slot = BOOTSTRAP_AUTHORITY_SLOT;
+        assembly ("memory-safe") {
+            sstore(slot, 0)
+        }
+        tangleCore = core;
+        blueprintOwner = owner;
+        blueprintId = type(uint64).max;
+    }
 
     /// @notice Restricts function to calls from Tangle core
     modifier onlyFromTangle() {
@@ -63,16 +105,19 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     }
 
     /// @inheritdoc IBlueprintServiceManager
-    /// @dev One-shot binder. The BSM is paired with exactly one Tangle core on its first
-    ///      successful call; subsequent calls revert. A frontrunner can only DoS a single
-    ///      BSM deployment, which the deployer detects (the recorded `tangleCore` won't
-    ///      match the intended Tangle) and re-deploys to fix.
-    function onBlueprintCreated(uint64 _blueprintId, address owner, address _tangleCore) external virtual {
-        if (tangleCore != address(0)) revert AlreadyInitialized();
+    function onBlueprintCreated(uint64 _blueprintId, address owner, address core) external virtual {
+        _onBlueprintCreated(_blueprintId, owner, core);
+    }
 
+    /// @dev Preserve the expected registry and creator when extending the registration hook.
+    function _onBlueprintCreated(uint64 _blueprintId, address owner, address core) internal {
+        if (tangleCore == address(0) || msg.sender != tangleCore || core != tangleCore) {
+            revert OnlyTangleAllowed(msg.sender, tangleCore);
+        }
+        if (blueprintId != type(uint64).max) revert AlreadyInitialized();
+        if (owner != blueprintOwner) revert OnlyBlueprintOwnerAllowed(owner, blueprintOwner);
+        if (_blueprintId == type(uint64).max) revert InvalidBlueprintBinding();
         blueprintId = _blueprintId;
-        blueprintOwner = owner;
-        tangleCore = _tangleCore;
     }
 
     /// @inheritdoc IBlueprintServiceManager

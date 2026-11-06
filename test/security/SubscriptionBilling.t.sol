@@ -213,6 +213,7 @@ contract SubscriptionBillingTest is BaseTest {
         vm.warp(t0);
 
         ForceRemoveAllowedManager mgr = new ForceRemoveAllowedManager();
+        mgr.initializeBlueprintManager(address(tangle), developer);
         _setUpSubscriptionWithManager(address(mgr));
 
         // Force-remove the only operator to leave the service with an empty active set.
@@ -246,6 +247,7 @@ contract SubscriptionBillingTest is BaseTest {
         uint256 t0 = 1_000_000;
         vm.warp(t0);
         QosZeroManager mgr = new QosZeroManager();
+        mgr.initializeBlueprintManager(address(tangle), developer);
         _setUpSubscriptionWithManager(address(mgr));
 
         vm.warp(t0 + SUB_INTERVAL);

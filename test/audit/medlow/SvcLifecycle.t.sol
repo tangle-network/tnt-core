@@ -31,6 +31,7 @@ contract SvcLifecycleAuditTest is BaseTest {
         super.setUp();
 
         bsm = new JoinPermissiveBSM();
+        bsm.initializeBlueprintManager(address(tangle), developer);
 
         _registerOperator(operator1, 5 ether);
         _registerOperator(operator2, 5 ether);
