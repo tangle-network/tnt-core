@@ -51,7 +51,7 @@ library SignatureLib {
     );
 
     bytes32 internal constant GPU_JOB_QUOTE_TYPEHASH = keccak256(
-        "GpuJobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality,bytes32 inputsHash,ResourceCommitment resourceCommitment)ResourceCommitment(uint8 kind,uint64 count,bytes32 gpuClass,uint64 durationSecs)"
+        "GpuJobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality,bytes32 inputsHash,GpuResourceCommitment resourceCommitment)GpuResourceCommitment(uint8 kind,uint64 count,bytes32 gpuClass,uint64 durationSecs)"
     );
 
     /// @dev EIP-712 TypeHash for domain separator
