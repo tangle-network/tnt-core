@@ -25,17 +25,9 @@ import { Types } from "./libraries/Types.sol";
 contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // ERRORS
-    // ═══════════════════════════════════════════════════════════════════════════
-
     error OnlyTangleAllowed(address caller, address tangle);
     error OnlyBlueprintOwnerAllowed(address caller, address owner);
     error AlreadyInitialized();
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // STATE
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice The Tangle core contract address
     address public tangleCore;
@@ -49,10 +41,6 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     /// @notice Permitted payment assets per service
     /// @dev serviceId => set of permitted asset addresses
     mapping(uint64 => EnumerableSet.AddressSet) private _permittedPaymentAssets;
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // MODIFIERS
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Restricts function to calls from Tangle core
     modifier onlyFromTangle() {
@@ -74,10 +62,6 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
         _;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // BLUEPRINT LIFECYCLE
-    // ═══════════════════════════════════════════════════════════════════════════
-
     /// @inheritdoc IBlueprintServiceManager
     /// @dev One-shot binder. The BSM is paired with exactly one Tangle core on its first
     ///      successful call; subsequent calls revert. A frontrunner can only DoS a single
@@ -90,10 +74,6 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
         blueprintOwner = owner;
         tangleCore = _tangleCore;
     }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // OPERATOR LIFECYCLE
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @inheritdoc IBlueprintServiceManager
     function onRegister(address, bytes calldata) external payable virtual onlyFromTangle {
@@ -109,10 +89,6 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     function onUpdatePreferences(address, bytes calldata) external payable virtual onlyFromTangle {
         // No action by default
     }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // SERVICE CONFIGURATION QUERIES
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @inheritdoc IBlueprintServiceManager
     function getHeartbeatInterval(uint64) external view virtual returns (bool useDefault, uint64 interval) {
@@ -168,10 +144,6 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
         return 10_000;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // SERVICE LIFECYCLE
-    // ═══════════════════════════════════════════════════════════════════════════
-
     /// @inheritdoc IBlueprintServiceManager
     function onRequest(
         uint64,
@@ -221,10 +193,6 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
         // No action by default
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // DYNAMIC MEMBERSHIP
-    // ═══════════════════════════════════════════════════════════════════════════
-
     /// @inheritdoc IBlueprintServiceManager
     function canJoin(uint64, address) external view virtual returns (bool) {
         return true; // Allow all joins by default
@@ -255,10 +223,6 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
         // No action by default
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // JOB LIFECYCLE
-    // ═══════════════════════════════════════════════════════════════════════════
-
     /// @inheritdoc IBlueprintServiceManager
     function onJobCall(uint64, uint8, uint64, bytes calldata) external payable virtual onlyFromTangle {
         // Accept all jobs by default
@@ -281,10 +245,6 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
         // Accept all results by default
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // SLASHING
-    // ═══════════════════════════════════════════════════════════════════════════
-
     /// @inheritdoc IBlueprintServiceManager
     function onUnappliedSlash(uint64, bytes calldata, uint8) external virtual onlyFromTangle {
         // No action by default - slash proceeds after window
@@ -295,10 +255,6 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
         // No action by default
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // AUTHORIZATION QUERIES
-    // ═══════════════════════════════════════════════════════════════════════════
-
     /// @inheritdoc IBlueprintServiceManager
     function querySlashingOrigin(uint64) external view virtual returns (address) {
         return address(this); // This contract is the slashing authority by default
@@ -308,10 +264,6 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     function queryDisputeOrigin(uint64) external view virtual returns (address) {
         return address(this); // This contract handles disputes by default
     }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PAYMENT QUERIES
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @inheritdoc IBlueprintServiceManager
     function queryDeveloperPaymentAddress(uint64) external view virtual returns (address payable) {
@@ -334,18 +286,10 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
         return _permittedPaymentAssets[serviceId].contains(asset);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // JOB CONFIGURATION
-    // ═══════════════════════════════════════════════════════════════════════════
-
     /// @inheritdoc IBlueprintServiceManager
     function getRequiredResultCount(uint64, uint8) external view virtual returns (uint32) {
         return 1; // Single result sufficient by default
     }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // BLS AGGREGATION
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @inheritdoc IBlueprintServiceManager
     function requiresAggregation(uint64, uint8) external view virtual returns (bool) {
@@ -375,18 +319,10 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
         // Accept all aggregated results by default
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // STAKE REQUIREMENTS
-    // ═══════════════════════════════════════════════════════════════════════════
-
     /// @inheritdoc IBlueprintServiceManager
     function getMinOperatorStake() external view virtual returns (bool useDefault, uint256 minStake) {
         return (true, 0); // Use protocol default from staking module
     }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // BINARY VERSION LIFECYCLE
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @inheritdoc IBlueprintServiceManager
     function onBinaryVersionPublished(
@@ -408,10 +344,6 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
         // No-op by default. Override to track operator ack reputation or to gate
         // job dispatch behind acks.
     }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // INTERNAL HELPERS
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Permit a payment asset for a service
     /// @param serviceId The service ID
@@ -442,10 +374,6 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     function _getPermittedAssets(uint64 serviceId) internal view virtual returns (address[] memory) {
         return _permittedPaymentAssets[serviceId].values();
     }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PAYMENT RECEIVER
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Accept native token payments (e.g., developer revenue)
     /// @dev Override _onPaymentReceived to handle incoming payments
