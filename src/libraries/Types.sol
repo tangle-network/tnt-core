@@ -4,9 +4,7 @@ pragma solidity ^0.8.26;
 /// @title Types
 /// @notice Shared types for Tangle Protocol v2
 library Types {
-    // ═══════════════════════════════════════════════════════════════════════════
     // BLUEPRINT
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Membership model for a service
     /// @dev IMPORTANT: Enum values must only be APPENDED, never reordered or inserted.
@@ -227,9 +225,7 @@ library Types {
         Struct
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // OPERATOR
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Operator registration status for a specific blueprint
     struct OperatorRegistration {
@@ -242,7 +238,8 @@ library Types {
     /// @dev The ecdsaPublicKey is used for gossip network message signing/verification
     ///      and may differ from the operator's wallet key (msg.sender)
     struct OperatorPreferences {
-        bytes ecdsaPublicKey; // ECDSA public key for gossip network identity (persisted; read on-chain for gossip-key dedup)
+        bytes ecdsaPublicKey; // ECDSA public key for gossip network identity (persisted; read on-chain for gossip-key
+        // dedup)
         // RPC endpoint URL. Off-chain discovery only — never persisted on-chain (empty in
         // storage); the real value is emitted in OperatorRegistered / OperatorPreferencesUpdated
         // and forwarded to the BSM hook. Source it from those events, not getOperatorPreferences.
@@ -270,9 +267,7 @@ library Types {
         uint16 exposureBps; // Committed exposure percentage
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // TEE ATTESTATION COMMITMENTS
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Supported TEE backends an operator may attest to.
     /// @dev IMPORTANT: Enum values must only be APPENDED, never reordered or inserted.
@@ -309,9 +304,7 @@ library Types {
         uint64 expiresAt;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // APPROVAL PARAMETERS
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Parameters for `ServicesApprovals.approveService`.
     /// @dev Every optional capability is opt-in via empty/zero fields:
@@ -342,9 +335,7 @@ library Types {
         TeeAttestationCommitment[] teeCommitments;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Service status
     /// @dev IMPORTANT: Enum values must only be APPENDED, never reordered or inserted.
@@ -428,9 +419,7 @@ library Types {
         bool active; // Currently participating
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // JOB
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Job call - a unit of work submitted to a service
     /// @dev Struct layout (3 slots; the small fields are grouped so none cross a slot):
@@ -448,9 +437,7 @@ library Types {
         uint256 payment; // Payment for this job (EventDriven model)
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // REWARDS
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Payment split configuration
     /// @dev Percentages in basis points. The five shares must sum to exactly 10_000.
@@ -466,9 +453,7 @@ library Types {
         uint16 keeperBps; // To the bill caller; zero when bills are not caller-triggered
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // MULTI-ASSET DELEGATION
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Asset type for multi-asset support
     /// @dev IMPORTANT: Enum values must only be APPENDED, never reordered or inserted.
@@ -618,9 +603,7 @@ library Types {
         uint256 currentDeposits; // Track total deposits
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // SLASHING
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Slash parameters
     struct SlashParams {
@@ -630,9 +613,7 @@ library Types {
         bytes32 evidence; // IPFS hash or other reference
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // RFQ (Request For Quote) - SIGNED PRICE QUOTES
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Resource commitment from an operator (part of signed quote)
     /// @dev kind: 0=CPU, 1=MemoryMB, 2=StorageMB, 3=NetworkEgressMB, 4=NetworkIngressMB, 5=GPU
@@ -702,6 +683,15 @@ library Types {
         bytes32 inputsHash; // keccak256(inputs) the price is quoted against
     }
 
+    /// @notice GPU allocation signed by every operator in a GPU job RFQ.
+    /// @dev gpuClass is keccak256 of the canonical blueprint SDK catalog id.
+    struct GpuResourceCommitment {
+        uint8 kind;
+        uint64 count;
+        bytes32 gpuClass;
+        uint64 durationSecs;
+    }
+
     /// @notice Signed per-job quote from an operator
     struct SignedJobQuote {
         JobQuoteDetails details;
@@ -709,9 +699,7 @@ library Types {
         address operator; // Quoted operator address
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // BLS AGGREGATION
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Threshold type for BLS aggregation
     enum ThresholdType {
@@ -743,9 +731,7 @@ library Types {
         BN254G2Point aggregatedPubkey; // Aggregated public key of signers
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // OPERATOR EXIT QUEUE
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Exit configuration for operator service departures
     /// @dev Can be set per-blueprint, with protocol defaults as fallback
@@ -771,9 +757,7 @@ library Types {
         Completed // Exit completed (operator left)
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // BLUEPRINT BINARY VERSIONS
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Append-only binary version record for a blueprint.
     /// @dev Versions are assigned monotonically by `publishBinaryVersion` and never
@@ -811,9 +795,7 @@ library Types {
         MANUAL
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // BINARY ATTESTATIONS
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Kind of attestation produced for a binary version.
     /// @dev IMPORTANT: Enum values must only be APPENDED, never reordered or inserted.

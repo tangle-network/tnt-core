@@ -11,9 +11,7 @@ import { Errors } from "./Errors.sol";
 library SignatureLib {
     using ECDSA for bytes32;
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // TYPE HASHES
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev EIP-712 TypeHash for Asset
     bytes32 internal constant ASSET_TYPEHASH = keccak256("Asset(uint8 kind,address token)");
@@ -52,32 +50,34 @@ library SignatureLib {
         "JobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality,bytes32 inputsHash)"
     );
 
+    bytes32 internal constant GPU_JOB_QUOTE_TYPEHASH = keccak256(
+        "GpuJobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality,bytes32 inputsHash,ResourceCommitment resourceCommitment)ResourceCommitment(uint8 kind,uint64 count,bytes32 gpuClass,uint64 durationSecs)"
+    );
+
     /// @dev EIP-712 TypeHash for domain separator
     bytes32 internal constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice A quote's signed operation/serviceId did not match the flow consuming it.
     /// @dev Declared locally (not in the shared Errors library) per the quote-signing fix scope.
     error QuoteOperationMismatch(
-        address operator, uint8 expectedOperation, uint8 quotedOperation, uint64 expectedServiceId, uint64 quotedServiceId
+        address operator,
+        uint8 expectedOperation,
+        uint8 quotedOperation,
+        uint64 expectedServiceId,
+        uint64 quotedServiceId
     );
 
     /// @notice A job quote's signed `inputsHash` did not match the submitted job inputs.
     error JobQuoteInputsMismatch(address operator, bytes32 expectedInputsHash, bytes32 quotedInputsHash);
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
-    // ═══════════════════════════════════════════════════════════════════════════
 
     event QuoteUsed(address indexed operator, bytes32 indexed quoteHash);
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // DOMAIN SEPARATOR
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Compute the EIP-712 domain separator
     function computeDomainSeparator(
@@ -97,9 +97,7 @@ library SignatureLib {
         );
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // QUOTE VERIFICATION
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Compute the hash of quote details for signing
     function hashQuote(Types.QuoteDetails memory details) internal pure returns (bytes32) {
@@ -201,9 +199,7 @@ library SignatureLib {
         emit QuoteUsed(quote.operator, digest);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // JOB QUOTE VERIFICATION (per-job RFQ)
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Compute the hash of job quote details for signing
     function hashJobQuote(Types.JobQuoteDetails memory details) internal pure returns (bytes32) {
@@ -236,6 +232,33 @@ library SignatureLib {
         return keccak256(abi.encodePacked("\x19\x01", domainSeparator, hashJobQuote(details)));
     }
 
+    /// @notice GPU quote digest; legacy quotes keep computeJobQuoteDigest unchanged.
+    function computeGpuJobQuoteDigest(
+        bytes32 domainSeparator,
+        Types.JobQuoteDetails memory d,
+        bytes32 resourceHash
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                GPU_JOB_QUOTE_TYPEHASH,
+                d.requester,
+                d.serviceId,
+                d.jobIndex,
+                d.price,
+                d.timestamp,
+                d.expiry,
+                d.confidentiality,
+                d.inputsHash,
+                resourceHash
+            )
+        );
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+    }
+
     /// @notice Verify job quote signature and mark as used (replay protection)
     /// @param expectedRequester The address consuming the quote (typically `msg.sender`).
     ///        Bound here so a third party that observed the gossiped quote cannot
@@ -250,7 +273,8 @@ library SignatureLib {
         Types.SignedJobQuote memory quote,
         uint64 maxQuoteAge,
         address expectedRequester,
-        bytes32 expectedInputsHash
+        bytes32 expectedInputsHash,
+        bytes32 resourceHash
     )
         internal
     {
@@ -278,7 +302,9 @@ library SignatureLib {
             revert Errors.QuoteTimestampTooOld(quote.operator, quote.details.timestamp, maxQuoteAge);
         }
 
-        bytes32 digest = computeJobQuoteDigest(domainSeparator, quote.details);
+        bytes32 digest = resourceHash == bytes32(0)
+            ? computeJobQuoteDigest(domainSeparator, quote.details)
+            : computeGpuJobQuoteDigest(domainSeparator, quote.details, resourceHash);
 
         // Check not already used
         if (usedQuotes[digest]) {
@@ -296,9 +322,7 @@ library SignatureLib {
         emit QuoteUsed(quote.operator, digest);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // BATCH VERIFICATION
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Verify multiple quotes and compute total cost.
     /// @param expectedRequester The address each quote must be bound to (typically `msg.sender`).
