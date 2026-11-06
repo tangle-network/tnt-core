@@ -390,6 +390,7 @@ contract PaymentsTest is BaseTest {
     ///         holds regardless of whether the manager would have allow-listed the token.
     function test_EventDriven_RequestService_RevertDisallowedErc20SettlementToken() public {
         MockPaymentAssetManager manager = new MockPaymentAssetManager();
+        manager.initializeBlueprintManager(address(tangle), developer);
         // The token is not native, so the request fails closed no matter what the manager allows.
         manager.setAssetAllowed(address(token), false);
 
@@ -698,6 +699,7 @@ contract PaymentsTest is BaseTest {
 
     function test_Subscription_ZeroInitialDeposit_RespectsManagerTokenPolicy() public {
         MockPaymentAssetManager manager = new MockPaymentAssetManager();
+        manager.initializeBlueprintManager(address(tangle), developer);
         manager.setAssetAllowed(address(token), false);
 
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
@@ -727,6 +729,7 @@ contract PaymentsTest is BaseTest {
 
     function test_RequestPaymentAsset_ContextDenyCannotBeOverriddenByLegacyGlobalAllow() public {
         MockContextPaymentManager manager = new MockContextPaymentManager();
+        manager.initializeBlueprintManager(address(tangle), developer);
         manager.setContextAssetAllowed(0, address(token), true);
         manager.setContextAssetAllowed(1, address(token), false);
 

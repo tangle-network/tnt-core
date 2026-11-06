@@ -122,6 +122,7 @@ contract BlueprintsBinaryVersionsTest is UpgradeFlowHarness {
 
     function test_publish_bsmHookSeesTangleAsSender() public {
         MockBinaryHookBSM bsm = new MockBinaryHookBSM();
+        bsm.initializeBlueprintManager(address(tangle), developer);
         uint64 bp = _createBlueprint(developer, address(bsm));
 
         _publishV(bp, developer, HASH_V0, "ipfs://v0");
@@ -136,6 +137,7 @@ contract BlueprintsBinaryVersionsTest is UpgradeFlowHarness {
 
     function test_publish_bsmRevertEmitsManagerHookFailedButPersistsRow() public {
         MockBinaryHookBSM bsm = new MockBinaryHookBSM();
+        bsm.initializeBlueprintManager(address(tangle), developer);
         bsm.setRevertOnPublish(true);
         uint64 bp = _createBlueprint(developer, address(bsm));
 
@@ -156,6 +158,7 @@ contract BlueprintsBinaryVersionsTest is UpgradeFlowHarness {
 
     function test_publish_bsmGateRequiringAttestationStillPersistsRow() public {
         MockBinaryHookBSM bsm = new MockBinaryHookBSM();
+        bsm.initializeBlueprintManager(address(tangle), developer);
         bsm.setRequireAttestation(true);
         uint64 bp = _createBlueprint(developer, address(bsm));
 
@@ -344,6 +347,7 @@ contract BlueprintsBinaryVersionsTest is UpgradeFlowHarness {
 
     function test_ack_bsmHookSeesTangleAsSender() public {
         MockBinaryHookBSM bsm = new MockBinaryHookBSM();
+        bsm.initializeBlueprintManager(address(tangle), developer);
         _registerOperator(operator1);
         uint64 bp = _createBlueprint(developer, address(bsm));
         _registerForBlueprint(operator1, bp);
@@ -370,6 +374,7 @@ contract BlueprintsBinaryVersionsTest is UpgradeFlowHarness {
 
     function test_ack_bsmRevertEmitsManagerHookFailedButPersistsAck() public {
         MockBinaryHookBSM bsm = new MockBinaryHookBSM();
+        bsm.initializeBlueprintManager(address(tangle), developer);
         _registerOperator(operator1);
         uint64 bp = _createBlueprint(developer, address(bsm));
         _registerForBlueprint(operator1, bp);

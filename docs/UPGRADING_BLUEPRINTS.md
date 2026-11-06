@@ -47,7 +47,13 @@ Blueprints are templates that operators can spin services from. Registration
 puts the template on-chain and assigns it a `blueprintId`.
 
 Every blueprint repo under `~/code/` ships with a `deploy/register-blueprint.sh`
-that handles BSM deployment + `Tangle.createBlueprint(...)` in one shot.
+that handles BSM deployment + `Tangle.createBlueprint(...)` in one shot. The manager must already
+bind its expected Tangle core and creator: use the base's internal
+`_initializeBlueprintManager(core, creator)` in an atomic constructor or protected
+proxy initializer. A direct manager without an atomic binder requires its deployer
+to call `initializeBlueprintManager(core, creator)` before registration. A CLI deploying
+such a manager must perform that step from the deployment signer; it cannot initialize
+an arbitrary existing manager. The callback validates both registry and creator.
 The canonical sweep script in tnt-core wraps all of them.
 
 ```bash

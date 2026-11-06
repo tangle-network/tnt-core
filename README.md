@@ -52,6 +52,10 @@ pragma solidity ^0.8.26;
 import { BlueprintServiceManagerBase } from "tnt-core/src/BlueprintServiceManagerBase.sol";
 
 contract MyBlueprint is BlueprintServiceManagerBase {
+    constructor(address core) {
+        _initializeBlueprintManager(core, msg.sender);
+    }
+
     function onRequest(
         uint64 requestId,
         address requester,
@@ -89,6 +93,18 @@ contract MyBlueprint is BlueprintServiceManagerBase {
     }
 }
 ```
+
+Bind the intended Tangle core and blueprint creator before `createBlueprint`.
+A derived constructor can call `_initializeBlueprintManager(core, creator)` atomically,
+as above. For a directly deployed manager without that constructor binding, its deployer
+must call `initializeBlueprintManager(core, creator)` before the creator registers it.
+The creator may differ from the deployer; the registry callback must match the prebound creator.
+
+For proxies, call the internal binder inside the consumer's protected initializer and
+encode that initializer in proxy deployment. The external bootstrap method has no authority
+in an unprepared proxy. Custom `onBlueprintCreated` overrides should call
+`_onBlueprintCreated(id, creator, core)` before their own setup. Registration is one-shot,
+including ID zero; the pending marker is `type(uint64).max`.
 
 ## Core Contracts
 

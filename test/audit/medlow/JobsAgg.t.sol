@@ -57,6 +57,7 @@ contract JobsAggMedLowTest is BaseTest {
         super.setUp();
 
         bsm = new MockAggBSM();
+        bsm.initializeBlueprintManager(address(tangle), developer);
 
         vm.prank(developer);
         blueprintId = _createBlueprintAsSenderWithJobs("ipfs://jobs-agg-medlow", address(bsm), 4);

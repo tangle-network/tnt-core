@@ -608,6 +608,7 @@ contract CustomServiceManagerTest is BaseTest {
 
     function test_ServiceManagerCanRejectOperator() public {
         RejectingServiceManager rejectingManager = new RejectingServiceManager();
+        rejectingManager.initializeBlueprintManager(address(tangle), developer);
 
         vm.prank(developer);
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rejecting", address(rejectingManager)));
@@ -631,6 +632,7 @@ contract CustomServiceManagerTest is BaseTest {
 
     function test_ServiceManagerCanCustomizeHeartbeat() public {
         CustomHeartbeatManager customManager = new CustomHeartbeatManager();
+        customManager.initializeBlueprintManager(address(tangle), developer);
 
         vm.prank(developer);
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://heartbeat", address(customManager)));

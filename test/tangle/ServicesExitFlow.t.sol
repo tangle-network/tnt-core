@@ -26,6 +26,7 @@ contract ServicesExitFlowTest is BaseTest {
     function setUp() public override {
         super.setUp();
         exitManager = new CustomExitManager();
+        exitManager.initializeBlueprintManager(address(tangle), developer);
     }
 
     function test_GetExitConfig_UsesManagerOverrides() public {
