@@ -6,9 +6,7 @@ import { Types } from "../libraries/Types.sol";
 /// @title ITangleJobs
 /// @notice Job submission and result management interface
 interface ITangleJobs {
-    // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
-    // ═══════════════════════════════════════════════════════════════════════════
 
     event JobSubmitted(
         uint64 indexed serviceId, uint64 indexed callId, uint8 indexed jobIndex, address caller, bytes inputs
@@ -31,9 +29,7 @@ interface ITangleJobs {
         bytes inputs
     );
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // FUNCTIONS
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Submit a job to a service
     function submitJob(uint64 serviceId, uint8 jobIndex, bytes calldata inputs) external payable returns (uint64 callId);
@@ -77,9 +73,19 @@ interface ITangleJobs {
         payable
         returns (uint64 callId);
 
-    // ═══════════════════════════════════════════════════════════════════════════
+    /// @notice Submit a GPU job quote committing to canonical class, count and duration.
+    function submitJobFromQuote(
+        uint64 serviceId,
+        uint8 jobIndex,
+        bytes calldata inputs,
+        Types.SignedJobQuote[] calldata quotes,
+        Types.GpuResourceCommitment calldata resource
+    )
+        external
+        payable
+        returns (uint64 callId);
+
     // VIEW FUNCTIONS
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Get job call info
     function getJobCall(uint64 serviceId, uint64 callId) external view returns (Types.JobCall memory);

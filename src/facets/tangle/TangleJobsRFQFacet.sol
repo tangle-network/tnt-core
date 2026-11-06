@@ -14,10 +14,19 @@ contract TangleJobsRFQFacet is JobsRFQ, IFacetSelectors {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](3);
-        selectorList[0] = this.submitJobFromQuote.selector;
+        selectorList = new bytes4[](4);
+        selectorList[0] = bytes4(
+            keccak256(
+                "submitJobFromQuote(uint64,uint8,bytes,((address,uint64,uint8,uint256,uint64,uint64,uint8,bytes32),bytes,address)[])"
+            )
+        );
         selectorList[1] = this.getJobQuotedOperators.selector;
         selectorList[2] = this.getJobQuotedPrice.selector;
+        selectorList[3] = bytes4(
+            keccak256(
+                "submitJobFromQuote(uint64,uint8,bytes,((address,uint64,uint8,uint256,uint64,uint64,uint8,bytes32),bytes,address)[],(uint8,uint64,bytes32,uint64))"
+            )
+        );
     }
 
     /// @notice Distribute RFQ job payment to quoted operators at their individual prices

@@ -75,9 +75,7 @@ contract JobPricingAndRFQTest is BaseTest {
         serviceId = tangle.serviceCount() - 1;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // PER-JOB PRICING: setJobEventRates / getJobEventRate
-    // ═══════════════════════════════════════════════════════════════════════════
 
     function test_SetJobEventRates_OverridesDefaultRate() public {
         uint8[] memory indexes = new uint8[](1);
@@ -217,9 +215,7 @@ contract JobPricingAndRFQTest is BaseTest {
         assertEq(tangle.getJobCall(serviceId, callId1).payment, 3 ether);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // JOB RFQ: submitJobFromQuote
-    // ═══════════════════════════════════════════════════════════════════════════
 
     function test_SubmitJobFromQuote_SingleOperator() public {
         Types.SignedJobQuote[] memory quotes = new Types.SignedJobQuote[](1);
@@ -379,9 +375,7 @@ contract JobPricingAndRFQTest is BaseTest {
         tangle.submitJobFromQuote{ value: 1 ether }(serviceId, 0, "", quotes);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // RFQ RESULT ENFORCEMENT
-    // ═══════════════════════════════════════════════════════════════════════════
 
     function test_RFQJob_QuotedOperatorCanSubmitResult() public {
         Types.SignedJobQuote[] memory quotes = new Types.SignedJobQuote[](1);
@@ -444,9 +438,7 @@ contract JobPricingAndRFQTest is BaseTest {
         assertTrue(job.completed);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // FUZZ TESTS
-    // ═══════════════════════════════════════════════════════════════════════════
 
     function testFuzz_SetJobEventRates_AnyValidIndex(uint8 jobIndex) public {
         // Blueprint has DEFAULT_JOB_COUNT (8) jobs
@@ -477,9 +469,7 @@ contract JobPricingAndRFQTest is BaseTest {
         assertTrue(job.isRFQ);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // EDGE CASES
-    // ═══════════════════════════════════════════════════════════════════════════
 
     function test_SubmitJobFromQuote_ZeroPriceQuote() public {
         // Operator prices job at 0 — should still work (free job via RFQ)
@@ -672,9 +662,127 @@ contract JobPricingAndRFQTest is BaseTest {
         assertEq(job.payment, price);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
+    struct GpuResource {
+        uint8 kind;
+        uint64 count;
+        bytes32 gpuClass;
+        uint64 durationSecs;
+    }
+
+    function test_GpuQuote_EightB200AndLegacyQuoteBothRedeem() public {
+        GpuResource memory gpu = GpuResource(5, 8, keccak256("nvidia-b200"), 3600);
+        Types.SignedJobQuote[] memory quotes = _gpuQuotes(gpu);
+        (bool ok, bytes memory result) = _submitGpu(quotes, gpu);
+        assertTrue(ok, "GPU-aware public RFQ entrypoint must accept a signed 8xB200 quote");
+        uint64 callId = abi.decode(result, (uint64));
+        assertEq(tangle.getJobQuotedPrice(serviceId, callId, operator1), 1 ether);
+        quotes[0] = _createJobQuote(operator1, OPERATOR1_PK, serviceId, 0, 1 ether);
+        vm.prank(user1);
+        tangle.submitJobFromQuote{ value: 1 ether }(serviceId, 0, "", quotes);
+    }
+
+    function test_GpuQuote_RejectsClassCountDurationTamperingWithoutBurningQuote() public {
+        GpuResource memory gpu = GpuResource(5, 8, keccak256("nvidia-b200"), 3600);
+        Types.SignedJobQuote[] memory quotes = _gpuQuotes(gpu);
+        gpu.gpuClass = keccak256("nvidia-b300");
+        (bool ok,) = _submitGpu(quotes, gpu);
+        assertFalse(ok, "different GPU class must invalidate the signature");
+        gpu.gpuClass = keccak256("nvidia-b200");
+        gpu.count = 1;
+        (ok,) = _submitGpu(quotes, gpu);
+        assertFalse(ok, "different count must invalidate the signature");
+        gpu.count = 8;
+        gpu.durationSecs = 7200;
+        (ok,) = _submitGpu(quotes, gpu);
+        assertFalse(ok, "different duration must invalidate the signature");
+        gpu.durationSecs = 3600;
+        (ok,) = _submitGpu(quotes, gpu);
+        assertTrue(ok, "rejected mutations must not consume the real quote");
+        (ok,) = _submitGpu(quotes, gpu);
+        assertFalse(ok, "accepted GPU quote must be single-use");
+    }
+
+    function test_GpuQuote_RejectsInvalidResourceAndLegacySignature() public {
+        GpuResource memory gpu = GpuResource(5, 8, keccak256("nvidia-b200"), 3600);
+        Types.SignedJobQuote[] memory quotes = new Types.SignedJobQuote[](1);
+        quotes[0] = _createJobQuote(operator1, OPERATOR1_PK, serviceId, 0, 1 ether);
+        (bool ok,) = _submitGpu(quotes, gpu);
+        assertFalse(ok, "legacy signature cannot authorize a GPU commitment");
+        gpu.count = 0;
+        quotes = _gpuQuotes(gpu);
+        (ok,) = _submitGpu(quotes, gpu);
+        assertFalse(ok, "zero count must be refused even when signed");
+        gpu.count = 8;
+        gpu.durationSecs = 0;
+        quotes = _gpuQuotes(gpu);
+        (ok,) = _submitGpu(quotes, gpu);
+        assertFalse(ok, "zero duration must be refused even when signed");
+    }
+
+    function _gpuQuotes(GpuResource memory gpu) internal returns (Types.SignedJobQuote[] memory quotes) {
+        quotes = new Types.SignedJobQuote[](1);
+        quotes[0] = _createJobQuote(operator1, OPERATOR1_PK, serviceId, 0, 1 ether);
+        Types.JobQuoteDetails memory d = quotes[0].details;
+        bytes32 resourceHash = keccak256(
+            abi.encode(
+                keccak256("ResourceCommitment(uint8 kind,uint64 count,bytes32 gpuClass,uint64 durationSecs)"),
+                gpu.kind,
+                gpu.count,
+                gpu.gpuClass,
+                gpu.durationSecs
+            )
+        );
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256(
+                    "GpuJobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality,bytes32 inputsHash,ResourceCommitment resourceCommitment)ResourceCommitment(uint8 kind,uint64 count,bytes32 gpuClass,uint64 durationSecs)"
+                ),
+                d.requester,
+                d.serviceId,
+                d.jobIndex,
+                d.price,
+                d.timestamp,
+                d.expiry,
+                d.confidentiality,
+                d.inputsHash,
+                resourceHash
+            )
+        );
+        bytes32 domain = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256("TangleQuote"),
+                keccak256("1"),
+                block.chainid,
+                address(tangle)
+            )
+        );
+        (uint8 v, bytes32 r, bytes32 s) =
+            vm.sign(OPERATOR1_PK, keccak256(abi.encodePacked("\x19\x01", domain, structHash)));
+        quotes[0].signature = abi.encodePacked(r, s, v);
+    }
+
+    function _submitGpu(
+        Types.SignedJobQuote[] memory quotes,
+        GpuResource memory gpu
+    )
+        internal
+        returns (bool, bytes memory)
+    {
+        vm.prank(user1);
+        return address(tangle).call{ value: 1 ether }(
+            abi.encodeWithSignature(
+                "submitJobFromQuote(uint64,uint8,bytes,((address,uint64,uint8,uint256,uint64,uint64,uint8,bytes32),bytes,address)[],(uint8,uint64,bytes32,uint64))",
+                serviceId,
+                uint8(0),
+                bytes(""),
+                quotes,
+                gpu
+            )
+        );
+    }
+
     // HELPERS
-    // ═══════════════════════════════════════════════════════════════════════════
 
     function _createJobQuote(
         address operator,

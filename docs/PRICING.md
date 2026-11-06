@@ -443,51 +443,29 @@ function getJobQuotedPrice(uint64 serviceId, uint64 callId, address operator)
     external view returns (uint256);
 ```
 
-### Operator-side implementation
+### GPU job quotes
 
-The on-chain contract verifies quotes; operators need off-chain software to generate and
-sign them. The Tangle blueprint SDK provides this.
+The five-argument `submitJobFromQuote` overload accepts the same job quotes plus
+`Types.GpuResourceCommitment {kind, count, gpuClass, durationSecs}`. `kind` must be
+GPU (5); class, count and duration must be nonzero. `gpuClass` is `keccak256` of
+the canonical id from the [Blueprint SDK GPU catalog](https://github.com/tangle-network/blueprint/blob/main/crates/core/gpu-catalog.json).
 
-**Signer — `blueprint-tangle-extra`:**
+Each operator signs this EIP-712 type with the existing `TangleQuote` v1 domain:
 
-```rust
-use blueprint_tangle_extra::job_quote::{JobQuoteSigner, JobQuoteDetails, QuoteSigningDomain};
-
-let domain = QuoteSigningDomain {
-    chain_id: 1,
-    verifying_contract: tangle_proxy_address,
-};
-let signer = JobQuoteSigner::new(operator_keypair, domain);
-
-let details = JobQuoteDetails {
-    requester: buyer_address,
-    service_id: 42,
-    job_index: 7,
-    price: U256::from(250_000_000_000_000u64), // 0.00025 ETH
-    timestamp: now,
-    expiry: now + 3600,
-    confidentiality: 0,
-};
-
-let signed = signer.sign(&details);   // ready to submit on-chain
+```text
+GpuJobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality,bytes32 inputsHash,ResourceCommitment resourceCommitment)ResourceCommitment(uint8 kind,uint64 count,bytes32 gpuClass,uint64 durationSecs)
 ```
 
-**Quote-serving — `blueprint-pricing-engine`:**
+The GPU overload commits every operator to the same resource. Altering its class,
+count or duration invalidates the signature. `JobGpuResourceCommitted` records the
+accepted allocation alongside the job call. The four-argument overload, legacy
+`JobQuoteDetails` typehash, and legacy signature verification remain unchanged;
+a legacy signature cannot authorize a GPU commitment.
 
-```proto
-service PricingEngine {
-  rpc GetPrice    (GetPriceRequest)    returns (GetPriceResponse);
-  rpc GetJobPrice (GetJobPriceRequest) returns (GetJobPriceResponse);
-}
-```
-
-Operators configure per-job prices in a `(service_id, job_index) → price` map. Buyers
-hit the gRPC endpoint, receive a signed quote, and submit it on-chain.
-
-See [`tangle-network/blueprint` `crates/pricing-engine`](https://github.com/tangle-network/blueprint/tree/main/crates/pricing-engine)
-for benchmarking, caching, and transport.
-
----
+Use the [SDK quote signer](https://github.com/tangle-network/blueprint/blob/main/crates/tangle-extra/src/job_quote.rs)
+for signing and calldata construction. Catalog validation and per-class rates
+belong at the quote boundary; the protocol verifies the signed allocation and
+preserves the exact input, requester, expiry, confidentiality and replay checks.
 
 ## Service-Level RFQ (createServiceFromQuotes)
 

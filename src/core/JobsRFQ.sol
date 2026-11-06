@@ -19,9 +19,7 @@ import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 abstract contract JobsRFQ is Base {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
-    // ═══════════════════════════════════════════════════════════════════════════
 
     event JobSubmittedFromQuote(
         uint64 indexed serviceId,
@@ -33,9 +31,12 @@ abstract contract JobsRFQ is Base {
         bytes inputs
     );
 
-    // ═══════════════════════════════════════════════════════════════════════════
+    event JobGpuResourceCommitted(
+        uint64 indexed serviceId, uint64 indexed callId, bytes32 indexed gpuClass, uint64 count, uint64 durationSecs
+    );
+    error InvalidGpuResourceCommitment();
+
     // JOB SUBMISSION FROM QUOTES
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Submit a job using signed operator price quotes
     /// @param serviceId The service to submit the job to
@@ -53,6 +54,51 @@ abstract contract JobsRFQ is Base {
         payable
         whenNotPaused
         nonReentrant
+        returns (uint64 callId)
+    {
+        return _submitJobFromQuote(serviceId, jobIndex, inputs, quotes, bytes32(0));
+    }
+
+    /// @notice Redeem a quote binding GPU class, count and lease duration.
+    /// @dev The legacy four-argument selector and signature type remain unchanged.
+    function submitJobFromQuote(
+        uint64 serviceId,
+        uint8 jobIndex,
+        bytes calldata inputs,
+        Types.SignedJobQuote[] calldata quotes,
+        Types.GpuResourceCommitment calldata resource
+    )
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        returns (uint64 callId)
+    {
+        if (resource.kind != 5 || resource.count == 0 || resource.gpuClass == bytes32(0) || resource.durationSecs == 0)
+        {
+            revert InvalidGpuResourceCommitment();
+        }
+        bytes32 resourceHash = keccak256(
+            abi.encode(
+                keccak256("ResourceCommitment(uint8 kind,uint64 count,bytes32 gpuClass,uint64 durationSecs)"),
+                resource.kind,
+                resource.count,
+                resource.gpuClass,
+                resource.durationSecs
+            )
+        );
+        callId = _submitJobFromQuote(serviceId, jobIndex, inputs, quotes, resourceHash);
+        emit JobGpuResourceCommitted(serviceId, callId, resource.gpuClass, resource.count, resource.durationSecs);
+    }
+
+    function _submitJobFromQuote(
+        uint64 serviceId,
+        uint8 jobIndex,
+        bytes calldata inputs,
+        Types.SignedJobQuote[] calldata quotes,
+        bytes32 resourceHash
+    )
+        private
         returns (uint64 callId)
     {
         if (quotes.length == 0) revert Errors.NoQuotes();
@@ -85,7 +131,7 @@ abstract contract JobsRFQ is Base {
         uint64 effectiveMaxQuoteAge = _maxQuoteAge > 0 ? _maxQuoteAge : ProtocolConfig.MAX_QUOTE_AGE;
         bytes32 inputsHash = keccak256(inputs);
         uint256 totalPrice = _verifyQuotesAndRecordOperators(
-            serviceId, jobIndex, quotes, effectiveMaxQuoteAge, msg.sender, inputsHash
+            serviceId, jobIndex, quotes, effectiveMaxQuoteAge, msg.sender, inputsHash, resourceHash
         );
 
         // Settle the RFQ quote in the service's pinned EventDriven settlement asset
@@ -149,7 +195,8 @@ abstract contract JobsRFQ is Base {
         Types.SignedJobQuote[] calldata quotes,
         uint64 maxQuoteAge,
         address expectedRequester,
-        bytes32 expectedInputsHash
+        bytes32 expectedInputsHash,
+        bytes32 resourceHash
     )
         private
         returns (uint256 totalPrice)
@@ -199,7 +246,13 @@ abstract contract JobsRFQ is Base {
             // Verify EIP-712 signature and mark as used. Domain separator is recomputed
             // per-call against current chainid so cross-fork replay is impossible.
             SignatureLib.verifyAndMarkJobQuoteUsed(
-                _usedQuotes, _domainSeparatorView(), quote, maxQuoteAge, expectedRequester, expectedInputsHash
+                _usedQuotes,
+                _domainSeparatorView(),
+                quote,
+                maxQuoteAge,
+                expectedRequester,
+                expectedInputsHash,
+                resourceHash
             );
 
             totalPrice += quote.details.price;
