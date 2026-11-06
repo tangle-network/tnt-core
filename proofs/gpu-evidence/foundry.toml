@@ -14,4 +14,4 @@ recursive_deps = false
 remappings_generate = false
 
 [dependencies]
-slashing-proof = { version = "0.0.0", git = "https://github.com/tangle-network/tangle-slashing.git", rev = "f4c0be1f63e179ca7095b36c646ba88f1efcabc8" }
+slashing-proof = { version = "0.0.0", git = "https://github.com/tangle-network/tangle-slashing.git", rev = "0a76c8a4f725709fb6a4b9fde31c3b36b2dc9436" }
