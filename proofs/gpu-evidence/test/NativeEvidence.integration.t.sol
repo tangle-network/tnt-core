@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import { BaseTest } from "../../../test/BaseTest.sol";
 import { Test } from "forge-std/Test.sol";
+import { Errors } from "../../../src/libraries/Errors.sol";
 import { BlueprintServiceManagerBase } from "../../../src/BlueprintServiceManagerBase.sol";
 import { GpuLeaseEvidenceVerifier } from "slashing-proof/contracts/src/GpuLeaseEvidenceVerifier.sol";
 import { ComputeProviderSlashing } from "slashing-proof/contracts/src/ComputeProviderSlashing.sol";
@@ -98,6 +99,7 @@ contract NativeEvidenceIntegrationTest is Test {
         assertNotEq(keccak256(replacement), hash);
         vm.expectRevert("EVIDENCE_PENDING");
         _admit(manager, service, operator, replacement);
+        assertEq(manager.pendingEvidence(service, operator), hash);
         vm.warp(first.tangle().getSlashProposal(0).executeAfter + 16);
         first.tangle().executeSlash(0);
         assertEq(manager.pendingEvidence(service, operator), bytes32(0));
@@ -113,7 +115,7 @@ contract NativeEvidenceIntegrationTest is Test {
         vm.expectRevert("EVIDENCE_REJECTED");
         _admit(foreign, foreignService, operator, good);
         bytes memory absent = _receipt(manager, 99, operator, KEY, KEY);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(Errors.ServiceNotFound.selector, uint64(99)));
         _admit(manager, 99, operator, absent);
         assertEq(manager.pendingEvidence(99, operator), bytes32(0));
         assertFalse(manager.submittedEvidence(keccak256(absent)));

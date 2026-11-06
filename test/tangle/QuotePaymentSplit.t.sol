@@ -3,7 +3,6 @@ pragma solidity ^0.8.26;
 
 import { BaseTest } from "../BaseTest.sol";
 import { Types } from "../../src/libraries/Types.sol";
-import { SignatureLib } from "../../src/libraries/SignatureLib.sol";
 import { IMetricsRecorder } from "../../src/interfaces/IMetricsRecorder.sol";
 import { MockServiceFeeDistributor } from "../mocks/MockServiceFeeDistributor.sol";
 
