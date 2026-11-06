@@ -73,7 +73,7 @@ Registration and binary publication are separate transactions. Build and host th
 artifact through the blueprint's release path, then use
 `cargo tangle blueprint publish-version` and
 `cargo tangle blueprint set-active-version` with the assigned blueprint ID.
-[Section B](#b-shipping-a-new-version) describes the same flow for later versions.
+[Section B](#b-shipping-a-new-release) describes the same flow for later versions.
 The SDK CLI owns hashing, signing and transaction encoding for both.
 
 Operators need at least one published binary before
