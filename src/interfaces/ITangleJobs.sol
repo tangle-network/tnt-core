@@ -29,6 +29,10 @@ interface ITangleJobs {
         bytes inputs
     );
 
+    event JobGpuResourceCommitted(
+        uint64 indexed serviceId, uint64 indexed callId, bytes32 indexed gpuClass, uint64 count, uint64 durationSecs
+    );
+
     // FUNCTIONS
 
     /// @notice Submit a job to a service
