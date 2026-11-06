@@ -2,7 +2,6 @@
 pragma solidity ^0.8.26;
 
 import { DelegationTestHarness } from "../staking/DelegationTestHarness.sol";
-import { Types } from "../../src/libraries/Types.sol";
 
 /// @notice Full stack scenario that deterministically simulates deposits, delegations,
 ///         withdraw queues, and round advancement. This doubles as an

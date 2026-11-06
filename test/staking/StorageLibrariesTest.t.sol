@@ -8,7 +8,6 @@ import { DelegationErrors } from "../../src/staking/DelegationErrors.sol";
 import { DepositManager } from "../../src/staking/DepositManager.sol";
 import { RewardVaults } from "../../src/rewards/RewardVaults.sol";
 import { SlashingManager } from "../../src/staking/SlashingManager.sol";
-import { MultiAssetDelegation } from "../../src/staking/MultiAssetDelegation.sol";
 import { DelegationTestHarness } from "./DelegationTestHarness.sol";
 import { Types } from "../../src/libraries/Types.sol";
 

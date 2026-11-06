@@ -3,7 +3,6 @@ pragma solidity ^0.8.26;
 
 import { Test, Vm } from "forge-std/Test.sol";
 
-import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 import { OperatorStatusRegistry, IOperatorStatusRegistry } from "../../src/staking/OperatorStatusRegistry.sol";
 import { IMetricsRecorder } from "../../src/interfaces/IMetricsRecorder.sol";

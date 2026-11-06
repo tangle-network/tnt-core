@@ -4,7 +4,6 @@ pragma solidity ^0.8.26;
 import { BaseTest } from "./BaseTest.sol";
 
 import { BlueprintServiceManagerBase } from "../src/BlueprintServiceManagerBase.sol";
-import { IBlueprintServiceManager } from "../src/interfaces/IBlueprintServiceManager.sol";
 import { Types } from "../src/libraries/Types.sol";
 import { Errors } from "../src/libraries/Errors.sol";
 import { PaymentLib } from "../src/libraries/PaymentLib.sol";

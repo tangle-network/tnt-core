@@ -3,7 +3,6 @@ pragma solidity ^0.8.26;
 
 import { BeaconTestBase } from "./BeaconTestBase.sol";
 import { ValidatorPod } from "../../src/beacon/ValidatorPod.sol";
-import { ValidatorPodManager } from "../../src/beacon/ValidatorPodManager.sol";
 import { ValidatorTypes } from "../../src/beacon/ValidatorTypes.sol";
 import { BeaconChainProofs } from "../../src/beacon/BeaconChainProofs.sol";
 import { Test, console2 } from "forge-std/Test.sol";

@@ -5,7 +5,6 @@ import { BlueprintTestHarness } from "./TestHarness.sol";
 import { MockBSM_V1, MockBSM_V2, MockBSM_V3 } from "./mocks/MockBSM.sol";
 import { Types } from "../../src/libraries/Types.sol";
 import { Errors } from "../../src/libraries/Errors.sol";
-import { SlashingLib } from "../../src/libraries/SlashingLib.sol";
 
 /// @title CrossVersionCompatibilityTest
 /// @notice Tests multiple blueprint versions coexisting and slashing across versions

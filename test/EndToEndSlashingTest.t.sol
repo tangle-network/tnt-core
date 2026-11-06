@@ -6,7 +6,6 @@ import { Types } from "../src/libraries/Types.sol";
 import { Errors } from "../src/libraries/Errors.sol";
 import { SlashingLib } from "../src/libraries/SlashingLib.sol";
 import { DelegationErrors } from "../src/staking/DelegationErrors.sol";
-import { IBlueprintServiceManager } from "../src/interfaces/IBlueprintServiceManager.sol";
 import { BlueprintServiceManagerBase } from "../src/BlueprintServiceManagerBase.sol";
 import { ITangle, ITangleFull } from "../src/interfaces/ITangle.sol";
 

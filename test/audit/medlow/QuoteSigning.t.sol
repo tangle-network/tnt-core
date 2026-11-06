@@ -6,7 +6,6 @@ import { Tangle } from "../../../src/Tangle.sol";
 import { Types } from "../../../src/libraries/Types.sol";
 import { Errors } from "../../../src/libraries/Errors.sol";
 import { SignatureLib } from "../../../src/libraries/SignatureLib.sol";
-import { ProtocolConfig } from "../../../src/config/ProtocolConfig.sol";
 import { TangleJobsRFQFacet } from "../../../src/facets/tangle/TangleJobsRFQFacet.sol";
 
 /// @title QuoteSigningTest

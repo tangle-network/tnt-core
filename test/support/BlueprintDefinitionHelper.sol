@@ -145,58 +145,6 @@ abstract contract BlueprintDefinitionHelper {
         return SchemaLib.encodeSchema(fields);
     }
 
-    /// @notice Schema helper for a struct with (bool, uint16)
-    function _requestStructBoolUint16Schema() internal pure returns (bytes memory) {
-        Types.BlueprintFieldType[] memory fields = new Types.BlueprintFieldType[](1);
-        fields[0].kind = Types.BlueprintFieldKind.Struct;
-        fields[0].name = "data";
-        fields[0].children = new Types.BlueprintFieldType[](2);
-        fields[0].children[0].kind = Types.BlueprintFieldKind.Bool;
-        fields[0].children[0].children = new Types.BlueprintFieldType[](0);
-        fields[0].children[0].name = "flag";
-        fields[0].children[1].kind = Types.BlueprintFieldKind.Uint16;
-        fields[0].children[1].children = new Types.BlueprintFieldType[](0);
-        fields[0].children[1].name = "value";
-        return SchemaLib.encodeSchema(fields);
-    }
-
-    /// @notice Schema helper for a dynamic list of bools
-    function _requestListOfBoolSchema() internal pure returns (bytes memory) {
-        Types.BlueprintFieldType[] memory fields = new Types.BlueprintFieldType[](1);
-        fields[0].kind = Types.BlueprintFieldKind.List;
-        fields[0].name = "flags";
-        fields[0].children = new Types.BlueprintFieldType[](1);
-        fields[0].children[0].kind = Types.BlueprintFieldKind.Bool;
-        fields[0].children[0].children = new Types.BlueprintFieldType[](0);
-        fields[0].children[0].name = "";
-        return SchemaLib.encodeSchema(fields);
-    }
-
-    /// @notice Schema helper for a fixed-size bool array
-    function _fixedJobBoolArraySchema(uint16 length) internal pure returns (bytes memory) {
-        Types.BlueprintFieldType[] memory fields = new Types.BlueprintFieldType[](1);
-        fields[0].kind = Types.BlueprintFieldKind.Array;
-        fields[0].arrayLength = length;
-        fields[0].name = "bools";
-        fields[0].children = new Types.BlueprintFieldType[](1);
-        fields[0].children[0].kind = Types.BlueprintFieldKind.Bool;
-        fields[0].children[0].children = new Types.BlueprintFieldType[](0);
-        fields[0].children[0].name = "";
-        return SchemaLib.encodeSchema(fields);
-    }
-
-    /// @notice Schema helper for an optional bool wrapper
-    function _optionalBoolFieldSchema() internal pure returns (bytes memory) {
-        Types.BlueprintFieldType[] memory fields = new Types.BlueprintFieldType[](1);
-        fields[0].kind = Types.BlueprintFieldKind.Optional;
-        fields[0].name = "optionalFlag";
-        fields[0].children = new Types.BlueprintFieldType[](1);
-        fields[0].children[0].kind = Types.BlueprintFieldKind.Bool;
-        fields[0].children[0].children = new Types.BlueprintFieldType[](0);
-        fields[0].children[0].name = "";
-        return SchemaLib.encodeSchema(fields);
-    }
-
     function _emptySchema() internal pure returns (bytes memory) {
         Types.BlueprintFieldType[] memory fields = new Types.BlueprintFieldType[](0);
         return SchemaLib.encodeSchema(fields);

@@ -5,7 +5,6 @@ import { BaseTest } from "../BaseTest.sol";
 import { Tangle } from "../../src/Tangle.sol";
 import { Types } from "../../src/libraries/Types.sol";
 import { Errors } from "../../src/libraries/Errors.sol";
-import { SignatureLib } from "../../src/libraries/SignatureLib.sol";
 import { TangleJobsRFQFacet } from "../../src/facets/tangle/TangleJobsRFQFacet.sol";
 
 /// @title JobPricingAndRFQTest

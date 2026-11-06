@@ -1,0 +1,17 @@
+[profile.default]
+src = "../../src"
+test = "test"
+libs = ["dependencies", "../../dependencies"]
+solc = "0.8.26"
+via_ir = true
+optimizer = false
+allow_paths = ["../.."]
+auto_detect_remappings = false
+remappings = ["forge-std/=../../dependencies/forge-std-1.9.4/src/", "@openzeppelin/contracts/=../../dependencies/@openzeppelin-contracts-5.1.0/", "@openzeppelin/contracts-upgradeable/=../../dependencies/@openzeppelin-contracts-upgradeable-5.1.0/", "slashing-proof/=dependencies/slashing-proof-0.0.0/"]
+
+[soldeer]
+recursive_deps = false
+remappings_generate = false
+
+[dependencies]
+slashing-proof = { version = "0.0.0", git = "https://github.com/tangle-network/tangle-slashing.git", rev = "f4c0be1f63e179ca7095b36c646ba88f1efcabc8" }

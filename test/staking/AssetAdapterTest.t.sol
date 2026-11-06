@@ -2,7 +2,6 @@
 pragma solidity ^0.8.26;
 
 import { Test } from "forge-std/Test.sol";
-import { console2 } from "forge-std/Test.sol";
 
 import { IAssetAdapter } from "../../src/staking/adapters/IAssetAdapter.sol";
 import { StandardAssetAdapter } from "../../src/staking/adapters/StandardAssetAdapter.sol";

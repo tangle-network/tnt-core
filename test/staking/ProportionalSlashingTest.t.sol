@@ -5,7 +5,6 @@ import { Test, console2 } from "forge-std/Test.sol";
 import { IMultiAssetDelegation } from "../../src/interfaces/IMultiAssetDelegation.sol";
 import { MultiAssetDelegation } from "../../src/staking/MultiAssetDelegation.sol";
 import { Types } from "../../src/libraries/Types.sol";
-import { DelegationErrors } from "../../src/staking/DelegationErrors.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { StakingOperatorsFacet } from "../../src/facets/staking/StakingOperatorsFacet.sol";
 import { StakingDepositsFacet } from "../../src/facets/staking/StakingDepositsFacet.sol";
