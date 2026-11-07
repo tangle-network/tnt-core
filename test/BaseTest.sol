@@ -70,6 +70,17 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
     uint16 public constant OPERATOR_COMMISSION_BPS = 1000; // 10%
 
     function setUp() public virtual {
+        _setUpNativeProtocol();
+        // Configure a default service-fee distributor so the default payment split
+        // (which includes a staker share) behaves like production deployments.
+        MockServiceFeeDistributor distributor = new MockServiceFeeDistributor();
+        vm.startPrank(admin);
+        tangle.setServiceFeeDistributor(address(distributor));
+        staking.setServiceFeeDistributor(address(distributor));
+        vm.stopPrank();
+    }
+
+    function _setUpNativeProtocol() internal {
         // Deploy implementations
         Tangle tangleImpl = new Tangle();
         MultiAssetDelegation stakingImpl = new MultiAssetDelegation();
@@ -113,14 +124,6 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         mbsmRegistry.grantRole(mbsmRegistry.MANAGER_ROLE(), address(tangleProxy));
         mbsmRegistry.addVersion(address(masterManager));
         Tangle(payable(address(tangleProxy))).setMBSMRegistry(address(mbsmRegistry));
-        vm.stopPrank();
-
-        // Configure a default service-fee distributor so the default payment split
-        // (which includes a staker share) behaves like production deployments.
-        MockServiceFeeDistributor distributor = new MockServiceFeeDistributor();
-        vm.startPrank(admin);
-        tangle.setServiceFeeDistributor(address(distributor));
-        staking.setServiceFeeDistributor(address(distributor));
         vm.stopPrank();
 
         // Fund actors
@@ -264,38 +267,6 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         return tangle.createBlueprint(_blueprintDefinitionWithJobCount(metadataUri, manager, jobCount));
     }
 
-    /// @notice Create a fixed service with custom job schemas and optional manager
-    function _createServiceWithSchemas(
-        bytes memory paramsSchema,
-        bytes memory resultSchema,
-        address manager
-    )
-        internal
-        returns (uint64 blueprintId, uint64 serviceId)
-    {
-        Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://schema-service", manager);
-        def.jobs[0].paramsSchema = paramsSchema;
-        def.jobs[0].resultSchema = resultSchema;
-
-        vm.prank(developer);
-        blueprintId = tangle.createBlueprint(def);
-
-        _registerForBlueprint(operator1, blueprintId);
-
-        address[] memory ops = new address[](1);
-        ops[0] = operator1;
-        address[] memory callers = new address[](0);
-
-        vm.prank(user1);
-        uint64 requestId =
-            tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
-
-        vm.prank(operator1);
-        tangle.approveService(_approve(requestId));
-
-        serviceId = tangle.serviceCount() - 1;
-    }
-
     /// @notice Register operator for a blueprint
     function _registerForBlueprint(address operator, uint64 blueprintId) internal {
         vm.prank(operator);
@@ -373,40 +344,6 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
     function _approveService(address operator, uint64 requestId) internal {
         vm.prank(operator);
         tangle.approveService(_approve(requestId));
-    }
-
-    /// @notice Create a service with custom exposures and optional manager
-    function _createServiceWithExposure(
-        address manager,
-        address[] memory ops,
-        uint16[] memory exposures
-    )
-        internal
-        returns (uint64 blueprintId, uint64 serviceId)
-    {
-        Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://job-manager", manager);
-        def.jobs[0].paramsSchema = _boolSchema();
-        def.jobs[0].resultSchema = _boolSchema();
-
-        vm.prank(developer);
-        blueprintId = tangle.createBlueprint(def);
-
-        for (uint256 i = 0; i < ops.length; i++) {
-            _registerForBlueprint(ops[i], blueprintId);
-        }
-
-        address[] memory callers = new address[](0);
-        vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithExposure(
-            blueprintId, ops, exposures, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
-        );
-
-        for (uint256 i = 0; i < ops.length; i++) {
-            vm.prank(ops[i]);
-            tangle.approveService(_approve(requestId));
-        }
-
-        serviceId = tangle.serviceCount() - 1;
     }
 
     /// @notice Request a service paying with ERC20 tokens

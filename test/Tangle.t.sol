@@ -4,11 +4,9 @@ pragma solidity ^0.8.26;
 import { BaseTest } from "./BaseTest.sol";
 import { Types } from "../src/libraries/Types.sol";
 import { Errors } from "../src/libraries/Errors.sol";
-import { ITangle } from "../src/interfaces/ITangle.sol";
 import { ITangleBlueprints } from "../src/interfaces/ITangleBlueprints.sol";
 import { ITangleOperators } from "../src/interfaces/ITangleOperators.sol";
 import { ITangleServices } from "../src/interfaces/ITangleServices.sol";
-import { ITangleJobs } from "../src/interfaces/ITangleJobs.sol";
 import { BlueprintServiceManagerBase } from "../src/BlueprintServiceManagerBase.sol";
 
 /// @notice Minimal mock BSM with zero exit delays for testing

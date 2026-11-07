@@ -25,18 +25,6 @@ contract MockBeaconOracle is IBeaconOracle, Ownable {
         emit BeaconRootReceived(timestamp, root);
     }
 
-    /// @notice Set multiple beacon roots for testing
-    function setBeaconBlockRoots(uint64[] calldata timestamps, bytes32[] calldata roots) external onlyOwner {
-        require(timestamps.length == roots.length, "Length mismatch");
-        for (uint256 i = 0; i < timestamps.length; i++) {
-            beaconRoots[timestamps[i]] = roots[i];
-            if (timestamps[i] > latestBeaconTimestamp) {
-                latestBeaconTimestamp = timestamps[i];
-            }
-            emit BeaconRootReceived(timestamps[i], roots[i]);
-        }
-    }
-
     function getBeaconBlockRoot(uint64 timestamp) external view override returns (bytes32) {
         bytes32 root = beaconRoots[timestamp];
         if (root == bytes32(0)) {

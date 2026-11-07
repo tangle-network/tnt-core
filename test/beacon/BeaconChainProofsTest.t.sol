@@ -4,7 +4,6 @@ pragma solidity ^0.8.26;
 import { BeaconTestBase } from "./BeaconTestBase.sol";
 import { BeaconChainProofs } from "../../src/beacon/BeaconChainProofs.sol";
 import { ValidatorTypes } from "../../src/beacon/ValidatorTypes.sol";
-import { console2 } from "forge-std/Test.sol";
 
 /// @title BeaconProofsHarness
 /// @notice Test harness with external functions for testing calldata library functions

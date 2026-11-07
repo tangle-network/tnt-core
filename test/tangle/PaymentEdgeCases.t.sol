@@ -10,34 +10,6 @@ import { PaymentLib } from "../../src/libraries/PaymentLib.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MockServiceFeeDistributor } from "../mocks/MockServiceFeeDistributor.sol";
 
-/// @notice Mock token that takes a fee on transfer
-contract FeeOnTransferToken is ERC20 {
-    uint256 public feePercent; // in basis points
-
-    constructor(uint256 _feePercent) ERC20("Fee Token", "FEE") {
-        feePercent = _feePercent;
-    }
-
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
-    }
-
-    function _update(address from, address to, uint256 amount) internal virtual override {
-        if (from != address(0) && to != address(0)) {
-            // Apply fee on transfer
-            uint256 fee = (amount * feePercent) / 10_000;
-            uint256 amountAfterFee = amount - fee;
-            super._update(from, to, amountAfterFee);
-            if (fee > 0) {
-                // Burn fee
-                super._update(from, address(0), fee);
-            }
-        } else {
-            super._update(from, to, amount);
-        }
-    }
-}
-
 /// @notice Mock token that always reverts on transfer
 contract RevertingToken is ERC20 {
     constructor() ERC20("Revert", "REV") { }
@@ -74,16 +46,6 @@ contract OutboundRevertToken is ERC20 {
 contract ETHRejecter {
     receive() external payable {
         revert("No ETH");
-    }
-}
-
-/// @notice Service-fee distributor that always reverts on distributeServiceFee.
-/// @dev Used to verify the pull-payment path: when the distributor reverts, no
-///      ERC20 leaves the diamond (allowance is never consumed) and the share
-///      refunds to escrow.
-contract RevertingDistributor is MockServiceFeeDistributor {
-    function distributeServiceFee(uint64, uint64, address, address, uint256) external payable override {
-        revert("distributor down");
     }
 }
 

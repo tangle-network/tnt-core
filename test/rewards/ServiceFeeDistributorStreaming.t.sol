@@ -9,7 +9,6 @@ import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MockPriceOracle } from "../mocks/MockPriceOracle.sol";
 import { ServiceFeeDistributor } from "../../src/rewards/ServiceFeeDistributor.sol";
 import { StreamingPaymentManager } from "../../src/rewards/StreamingPaymentManager.sol";
-import { Errors } from "../../src/libraries/Errors.sol";
 
 /// @title ServiceFeeDistributorStreamingTest
 /// @notice Tests for streaming payment distribution over service TTL

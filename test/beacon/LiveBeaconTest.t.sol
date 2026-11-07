@@ -4,8 +4,6 @@ pragma solidity ^0.8.26;
 import "forge-std/Test.sol";
 import { BeaconChainProofs } from "../../src/beacon/BeaconChainProofs.sol";
 import { ValidatorTypes } from "../../src/beacon/ValidatorTypes.sol";
-import { ValidatorPod } from "../../src/beacon/ValidatorPod.sol";
-import { ValidatorPodManager } from "../../src/beacon/ValidatorPodManager.sol";
 
 /// @title LiveBeaconTest
 /// @notice Integration tests using real Ethereum mainnet/testnet data

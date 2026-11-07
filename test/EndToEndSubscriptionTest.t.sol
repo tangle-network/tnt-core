@@ -4,9 +4,6 @@ pragma solidity ^0.8.26;
 import { BaseTest } from "./BaseTest.sol";
 import { Types } from "../src/libraries/Types.sol";
 import { Errors } from "../src/libraries/Errors.sol";
-import { DelegationErrors } from "../src/staking/DelegationErrors.sol";
-import { IBlueprintServiceManager } from "../src/interfaces/IBlueprintServiceManager.sol";
-import { BlueprintServiceManagerBase } from "../src/BlueprintServiceManagerBase.sol";
 
 /// @title EndToEndSubscriptionTest
 /// @notice End-to-end tests for subscription-based service payments

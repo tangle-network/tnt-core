@@ -4,7 +4,6 @@ pragma solidity ^0.8.26;
 import { JobRfqFixture } from "../support/JobRfqFixture.sol";
 import { Types } from "../../src/libraries/Types.sol";
 import { Errors } from "../../src/libraries/Errors.sol";
-import { SignatureLib } from "../../src/libraries/SignatureLib.sol";
 
 /// @title JobPricingAndRFQTest
 /// @notice Tests for per-job pricing (setJobEventRates) and Job RFQ (submitJobFromQuote)
