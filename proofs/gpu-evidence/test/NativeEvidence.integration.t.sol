@@ -104,9 +104,10 @@ contract NativeEvidenceIntegrationTest is Test {
         vm.warp(first.tangle().getSlashProposal(0).executeAfter + 16);
         first.tangle().executeSlash(0);
         assertEq(manager.pendingEvidence(service, operator), bytes32(0));
-        vm.expectRevert("EVIDENCE_REPLAY");
+        // Past TNT's dispute window, evidence age or replay may refuse first; both must.
+        vm.expectRevert();
         _admit(manager, service, operator, good);
-        vm.expectRevert("EVIDENCE_REPLAY");
+        vm.expectRevert();
         _admit(manager, service, operator, bytes.concat(good, bytes32(0)));
         NativeEvidenceManager other =
             new NativeEvidenceManager(address(first.tangle()), first.developer(), address(verifier));
@@ -144,10 +145,13 @@ contract NativeEvidenceIntegrationTest is Test {
         NativeEvidenceFixture fixture = new NativeEvidenceFixture();
         (NativeEvidenceManager manager, uint64 service) = fixture.open(address(verifier));
         address operator = fixture.operator1();
-        _admit(manager, service, operator, _receipt(manager, service, operator, KEY, KEY));
+        bytes memory first = _receipt(manager, service, operator, KEY, KEY);
+        _admit(manager, service, operator, first);
         ITangleFull core = fixture.tangle();
         vm.prank(fixture.admin());
         core.cancelSlash(0, "dispute upheld");
+        vm.expectRevert("EVIDENCE_REPLAY");
+        _admit(manager, service, operator, bytes.concat(first, bytes32(0)));
         vm.warp(block.timestamp + 1);
         bytes32 later = _admit(manager, service, operator, _receipt(manager, service, operator, KEY, KEY));
         assertEq(manager.pendingEvidence(service, operator), later);
