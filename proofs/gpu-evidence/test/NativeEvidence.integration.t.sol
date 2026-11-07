@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import { BaseTest } from "tnt-core/test/BaseTest.sol";
 import { Test } from "forge-std/Test.sol";
 import { Errors } from "tnt-core/src/libraries/Errors.sol";
+import { ITangleFull } from "tnt-core/src/interfaces/ITangle.sol";
 import { BlueprintServiceManagerBase } from "tnt-core/src/BlueprintServiceManagerBase.sol";
 import { GpuLeaseEvidenceVerifier } from "slashing-proof/contracts/src/GpuLeaseEvidenceVerifier.sol";
 import { ComputeProviderSlashing } from "slashing-proof/contracts/src/ComputeProviderSlashing.sol";
@@ -144,8 +145,9 @@ contract NativeEvidenceIntegrationTest is Test {
         (NativeEvidenceManager manager, uint64 service) = fixture.open(address(verifier));
         address operator = fixture.operator1();
         _admit(manager, service, operator, _receipt(manager, service, operator, KEY, KEY));
+        ITangleFull core = fixture.tangle();
         vm.prank(fixture.admin());
-        fixture.tangle().cancelSlash(0, "dispute upheld");
+        core.cancelSlash(0, "dispute upheld");
         vm.warp(block.timestamp + 1);
         bytes32 later = _admit(manager, service, operator, _receipt(manager, service, operator, KEY, KEY));
         assertEq(manager.pendingEvidence(service, operator), later);
