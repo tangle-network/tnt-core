@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { BaseTest } from "../../../test/BaseTest.sol";
+import { BaseTest } from "tnt-core/test/BaseTest.sol";
 import { Test } from "forge-std/Test.sol";
-import { Errors } from "../../../src/libraries/Errors.sol";
-import { BlueprintServiceManagerBase } from "../../../src/BlueprintServiceManagerBase.sol";
+import { Errors } from "tnt-core/src/libraries/Errors.sol";
+import { BlueprintServiceManagerBase } from "tnt-core/src/BlueprintServiceManagerBase.sol";
 import { GpuLeaseEvidenceVerifier } from "slashing-proof/contracts/src/GpuLeaseEvidenceVerifier.sol";
 import { ComputeProviderSlashing } from "slashing-proof/contracts/src/ComputeProviderSlashing.sol";
 import { SlashingTypes } from "slashing-proof/contracts/src/SlashingTypes.sol";
